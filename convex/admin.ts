@@ -1,5 +1,6 @@
 import { isAdminUserId } from "./lib/access";
-import { adminQuery, optionalUserQuery } from "./lib/functions";
+import { adminMutation, adminQuery, optionalUserQuery } from "./lib/functions";
+import { resetDemoData } from "./seed";
 
 /** Whether the caller is an admin, for showing the admin link. Reveals nothing else. */
 export const amIAdmin = optionalUserQuery({
@@ -22,5 +23,16 @@ export const listContractors = adminQuery({
       verified: c.verified,
       consentAt: c.consentAt,
     }));
+  },
+});
+
+/**
+ * "Reset demo" (B8, §6.12): wipes and re-creates the demo rows only. Price bands are refreshed only on the
+ * demo deployment (DEMO_DEPLOYMENT=true), never on production, where they hold real field data.
+ */
+export const resetDemo = adminMutation({
+  args: {},
+  handler: async (ctx) => {
+    return await resetDemoData(ctx, { refreshBands: process.env.DEMO_DEPLOYMENT === "true" });
   },
 });

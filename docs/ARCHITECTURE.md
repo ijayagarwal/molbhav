@@ -180,6 +180,7 @@ export default defineSchema({
     liveDailyCap: v.number(),
     consentAt: v.number(),               // privacy notice accepted
     tierPrefs: v.optional(v.object({ tmt_steel: v.optional(tier), cement: v.optional(tier) })),
+    isDemo: v.optional(v.boolean()),     // the seeded demo contractor (B8); admin.claimDemoContractor touches only these
   }).index("by_user", ["userId"]),
 
   sites: defineTable({
@@ -192,6 +193,7 @@ export default defineSchema({
 
   dealers: defineTable({
     name: v.string(), area: v.string(), city: v.string(),
+    nameHi: v.optional(v.string()),     // Devanagari display name; also matched by voice commands (lib/commands.ts)
     phoneE164: v.string(),               // never returned to clients
     phoneHash: v.string(),
     materials: v.array(material),
@@ -566,7 +568,7 @@ total (R1, R5):
 flags: gst_unclear, delivery_unknown, unloading_unknown, missing_item, partial_stock, stock_unknown, low_confidence (<0.8),
        tier_mismatch, no_bill (billType ≠ pakka), weight_unknown, brand_unknown, unit_mismatch,
        not_read_back, rate_not_in_transcript, out_of_band (outside priceBands[city][material]), lump_sum_mismatch,
-       outlier (|total − median| / median > 0.15, the median of the order's quote totals in the same round and tier; needs 3+ quotes)
+       outlier (|total − median| / median > 0.15, the median of the round's otherwise-comparable totals, so a no-bill lowball can't move it; needs 3+ of them)
        (a stated all-in figure covers GST, delivery and unloading, so it clears gst_unclear, delivery_unknown and unloading_unknown)
 
 comparable (may win) = no missing_item, no partial_stock, no stock_unknown, no tier_mismatch, no no_bill,
