@@ -83,6 +83,7 @@ The one moment people should remember: **watching dealers' prices get struck thr
 | ink-3 on paper | 5.3 (hints only) |
 | lal on paper / card | 7.9 / 8.8 |
 | hara on paper / card | 7.9 / 8.9 (6.9 on cement: never put hara text on cement) |
+| lal on cement / ink-3 on cement | 6.9 / 4.6 (never put lal or ink-3 text on cement; unanswered chips sit on card, R13) |
 | neel on paper | 9.3 |
 | ink on haldi (button text) | 11.9 |
 | white on lal | 8.8 |
@@ -109,10 +110,10 @@ The one moment people should remember: **watching dealers' prices get struck thr
 **Loading (D3): static subset files via `next/font/local`, never the full variable font.** Anek's variable Devanagari file alone is about 726 KB.
 - `scripts/fonts.py` (run once, commit the output to `app/fonts/`):
   1. `fonttools varLib.instancer` on the variable font from the google/fonts repo.
-  2. `pyftsubset --unicodes=U+0900-097F,U+0020-007E,U+00A0,U+200C-200D,U+20B9,U+25CC --layout-features='*' --no-hinting --flavor=woff2`.
+  2. `pyftsubset --unicodes=U+0900-097F,U+0020-007E,U+00A0,U+00B7,U+00D7,U+200C-200D,U+2013-2014,U+2018-201D,U+2026,U+2190-2193,U+2212,U+20B9,U+25CC --layout-features='*' --no-hinting --flavor=woff2` (the extra ranges cover · × – — quotes … arrows −, used by the copy deck; R13). Check marks and crosses are Phosphor icons, not glyphs.
 - Files: Anek 700 at normal width (about 100 KB), Mukta 400 (about 64 KB) and 600 (about 68 KB), Plex Mono 500/600 Latin plus ₹. **Anek 800 Expanded digits-only** (`0-9 ₹ , .` with `tnum`, about 3 KB) is cut from the Latin or full font, because Google's Devanagari file has no `tnum`.
 - The wordmark is an **SVG**, not live text.
-- Preload only Mukta 400 and the digits file; everything else uses `display: swap`. **Budget ≤ 250 KB of fonts on `/app`.**
+- Preload only Mukta 400 and the digits file; everything else uses `display: swap`. **Budget: ≤ 250 KB of font files requested on the first render of `/app`** (measured in Playwright), with every generated file's size reported (R13). If it is over, drop Plex Mono 600 first.
 - Verify with a Playwright screenshot of conjuncts (श्री, पक्का, क्ष, त्र, ज्ञ, र्क).
 - Hindi titles (`:lang(hi)`) use line-height 1.4 at least (Anek's ascent plus descent is about 1.7 em).
 
@@ -194,7 +195,7 @@ With `prefers-reduced-motion: reduce`, replace movement with instant state chang
 | `StatusPill` | Icon + word, never colour alone. Ringing (neel), talking (neel; waveform in sim only), quoted (ink), best (haldi fill, ink text), no answer (ink-3), declined (lal text). |
 | `SlotChecklist` | Four small chips: रेट · GST · भाड़ा · उधार. ✓ when known. Live mode fills it from `report_quote` (provisional) and then from extraction. Both modes. |
 | `StopAllButton` | "सब कॉल रोकिए", secondary with a lal border, on the sweep while calls run. Stops queued and in-progress calls and shows what we have. |
-| `TierChips` | Shown on Confirm when the steel or cement tier wasn't spoken: "कौन सा सरिया?" [ब्रांडेड] [लोकल ISI] [दोनों का रेट]; cement [नामी कंपनी] [कोई भी]. Remembered per contractor, and included in the read-back. |
+| `TierChips` | Steel, shown on Confirm when the tier wasn't spoken: "कौन सा सरिया?" [ब्रांडेड] [लोकल ISI] ("दोनों" is P1, R10). Cement: [नामी कंपनी] [कोई भी], pre-selected from the last choice or कोई भी (R8). Remembered per contractor, and included in the read-back. |
 | `BestSoFarRibbon` | Sticky top strip on the sweep board: "Abhi tak sabse sasta: ₹2,00,610 · Agarwal Traders". Updates with a stamp. |
 | `PriceStrike` | Old number with animated lal strike, new number stamped below, "₹1,350 कम हुआ" in hara. |
 | `Parchi` | The result receipt. White card, 2 px ink border, radius 4, perforated bottom, painted ink shadow. Shows the dealer name, landed total (`price-hero`), item lines with tier and rate, GST, delivery, unloading, chips for delivery time, credit days, bill and weighing, and validity. In sim or sandbox: a "DEMO · काल्पनिक dealers" watermark. |
@@ -210,7 +211,7 @@ All screens are designed at 360 × 780 first, then checked at 412 px. Presenter 
 ### 12.1 Onboarding (max 3 steps)
 1. Language: two huge buttons "हिंदी" and "English" (each 120 px tall).
 2. Name (letters only) and phone, spoken or typed, plus a short privacy notice and consent checkbox (S4). Sim mode works at once; live mode needs in-person verification by the team (S1).
-3. First site: "Site kahan hai?" Speak or pick an area. Then a mic permission primer card before the browser prompt: "Bolke order dene ke liye mic chahiye. Hum sirf tab sunte hain jab aap button dabate hain."
+3. First site: "Site kahan hai?" Speak or pick an area; speech is matched to the city's area list and confirmed with a chip, never stored as free text (R7). Then a mic permission primer card before the browser prompt: "Bolke order dene ke liye mic chahiye. Hum sirf tab sunte hain jab aap button dabate hain."
 
 ### 12.2 Home
 ```
@@ -262,10 +263,10 @@ An active sweep shows a banner above the mic: "Molbhav chal raha hai · 3/4 rate
 └──────────────────────────────┘
 ```
 
-Tier: if the steel or cement tier wasn't spoken, `TierChips` appear inside the item card (one tap or one spoken word: "ब्रांडेड", "लोकल", "दोनों"). "Suta" sizes are never mapped: ask with [12mm] [16mm] chips (P7). Confirm is blocked until every item has quantity, unit and tier.
+Tier: if the steel tier wasn't spoken, `TierChips` appear inside the item card (one tap or one spoken word: "ब्रांडेड", "लोकल"); if "दोनों" was said, the same chips ask which tier to bargain for (R10). Cement shows its tier pre-selected (R8); `design/reference/Confirm.html` still shows unanswered cement chips, and this spec wins. "Suta" sizes are never mapped: ask with [12mm] [16mm] chips (P7). Confirm is blocked until every item has quantity, unit and tier.
 
 ### 12.4 Choose dealers
-Dealers in the site's area sorted by distance, default 4 to 6 on. The regular dealer is pinned at the top with the "आपके dealer" badge and the line **"आख़िर में match का मौका"**; a toggle "पहले भी पूछिए" switches him to a normal quote call (remembered per dealer, P1). Footer: "{n} dealers को call करेंगे · हर call में बताएँगे कि ये AI है". Primary: "Call शुरू कीजिए". Live mode shows a lal-outlined "LIVE" note ("असली calls जाएँगी") and lists only opted-in or test_ok dealers.
+Dealers in the site's city, same area first (no distances until P1). The contractor's dealer book (`saved`) is on by default, 4 to 6 (R13). The regular dealer is pinned at the top with the "आपके dealer" badge and the line **"आख़िर में match का मौका"**; a toggle "पहले भी पूछिए" switches him to a normal quote call (remembered per dealer, P1). Footer: "{n} dealers को call करेंगे · हर call में बताएँगे कि ये AI है". Primary: "Call शुरू कीजिए". Live mode shows a lal-outlined "LIVE" note ("असली calls जाएँगी") and lists only opted-in or test_ok dealers.
 
 ### 12.5 Sweep board (hero screen)
 Shown in sim mode; see `design/reference/Sweep.html` for the animated version.
@@ -377,7 +378,7 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `confirm.tierSteel` | कौन सा सरिया? | Which steel? |
 | `tier.branded` | ब्रांडेड | Branded |
 | `tier.localIsi` | लोकल ISI | Local ISI |
-| `tier.both` | दोनों का रेट | Both |
+| `tier.both` | दोनों का रेट | Both (P1, R10) |
 | `tier.cementBranded` | नामी कंपनी | Big brand |
 | `tier.any` | कोई भी | Any |
 | `confirm.readbackEnd` | सही हो तो शुरू कीजिए। | If that's right, start. |
@@ -522,7 +523,7 @@ Breakpoints: base under 640 (phone) · `sm` 640 · `md` 768 (tablet) · `lg` 102
    6. For dealers (link to `/dealer`).
    7. Waitlist.
 
-   Until AI calls to real dealers are live, the page says "जयपुर पायलट: हमारी टीम आपके लिए dealers को कॉल करती है" and never claims live AI calls (G2).
+   Until AI calls to real dealers are live, the page says "जयपुर पायलट: हमारी टीम आपके लिए dealers को कॉल करती है" and never claims live AI calls (G2). `design/reference/Landing.html` and `LandingPhone.html` word "How it works" as if AI calls were live ("Molbhav calls nearby dealers at once…"); until Stage 2, write it as what the team does in the pilot, with the AI calling shown as "जल्द" (coming soon).
 2. **Sandbox (`/try`, G3):**
    - Sample-order chips first; the mic sits behind a tap, with Vercel BotID checking the request; 15 s cap; the sweep runs on the simulator only.
    - The parchi is watermarked "DEMO · काल्पनिक dealers", with **no savings tally**.

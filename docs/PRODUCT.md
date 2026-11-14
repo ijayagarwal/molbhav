@@ -53,8 +53,8 @@ Molbhav is a voice-first buying agent for small building contractors. Speak one 
 |---|---|---|
 | 1 | Voice order capture | One mic, both gestures: tap auto-locks, hold is push-to-talk (slide to cancel or lock). Silence auto-send in locked mode. Max 25 s. Typed fallback. Hold Space on desktop. |
 | 2 | Order understanding | Hinglish transcript to structured order (materials, size, grade, qty, unit, brand, site, deadline, credit). Missing fields asked as quick chips. |
-| 3 | Confirm screen with spoken read-back | Editable chips, **brand-tier chips** (ब्रांडेड / लोकल ISI / दोनों), a read-back of at most 3 sentences, "हाँ, शुरू कीजिए" by button or voice (negation-safe grammar). |
-| 4 | Dealer selection | Nearby dealers, default 4 to 6. **Regular dealer pinned and held for a match call at the end** (toggle "पहले भी पूछिए"). |
+| 3 | Confirm screen with spoken read-back | Editable chips, **brand-tier chips** (steel: ब्रांडेड / लोकल ISI; cement defaults to the last choice or कोई भी, R8), a read-back of at most 3 sentences, "हाँ, शुरू कीजिए" by button or voice (negation-safe grammar). |
+| 4 | Dealer selection | Dealers in the site's city; the contractor's dealer book is on by default (4 to 6), same area first (R13). **Regular dealer pinned and held for a match call at the end** (toggle "पहले भी पूछिए"). |
 | 5 | Live sweep board | Parallel calls, per-dealer states, timers, **slot checklist** (रेट · GST · भाड़ा · उधार), captions in sim only, best-so-far ribbon, stop-all button. |
 | 6 | Quote extraction and landed price | Transcript to quote JSON (LLM), then code: landed total, comparability (tier, pakka bill, brand, weighing, delivery stated) and citability (read-back confirmed, rates found in the transcript). |
 | 7 | Haggle round and match call | Call back the top two citing the exact best citable total; then the regular dealer's match call (his own rate first). Strike-through on drops. |
@@ -70,6 +70,9 @@ Molbhav is a voice-first buying agent for small building contractors. Speak one 
 ### P1: next
 - **Milestone 2 (Phase 10):** our own number, live stages, consent evidence, an inbound line (opt-out, callback rates, messages), go/no-go metrics, Google sign-in for real contractors
 - WhatsApp rate photos mapped to open orders
+- "दोनों" (compare both steel tiers in one order, R10); scheduling live calls for the next call window
+- Delivery address, GSTIN and advance relayed on the confirm call (validated fields, R9)
+- Dealer discovery by distance (sites and dealers with coordinates)
 - Phone OTP sign-in (needs SMS DLT registration)
 - Order history and reorder by voice ("pichhla wala order phir se")
 - Sites and dealer book management, block a dealer
@@ -110,13 +113,13 @@ Molbhav is a voice-first buying agent for small building contractors. Speak one 
 | Quote far from others (over 15% from median) | Flag "जाँच कीजिए" with the recording; it can't win (shown separately) |
 | Fewer than 2 citable quotes | Skip the haggle; show what we have honestly ("सिर्फ 1 रेट मिला") |
 | Delivery not stated | Unknown, never assumed free; the quote can't win |
-| Unloading not stated | Unknown, never assumed free; the quote can't be cited (B7), and the read-back asks for it |
+| Unloading not stated | Unknown, never assumed free; the quote can't win or be cited (B7, R6), and the agent asks for it |
 | No-bill (kachcha) rate offered | The agent asks for the pakka-bill rate; a no-bill rate never wins |
 | Dealer re-prices at confirm | No deal; the contractor is brought back with the runner-up highlighted |
 | Dealer says "आगे कॉल मत करना" | Opted out immediately; all of that dealer's recordings deleted |
 | Voice command with negation ("confirm मत करो") | No action; buttons shown |
 | Contractor leaves the app | Sweep continues server-side; returning shows current state |
-| Outside call hours | Live mode refuses to dial and offers to schedule for 10:00 IST |
+| Outside call hours | Live mode refuses to dial and says when calls are possible (10:00–19:00 IST); scheduling for later is P1 |
 | Live calls disabled, contractor not verified or dealer not opted in | Live dial refused server-side; sim still works |
 
 ## 9. Domain model
@@ -125,7 +128,7 @@ Molbhav is a voice-first buying agent for small building contractors. Speak one 
 **TMT steel (sariya)**
 - Diameters: 8, 10, 12, 16, 20, 25, 32 mm
 - Grades: Fe500, Fe500D, Fe550D (Fe500D default only if the user confirms)
-- Tier (compared only within a tier): ब्रांडेड (Tata Tiscon, JSW Neosteel, SAIL, Jindal; list kept in per-city config), लोकल ISI, or दोनों (cheapest in each tier shown). Non-ISI steel is never included.
+- Tier (compared only within a tier): ब्रांडेड (Tata Tiscon, JSW Neosteel, SAIL, Jindal; list kept in per-city config) or लोकल ISI. "दोनों" (cheapest in each tier) is P1 (R10). Non-ISI steel is never included.
 - Bill and weighing: pakka (GST) bill only; actual weighed (kanta) or standard section weight is recorded, because it changes the real kg delivered.
 - Order units: ton (metric tonne, 1000 kg) or kg. Dealers quote per kg, per ton or per quintal (100 kg).
 - Colloquial size in "suta": sources disagree (4 suta is given as 12 mm in some places and 16 mm in others), so it is **never mapped automatically**. The app asks with mm chips and always speaks mm to dealers.

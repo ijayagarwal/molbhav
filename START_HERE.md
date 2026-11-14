@@ -29,10 +29,10 @@ Also pick one person, ideally a native Hindi speaker, to review designs and copy
 
 ### Milestone 1: the hackathon (live calls proven on teammates' phones)
 1. **Setup:** Part A, plus Udyam and the organisers' email from Part B.
-2. **Build:** Phases 0 → 6B, in the order in `PROMPTS.md`. That covers the whole product in sim: voice order, sweep, haggle, match, result, place, share.
+2. **Build:** Phases 1A → 6B in the order in `PROMPTS.md` (the negotiation brain, Phase 3, right after 1A; DECISIONS R11). That covers the whole product in sim: voice order, sweep, haggle, match, result, place, share.
 3. **Live calls:** Phase 8A, then the C5 trial-mode setup, then Phases 8B and 8C.
 4. **Team test:** `docs/TEAM_TEST.md` Runs 1–6. Teammates role-play dealers on their Bolna-verified phones, and every check must pass. Save the run log and the clips.
-5. **Showcase:** Phase 7 (`/present`, the landing hero; `/try` if there's time), then Phase 9 (demo deployment, drills, rehearsal).
+5. **Showcase:** Phase 1C (landing, waitlist, dealer opt-in), Phase 7 (`/present`, the landing hero; `/try` if there's time), then Phase 9 (demo deployment, drills, rehearsal).
 6. **Field track in parallel:** Part D's spread test and interviews. These give the real numbers and real dealer recordings for the pitch.
 
 **On stage you can truthfully say:** "The calls are real AI calls, verified on our teammates' phones. Real dealers start once our business number is declared."
@@ -137,7 +137,7 @@ Everything here is for an **Apple Silicon Mac on macOS 15 (Sequoia) or newer**. 
 |---|---|---|
 | **Claude** (for Claude Code) | A paid plan: **Pro at minimum, Max for the builder** if they build most days. Big phases and the panel reviews use a lot, and limits reset every few hours. | Paid |
 | Convex | Sign up with GitHub | Free tier |
-| Vercel | Sign up with the **same personal GitHub account**. Import the repo in Phase 1C. | Hobby is free but non-commercial; Pro ($20 per member per month) if teammates push code or before you charge anyone |
+| Vercel | Sign up with the **same personal GitHub account**. Claude Code links the repo in Phase 1A. | Hobby is free but non-commercial; Pro ($20 per member per month) if teammates push code or before you charge anyone |
 | Google AI Studio | 1. Create a **free** API key, for local development with your own test speech.<br>2. Create a Google Cloud project with **billing on**, and a key there, for real data.<br>3. Create a second billed project for the sandbox.<br>On each billed project, set a **budget alert** and a daily request quota: budgets warn you, they don't stop spending. | Free for dev; billed parsing costs paise. Needs a card that works with RBI auto-debit rules. |
 | Sarvam AI | Sign up and create an API key | ₹100 free credit; STT ₹0.49/min |
 | Bolna | Sign up. **Don't buy a number.** Add and **verify your teammates' phone numbers** in the dashboard: the trial only calls verified numbers, 2 at a time. | $5 trial credit (about 5 test orders); budget about $10 more for the Team test |
@@ -150,12 +150,12 @@ Everything here is for an **Apple Silicon Mac on macOS 15 (Sequoia) or newer**. 
 4. For Phase 0, click **No, keep planning** when it shows its plan, because Phase 0 writes no code. Fix any doc issues it finds, or ask it to fix them in the docs. Then run Phase 1A the same way (Part C).
 
 ### A6. Every work session
-1. Open VS Code on `~/Projects/molbhav`. Click **+** in the terminal panel to get three terminals:
-   - **Terminal 1** (from Phase 1A on, when Claude Code asks): `npx convex dev`. Keep it running. The first time, choose **log in** (not "run locally") and create the project **molbhav**. Never let Claude Code start or stop it.
-   - **Terminal 2:** `pnpm dev` (from Phase 1A on). The app is then at http://localhost:3000.
-   - **Terminal 3,** only when testing on a phone: `cloudflared tunnel --url http://localhost:3000` (free, no account needed). Open the `https://….trycloudflare.com` address it prints on your phone. It changes every run.
-2. Nothing to activate: Claude Code runs the font script as `.venv/bin/python scripts/fonts.py` (Phase 1B).
-3. Close the session with the "End-of-day handover" prompt, then commit and push.
+Claude Code does the running (DECISIONS R12):
+1. Open VS Code on the project folder and the Claude panel. Type `/phase <id>` for the next phase in `PROMPTS.md`.
+2. Claude Code pushes Convex changes with `npx convex dev --once`, and starts `pnpm dev` (http://localhost:3000) and, for phone tests, the `cloudflared` tunnel in the background when it needs them. It prints the `https://….trycloudflare.com` address for your phone; the address changes every run.
+3. **Optional, for instant hot reload while you click around:** run `npx convex dev` and `pnpm dev` in your own VS Code terminals. If you do, tell Claude Code, so it doesn't start a second copy.
+4. Nothing to activate: Claude Code runs the font script as `.venv/bin/python scripts/fonts.py` (Phase 1B).
+5. Close the session with `/handover`; Claude Code commits and pushes.
 
 ---
 
@@ -202,69 +202,55 @@ Everything here is for an **Apple Silicon Mac on macOS 15 (Sequoia) or newer**. 
 
 ### C1. Every phase, the same steps
 1. **New conversation:** ⌘⇧Esc in VS Code opens a fresh conversation tab. CLAUDE.md loads by itself.
-2. **Plan mode:** check that the mode indicator under the prompt box says **Plan** (or type `/plan`). Then paste the phase prompt from `PROMPTS.md`.
-3. **Review the plan before approving.** Check that:
-   - it names the right DECISIONS codes;
-   - it invents no colours, fonts or copy;
-   - anything that costs money or dials is `internal`;
-   - it lists tests.
-
-   Ask for changes, then click **Yes, manually approve edits**, so it asks before edits and commands. Always do this in Phases 1C, 8B and 9.
-4. **While it builds:** answer its questions, and run the commands it asks *you* to run in your own terminals (A6).
-5. **Panel review.** Run the panel-review prompt from `PROMPTS.md`: the full panel after 1A, 2B, 5, 6B and 8B, and the light version otherwise.
-6. **Check "Done when" yourself.** Use a real phone over HTTPS (tunnel or Vercel preview) and a laptop at full width.
-7. **Commit, push and tag:** `git tag phase-1A && git push --tags`. From Phase 1C on, Vercel builds a preview, so open it on your phone.
-8. **At the end of the day,** run the "End-of-day handover" prompt.
+2. **Type `/phase <id>`.** Claude Code posts a short plan, then builds. It checks itself that the plan names the right DECISIONS codes, invents no colours, fonts or copy, keeps anything that costs money or dials `internal`, and lists tests.
+3. **While it builds:** give it what it asks for (an account, a key, a device-code approval in the browser, a phone test). Everything else it runs itself (A6).
+4. **Panel review:** `/review` (the full panel after 1A, 3, 2B, 5, 6B and 8B; `/review light` otherwise).
+5. **Check "Done when":** Claude Code verifies what it can and lists what needs you (a real phone over HTTPS, a laptop at full width, your eyes on the design).
+6. **Commit, push and tag:** Claude Code does it (`git tag phase-1A && git push --tags`).
+7. **At the end of the day,** run `/handover`.
 
 ### C2. Make yourself an admin (needed from Phase 3)
 Sign-in is anonymous, so your admin identity is the browser session you use:
-1. Open `/app` on the laptop you'll present from, and finish onboarding.
-2. In the Convex dashboard, go to **Data → users** and copy your user's `_id`.
-3. Run `npx convex env set ADMIN_USER_IDS <id1>,<id2>`. Add `--prod` for production; the demo project needs its own.
-4. **Don't clear that browser's cookies.** If you do, you become a new user: repeat these steps. A separate browser profile just for admin work helps.
+1. Open `/app` on the laptop you'll present from, finish onboarding, and tell Claude Code.
+2. Claude Code finds your user's `_id` (`npx convex data users`) and sets `ADMIN_USER_IDS` (with `--prod` for production; the demo project needs its own).
+3. **Don't clear that browser's cookies.** If you do, you become a new user: repeat these steps. A separate browser profile just for admin work helps.
 
-### C3. What you do by hand, per phase
-| Phase | Your job | Keys and settings to add |
+### C3. What you provide, per phase
+Claude Code sets every env var itself (`.env.local`, Convex dev and prod, Vercel) and generates the random secrets (`openssl rand -hex 32`). You only provide what it can't make.
+
+| Phase | What you provide | What Claude Code sets up |
 |---|---|---|
-| 1A | Run `npx convex dev` and `npx @convex-dev/auth` when asked | — |
-| 1B | Check the font sizes it reports (≤ 250 KB) | — |
-| 1C | Deploy (C4). Share the landing link only after the lawyer has read `/privacy` (B8). | `.env.local` and Convex dev: `CONVEX_SERVER_SECRET`, `HASH_SECRET` (make each with `openssl rand -hex 32`; same values everywhere). `.env.local`: `NEXT_PUBLIC_WHATSAPP_NUMBER`. Vercel: `CONVEX_DEPLOY_KEY`, `CONVEX_SERVER_SECRET`, `HASH_SECRET`, `NEXT_PUBLIC_WHATSAPP_NUMBER`. Convex prod: `CONVEX_SERVER_SECRET`, `HASH_SECRET`. |
-| 2A | **The design gate.** Take a ₹12k-class Android outside at noon, auto brightness on, and play the money shot; then watch it on a 1440 px laptop. If anything looks generic, cramped or hard to read, say so precisely and repeat. Don't move on until it feels right. | — |
-| 2B | Compare `/styleguide` with `design/reference` side by side at 360, 1280 and 1536 px. Have the Hindi reviewer read every string. | — |
-| 3 | Read the golden test output. Do C2 (admin). | Convex dev: `ADMIN_USER_IDS` |
-| 4 | Say the demo line 10 times on your phone, in a noisy place. Note the transcript and Confirm times. Record the demo line in **Voice Memos** on your iPhone or Mac, AirDrop or save it to `~/Downloads/demo.m4a`, then convert it: `afconvert -f WAVE -d LEI16@16000 -c 1 ~/Downloads/demo.m4a e2e/demo.wav`. | `.env.local`: `SARVAM_API_KEY`, `SARVAM_STT_MODEL`, `SARVAM_TTS_MODEL`, `SARVAM_TTS_SPEAKER`, `GEMINI_MODEL`, `GEMINI_API_KEY`, `HASH_SECRET`. Vercel: the same except `GEMINI_API_KEY`, plus `GEMINI_API_KEY_BILLED`. |
+| 1A | Approve the Convex and Vercel sign-ins (device codes in the browser) | The Convex project and auth, CI, the Vercel project, the production deploy key and the first deploy (C4) |
+| 3 | Nothing | The golden tests; `seed:reset` on dev |
+| 1B | Check the font sizes it reports | The fonts (≤ 250 KB on first render of `/app`) |
+| 2A | **The design gate.** Take a ₹12k-class Android outside at noon, auto brightness on, and play the money shot; then watch it on a 1440 px laptop. If anything looks generic, cramped or hard to read, say so precisely. Claude carries on with non-UI work meanwhile. | — |
+| 2B | Compare `/styleguide` with `design/reference` at 360, 1280 and 1536 px. Have the Hindi reviewer read every string. | — |
+| C2 (from 3) | Open `/app` on the presenter laptop once | `ADMIN_USER_IDS` |
+| 4 | A Sarvam API key; a free Gemini key (Google AI Studio); a billed Gemini key (a Google Cloud project with billing, a budget alert and a daily quota); the demo line recorded in Voice Memos as `~/Downloads/demo.m4a`; your phone for the HTTPS test; say the demo line 10 times in a noisy place | `.env.local` and Vercel: `SARVAM_API_KEY`, `SARVAM_STT_MODEL`, `SARVAM_TTS_MODEL`, `SARVAM_TTS_SPEAKER`, `GEMINI_MODEL`, `GEMINI_API_KEY` (local only), `GEMINI_API_KEY_BILLED` (Vercel), `HASH_SECRET`; Convex: `VOICE_DAILY_INR_CAP`; `e2e/demo.wav` (`afconvert -f WAVE -d LEI16@16000 -c 1 ~/Downloads/demo.m4a e2e/demo.wav`) |
 | 5–6B | Run the whole flow on your phone and a laptop. Try to break it: leave mid-sweep, go offline, say "confirm मत करो". | Convex dev: `GEMINI_API_KEY`, `GEMINI_MODEL`, `SIM_PACE=demo`, `SIM_EXTRACT=groundtruth`, `HASH_SECRET`; for 6A also `SARVAM_API_KEY`, `SARVAM_TTS_MODEL`, `SARVAM_TTS_SPEAKER` |
-| 7 | Rehearse `docs/DEMO.md` in `/present`. Try `/try` on someone else's phone. | Convex dev: `DEMO_DEPLOYMENT=true`. Vercel: `GEMINI_API_KEY_SANDBOX`, `SANDBOX_DAILY_INR_CAP` |
-| 8A | Nothing external; read the guard tests | — |
-| 8B–8C | Set up trial mode (C5), then run the first test sweep **yourself** (Team test Run 1, two verified teammate phones), following Claude Code's instructions | C5 |
-| Team test | Run `docs/TEAM_TEST.md` Runs 1–6 with your teammates. Fix and re-run until every check passes. Save the run log and the clips. | `LIVE_CONCURRENCY=2`, `TEST_DAILY_CALLS=15` on test days |
-| 9 | Set up the demo deployment from `docs/DEPLOYMENTS.md`. Run the failure drills. Record the backup video. | Per `docs/DEPLOYMENTS.md` |
+| 8A | Nothing external; read the guard tests if you like | — |
+| 8B–8C | A Bolna account (trial; **don't buy a number**), its API key, and each teammate's phone verified in Bolna; say "go" before the first live sweep, then start it from the app yourself with the teammates ready | C5 |
+| Team test | Run `docs/TEAM_TEST.md` Runs 1–6 with your teammates. Save the run log and the clips. | `LIVE_CONCURRENCY=2`, `TEST_DAILY_CALLS=15` and `MAX_LIVE_SWEEPS_PER_HOUR=6` on test days, reset afterwards |
+| 1C | The team WhatsApp Business number; share the landing link only after the lawyer has read `/privacy` (Part B8) | `CONVEX_SERVER_SECRET`, `HASH_SECRET`, `NEXT_PUBLIC_WHATSAPP_NUMBER` in `.env.local`, Convex dev and prod, and Vercel |
+| 7 | A second billed Google Cloud project's key, for the sandbox. Rehearse `docs/DEMO.md` in `/present`; try `/try` on someone else's phone. | Convex dev: `DEMO_DEPLOYMENT=true`, `SANDBOX_DAILY_INR_CAP`; Vercel: `GEMINI_API_KEY_SANDBOX` |
+| 9 | Run the failure drills with Claude Code; record the backup video | The demo deployment, per `docs/DEPLOYMENTS.md` |
 
-### C4. Deploying (Phase 1C, then automatic)
-1. In Vercel, **import the repo** and set the **Build Command** to `npx convex deploy --cmd 'pnpm build'`.
-2. In the Convex dashboard, in Project settings, generate a **Production deploy key**. In Vercel, add it as `CONVEX_DEPLOY_KEY` for **Production** only.
-3. Generate a **Preview deploy key** and add it as `CONVEX_DEPLOY_KEY` for **Preview** only.
-   - Preview Convex deployments start empty: set default env vars for them in Convex project settings, including `JWT_PRIVATE_KEY` and `JWKS` (copy them from dev) and every Convex dev variable in C3.
-   - From Phase 3 on, append `--preview-run seed:reset` to the build command for previews.
-4. Set the production Convex env: `npx convex env set --prod CONVEX_SERVER_SECRET <same value as Vercel>`, and the same for `HASH_SECRET`.
-5. In Phase 1C, right after the first deploy:
-   - run the Convex Auth setup for production with `npx @convex-dev/auth --prod` (check `--help` if the flag has changed);
-   - set `SITE_URL` to your Vercel URL with `npx convex env set --prod SITE_URL https://...`.
+### C4. Deploying (set up in Phase 1A, then automatic)
+Claude Code does this with the Vercel and Convex CLIs after you approve the two sign-ins:
+1. It creates the Vercel project on your **personal** account, links the repo and sets the **Build Command** to `npx convex deploy --cmd 'pnpm build'`.
+2. It creates the Convex production deployment and a **Production deploy key**, and sets it as `CONVEX_DEPLOY_KEY` for **Production** only. If the CLI can't create the key, it tells you the one dashboard button to press.
+3. **Previews:** if your Convex plan has preview deploy keys, it adds one for **Preview**, plus default env vars for preview deployments (including `JWT_PRIVATE_KEY` and `JWKS`), and from Phase 3 on appends `--preview-run seed:reset`. Otherwise it turns Vercel previews off, and phone tests use the tunnel.
+4. It runs `npx @convex-dev/auth --prod` and sets `SITE_URL` to your Vercel URL.
+5. It never changes the production live-call settings (`LIVE_CALLS_ENABLED`, `BOLNA_TRIAL`, `A2P_DECLARED`, `LIVE_STAGE`) without your explicit go-ahead.
 
 ### C5. Trial-mode setup for Phase 8B (no company needed)
-1. In Bolna, verify each teammate's phone (A4).
-2. In `/app/admin` (built in 8A):
-   - verify yourself as a contractor;
-   - add each teammate's phone as a dealer with consent `test_ok`, named as in `docs/TEAM_TEST.md` Setup;
-   - copy each phone's hash.
-3. Set the Convex dev env with `npx convex env set`:
-   - `BOLNA_API_KEY`;
-   - `BOLNA_WEBHOOK_SECRET` (a long random string);
-   - `BOLNA_TRIAL=true`;
-   - `TEST_PHONE_HASHES=<hash1>,<hash2>`;
-   - `GEMINI_API_KEY_BILLED`;
-   - `REC_TOKEN_SECRET`.
-4. Create the four agents in Bolna by following `docs/BOLNA_SETUP.md` (written in 8B). Set each agent's webhook to `https://<your-dev>.convex.site/bolna/webhook` with the `x-molbhav-secret` header, and its `report_quote` function to `https://<your-dev>.convex.site/bolna/report-quote`. Then set the four agent ids and `LIVE_CALLS_ENABLED=true` (dev only) in Convex env.
+1. **You:** in Bolna, verify each teammate's phone (A4), and give Claude Code the Bolna API key.
+2. **Claude Code**, in `/app/admin` (built in 8A) or with internal admin functions:
+   - verifies you as a contractor;
+   - adds each teammate's phone as a dealer with consent `test_ok`, named as in `docs/TEAM_TEST.md` Setup;
+   - copies each phone's hash.
+3. **Claude Code** sets the Convex dev env: `BOLNA_API_KEY`, `BOLNA_WEBHOOK_SECRET` (generated), `BOLNA_TRIAL=true`, `TEST_PHONE_HASHES`, `GEMINI_API_KEY_BILLED`, `REC_TOKEN_SECRET` (generated).
+4. **Claude Code** runs `pnpm bolna:sync` (written in 8B): it creates the four agents from `bolna/agents/` with the webhook `https://<your-dev>.convex.site/bolna/webhook`, the `x-molbhav-secret` header and `report_quote` pointing at `https://<your-dev>.convex.site/bolna/report-quote`. It then sets the four agent ids, and sets `LIVE_CALLS_ENABLED=true` (dev only) once you say go.
 5. Trial mode skips the call-hours guard for listed test phones only, so you can test at any time. Real dealers are only ever called 10:00–19:00 IST.
 
 ---
@@ -419,9 +405,9 @@ Pricing hypothesis to test with the first customers: **10% of the measured savin
 ---
 
 ## Your first week, as a checklist
-- [ ] Part A done; Phase 0 run; doc issues fixed
+- [x] Part A done; Phase 0 run; doc issues fixed (DECISIONS §R)
 - [ ] Organisers asked about a number; Udyam registered; Plivo or Exotel account opened (B1–B3)
-- [ ] Phases 1A–1C built; landing live (shared publicly after the privacy review)
+- [ ] Phases 1A and 3 built (the scaffold, deploy pipeline and negotiation brain), then 1B
 - [ ] 5 contractor interviews (D2)
 - [ ] Spread test: 15–20 dealers called, with callbacks (D1)
 - [ ] Phase 2A money shot reviewed at noon on a cheap Android
