@@ -27,15 +27,15 @@ Do `START_HERE.md` C5 first. Then:
 2. **The contractor** is your admin session from C2, verified, with site Mansarovar (default).
 3. **Check the settings:**
    - `LIVE_CONCURRENCY=2` (the trial dials 2 at a time; the rest queue);
-   - `TEST_DAILY_CALLS=15` on test days;
+   - `TEST_DAILY_CALLS=15` and `MAX_LIVE_SWEEPS_PER_HOUR=6` on test days (Claude Code sets and resets them);
    - the wallet: `pnpm bolna:check`. Milestone 1 needs about 10 live orders and the $5 trial covers about 5, so top up before the Team test (first check that a top-up keeps trial mode);
-   - `PRICE_BANDS` in `lib/config.ts` updated within the last 14 days and covering the card prices (steel ₹55–70/kg, cement ₹360–450/bag). Otherwise every live quote is "out of band", none is citable, and the haggle is skipped.
+   - the Jaipur `priceBands` rows (in `/app/admin`, R13) updated within the last 14 days and covering the card prices (steel ₹55–70/kg, cement ₹360–450/bag). Otherwise every live quote is "out of band", none is citable, and the haggle is skipped.
 4. **Before Run 6:** download the Run 2 clips. Run 6 opts out P2, and opting out deletes **all** of that dealer's recordings.
 
 ## The order (said in the app, every run)
 > "Kal subah tak 2 ton 12mm sariya Fe500D aur 150 bori PPC cement, Mansarovar wali site pe, 15 din ka udhaar chahiye."
 
-On Confirm, choose **लोकल ISI** for steel and **कोई भी** for cement. Turn on **LIVE** on Choose dealers.
+On Confirm, choose **लोकल ISI** for steel; cement is already **कोई भी** (R8). Turn on **LIVE** on Choose dealers.
 
 ## Role cards (keep yours in front of you)
 **Card A · Agarwal Steels: the best rate, comes down when pushed**
@@ -82,7 +82,7 @@ On Confirm, choose **लोकल ISI** for steel and **कोई भी** for c
 ## Runs (in this order; Run 6 must be last)
 | Run | Phones and cards | What it proves | Expected result |
 |---|---|---|---|
-| 1 | P1 = A, P2 = B (no regular dealer linked) | Dialling, disclosure, extraction, read-back, both haggles | A wins at ₹1,98,830; saving labelled "बीच वाले रेट से" |
+| 1 | P1 = A, P2 = B (no regular dealer linked) | Dialling, disclosure, extraction, read-back, both haggles | A wins at ₹1,98,830; "₹1,780 कम · बीच वाले रेट से" (median of 2,00,610 and 2,00,750, lower middle, R5) |
 | 2 | First link P4 as your regular dealer in `/app/admin`. Then P1 = A, P2 = B, P3 = C, P4 = D. | **The full demo flow:** a flagged quote, the match call, the confirm call | Winner A ₹1,98,830; "₹5,470 कम · आपके dealer के पहले रेट से"; Balaji card "₹4,200 कम · ₹1,270 ज़्यादा"; confirm → Placed |
 | 3 | P1 = A; P3 doesn't pick up; P2 says "अभी busy हूँ, दस मिनट बाद कॉल करो" | No answer, and a callback request | P3: one retry after 3 minutes, then no answer. P2: called back about 10 minutes later (P8); the round waits for it |
 | 4 | Run 2 again, but A says on the confirm call "रेट बढ़ गया, सत्तावन पचास लगेगा" | Re-pricing at confirm | No deal; Result shows the runner-up highlighted |
@@ -97,6 +97,7 @@ On Confirm, choose **लोकल ISI** for steel and **कोई भी** for c
 
 ## Checks for every run
 - [ ] "AI" and "रिकॉर्ड" are heard before any rate is asked
+- [ ] Every read-back repeats only numbers the dealer said; the agent never states a total of its own (R1)
 - [ ] Each line's rate, unit, GST mode, delivery, unloading, credit, bill and weight match the card (haggle and match quotes inherit what wasn't changed)
 - [ ] The landed total equals the card's expected total (`lib/pricing.ts`)
 - [ ] Haggle and match calls cite an exact, real total and never name another dealer

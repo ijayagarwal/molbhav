@@ -83,7 +83,7 @@ features/                      hooks and containers that call useQuery/useMutati
 lib/
   pricing.ts haggle.ts numbers.ts commands.ts (+ .test.ts)
   i18n/{hi,en}.ts getDict.ts useT.ts
-  config.ts                    GST, call hours, limits, price bands (dated), brand tiers per city
+  config.ts                    GST, call hours, limits, price-band seeds, brand tiers and CITY_AREAS per city, DELIVER_BY
   client/{recorder,ptt,earcons,haptics}.ts
 convex/
   schema.ts auth.ts auth.config.ts http.ts crons.ts
@@ -97,6 +97,9 @@ convex/
   sim/{personas,runCall}.ts    internal
   seed.ts                      internal (CLI only); admin.resetDemo for the presenter
 scripts/fonts.py               generates app/fonts/*
+scripts/bolna-check.ts         pnpm bolna:check (wallet, concurrency, agents, webhooks; read-only)
+scripts/bolna-sync.ts          pnpm bolna:sync: creates or updates the four agents from bolna/agents/ (never dials, R12)
+bolna/agents/                  versioned agent configs built from docs/CALL_SCRIPT.md (quote, haggle, match, confirm)
 evals/                         parse.golden.json, extract.golden.json, runners
 e2e/                           Playwright tests, demo.wav
 docs/                          this pack
@@ -115,15 +118,32 @@ const material = v.union(v.literal("tmt_steel"), v.literal("cement"));
 const unit = v.union(v.literal("kg"), v.literal("ton"), v.literal("quintal"), v.literal("bag"));
 const mode = v.union(v.literal("sim"), v.literal("live"));
 const round = v.union(v.literal("quote"), v.literal("haggle"), v.literal("match"), v.literal("confirm"));
+// "both" may come from the parse, but Confirm requires one tier per item ("दोनों" is P1, R10)
 const tier = v.union(v.literal("branded"), v.literal("local_isi"), v.literal("any"), v.literal("both"));
 const gstMode = v.union(v.literal("included"), v.literal("extra"), v.literal("unknown"));
+// fixed delivery-time set (R7); the dictionary holds the spoken phrase for each
+const deliverBy = v.union(
+  v.literal("today"), v.literal("tomorrow_morning"), v.literal("tomorrow"),
+  v.literal("day_after"), v.literal("this_week"), v.literal("flexible"),
+);
 const flag = v.union(
   v.literal("gst_unclear"), v.literal("delivery_unknown"), v.literal("unloading_unknown"),
   v.literal("outlier"), v.literal("low_confidence"), v.literal("partial_stock"),
   v.literal("missing_item"), v.literal("unit_mismatch"), v.literal("tier_mismatch"),
   v.literal("no_bill"), v.literal("weight_unknown"), v.literal("brand_unknown"),
   v.literal("not_read_back"), v.literal("rate_not_in_transcript"), v.literal("out_of_band"),
-  v.literal("stock_unknown"),
+  v.literal("stock_unknown"), v.literal("lump_sum_mismatch"),
+);
+// telephony lifecycle only (R4); rank table in §6.3
+const callStatus = v.union(
+  v.literal("queued"), v.literal("dialing"), v.literal("ringing"), v.literal("in_progress"),
+  v.literal("disconnected"), v.literal("completed"), v.literal("no_answer"), v.literal("busy"),
+  v.literal("failed"), v.literal("cancelled"),
+);
+// what the call achieved, set by extraction or the confirm flow (R4)
+const callOutcome = v.union(
+  v.literal("quoted"), v.literal("declined"), v.literal("callback_requested"), v.literal("no_quote"),
+  v.literal("opted_out"), v.literal("disclosure_failed"), v.literal("terms_changed"), v.literal("confirmed"),
 );
 
 export const orderItem = v.object({
@@ -132,7 +152,7 @@ export const orderItem = v.object({
   diameterMm: v.optional(v.number()),
   grade: v.optional(v.string()),        // Fe500 | Fe500D | Fe550D
   cementType: v.optional(v.string()),   // OPC43 | OPC53 | PPC | PSC
-  tier: v.optional(tier),               // steel: branded | local_isi | both; cement: branded | any
+  tier: v.optional(tier),               // steel: branded | local_isi; cement: branded | any (default: last choice, else any, R8)
   brand: v.optional(v.string()),        // only from the config brand list
   quantity: v.optional(v.number()),     // optional while draft; required at confirm
   unit: v.optional(unit),
@@ -153,7 +173,7 @@ export default defineSchema({
 
   contractors: defineTable({
     userId: v.id("users"),
-    name: v.string(),                    // letters only, max 24 characters
+    name: v.string(),                    // /^[\p{L}\p{M} ]+$/u, at most 24 graphemes (R13)
     phoneE164: v.optional(v.string()),
     language: v.union(v.literal("hi"), v.literal("en")),
     verified: v.boolean(),               // set only by admin.verifyContractor (logged)
@@ -164,7 +184,8 @@ export default defineSchema({
 
   sites: defineTable({
     contractorId: v.id("contractors"),
-    name: v.string(), area: v.string(), city: v.string(),
+    name: v.string(), city: v.string(),
+    area: v.string(),                    // one of CITY_AREAS[city] in lib/config.ts, never free text (R7)
     lat: v.optional(v.number()), lng: v.optional(v.number()),
     isDefault: v.boolean(),
   }).index("by_contractor", ["contractorId"]),
@@ -184,7 +205,7 @@ export default defineSchema({
   contractorDealers: defineTable({
     contractorId: v.id("contractors"),
     dealerId: v.id("dealers"),
-    relation: v.union(v.literal("regular"), v.literal("blocked")),
+    relation: v.union(v.literal("regular"), v.literal("saved"), v.literal("blocked")), // saved = dealer book, on by default (R13)
     askFirst: v.boolean(),               // "पहले भी पूछिए": quote call instead of match call
   }).index("by_contractor", ["contractorId"]),
 
@@ -196,9 +217,10 @@ export default defineSchema({
     mode,
     roundSeq: v.number(),                // stale jobs check this
     transcript: v.string(),
-    siteText: v.optional(v.string()),
+    siteText: v.optional(v.string()),    // display only; never sent to agents (R7)
     items: v.array(orderItem),
-    deliverByText: v.optional(v.string()),
+    deliverBy: v.optional(deliverBy),    // what agents hear (R7)
+    deliverByText: v.optional(v.string()), // display only
     creditDaysWanted: v.optional(v.number()),
     missing: v.array(v.string()),
     notes: v.optional(v.array(v.string())),
@@ -211,23 +233,18 @@ export default defineSchema({
     ranking: v.optional(v.array(v.id("quotes"))),   // frozen at "ready"
     winningQuoteId: v.optional(v.id("quotes")),
     placeJobId: v.optional(v.string()),
-    publicId: v.optional(v.string()),    // nanoid(21), revocable
+    publicId: v.optional(v.string()),    // 16 random bytes as 22 base64url characters (128 bits), revocable
     shareMode: v.optional(v.union(v.literal("full"), v.literal("savings"), v.literal("munshi"))),
     expiresAt: v.optional(v.number()),   // sandbox: 24 h
   }).index("by_owner", ["ownerUserId"]).index("by_contractor", ["contractorId"]).index("by_publicId", ["publicId"]).index("by_expiresAt", ["expiresAt"]),
 
   calls: defineTable({
     orderId: v.id("orders"), dealerId: v.id("dealers"),
-    round, mode, attempt: v.number(), roundSeq: v.number(),
-    status: v.union(
-      v.literal("queued"), v.literal("dialing"), v.literal("ringing"), v.literal("in_progress"),
-      v.literal("disconnected"), v.literal("completed"), v.literal("no_answer"), v.literal("busy"),
-      v.literal("failed"), v.literal("callback_requested"), v.literal("declined"),
-      v.literal("no_quote"), v.literal("opted_out"), v.literal("disclosure_failed"),
-      v.literal("terms_changed"), v.literal("cancelled"),
-    ),
-    statusRank: v.number(),              // only increases; final states never change
-    deadlineAt: v.number(),
+    round, mode, attempt: v.number(), roundSeq: v.number(), // every retry is a new row, attempt + 1 (R4)
+    status: callStatus,
+    statusRank: v.number(),              // only increases; final states never change (§6.3)
+    outcome: v.optional(callOutcome),    // set by extraction or the confirm flow, never by webhooks (R4)
+    deadlineAt: v.number(),              // queued: 10-minute queue deadline (R2); then per §6.2
     providerExecutionId: v.optional(v.string()),
     startedAt: v.optional(v.number()), endedAt: v.optional(v.number()),
     durationSec: v.optional(v.number()),
@@ -241,7 +258,8 @@ export default defineSchema({
     extract: v.union(v.literal("pending"), v.literal("running"), v.literal("done"), v.literal("failed")),
     extractAttempts: v.number(),
     terminationReason: v.optional(v.string()),
-  }).index("by_order", ["orderId"]).index("by_execution", ["providerExecutionId"]).index("by_deadline", ["deadlineAt"]),
+  }).index("by_order", ["orderId"]).index("by_execution", ["providerExecutionId"]).index("by_deadline", ["deadlineAt"])
+    .index("by_mode_status", ["mode", "status"]),   // claimDial counts active live calls (R2)
 
   callEvents: defineTable({
     callId: v.id("calls"), orderId: v.id("orders"),
@@ -260,15 +278,17 @@ export default defineSchema({
     deliveryCharge: v.optional(v.number()),             // undefined = unknown (never "free")
     unloadingCharge: v.optional(v.number()),
     deliveryEtaText: v.optional(v.string()),
+    deliveryBy: v.optional(deliverBy),   // normalised, for the "earlier delivery" tie-break (L1)
     creditDays: v.optional(v.number()),
     billType: v.union(v.literal("pakka"), v.literal("kachcha"), v.literal("unknown")),
     weightBasis: v.union(v.literal("kanta"), v.literal("standard"), v.literal("unknown")),
     validityText: v.optional(v.string()),
-    firstTotal: v.optional(v.number()),  // match call: his rate before any number was cited
+    firstTotal: v.optional(v.number()),  // match call: computed in code from what he said before any number was cited (R1)
     saidFinal: v.boolean(),
     confidence: v.number(),
     readBackConfirmed: v.boolean(),      // computed in code from the transcript, not by the LLM
-    landed: v.object({ subtotal: v.number(), gst: v.number(), delivery: v.number(), unloading: v.number(), total: v.number() }), // integer paise
+    totalSource: v.union(v.literal("computed"), v.literal("stated")), // stated = his own all-in figure (R1)
+    landed: v.object({ subtotal: v.number(), gst: v.number(), delivery: v.number(), unloading: v.number(), total: v.number() }), // integer paise; total is a whole rupee (R5)
     flags: v.array(flag),
     comparable: v.boolean(),             // may win
     citable: v.boolean(),                // may be cited in haggle/match
@@ -304,7 +324,15 @@ export default defineSchema({
 
   callLog: defineTable({                 // kept 1 year: number hash, time, consent (no audio, no text)
     phoneHash: v.string(), at: v.number(), consent: v.string(), round, outcome: v.string(),
+    orderId: v.id("orders"), callId: v.id("calls"),   // written by claimDial at reservation (R3)
   }).index("by_phoneHash_at", ["phoneHash", "at"]),
+
+  priceBands: defineTable({              // dated sanity bands for citing (C4); seeded from lib/config.ts, edited in /app/admin (R13)
+    city: v.string(), material,
+    unit,                                // kg for steel, bag for cement
+    minPaise: v.number(), maxPaise: v.number(),
+    updatedAt: v.number(), updatedBy: v.string(),
+  }).index("by_city_material", ["city", "material"]),
 });
 ```
 
@@ -315,7 +343,7 @@ export default defineSchema({
 - **Live mode** requires `contractors.verified` (S1): set by `admin.verifyContractor`, behind an admin role checked against `ADMIN_USER_IDS`, and logged in `auditLog`. Name and phone are locked at verification.
 - **Dealers for live mode** are added only through `admin.addDealer` or the `/dealer` opt-in (S2).
 - **Server-to-Convex calls** from Vercel routes run as the user (their auth token is forwarded). The sandbox route uses `sandbox.createDraft({ serverSecret })`, which checks `CONVEX_SERVER_SECRET`.
-- **Prompt-injection hygiene** (S3): names are letters only (max 24 characters); site from `sites`; brand from the config enum; free text never reaches agent prompts.
+- **Prompt-injection hygiene** (S3, R7): names are letters and marks only (max 24 graphemes); site area from the city's area list; delivery time from `deliverBy`; brand from the config enum; free text never reaches agent prompts.
 
 ## 6. Flows
 
@@ -330,17 +358,35 @@ export default defineSchema({
 8. The read-back on Confirm (V3) comes from `POST /api/tts` with `{ draftId }` (Vercel, `bom1`; BotID-protected; the client plays the returned audio): it checks auth and ownership, applies a per-user rate limit, **builds the text on the server from the draft** (never from the request), calls Bulbul v4 Flash and returns audio. There is no endpoint that speaks arbitrary text.
 
 ### 6.2 Sweep start and dispatch
-1. `orders.startSweep({ orderId, mode })` checks ownership and confirmation (every item has quantity, unit and tier). It increments `roundSeq` and creates `calls` rows (`round: "quote"`) for the selected dealers, **except the regular dealer unless `askFirst`**; he is held for the match call (P1).
+1. `orders.startSweep({ orderId, mode })` checks ownership and confirmation (every item has quantity, unit and a single tier: branded, local_isi or any). In live mode it also checks `MAX_LIVE_SWEEPS_PER_HOUR` (R2). It increments `roundSeq` and creates `calls` rows (`round: "quote"`) for the selected dealers, **except the regular dealer unless `askFirst`**; he is held for the match call (P1).
 2. Sim: schedule `sim.runCall` per call with staggered starts.
-3. Live: enqueue a `dial` workpool job per call. Each job runs `internal.calls.claimDial(callId)` (§11), which checks every guard, reserves a concurrency slot and moves `queued → dialing` atomically. Only then does it call Bolna `POST /call`. Pool parallelism = Bolna concurrency (2 on trial, 10+ on paid). An unknown dial outcome is **not retried**: check `GET /v2/agent/{id}/executions` first.
-4. Each call gets a **deadline** (`deadlineAt`), and a watchdog (`internal.bolna.watchdog`) runs at each deadline: ringing 45 s; in progress = `call_terminate` + 30 s; disconnected 90 s. It polls Bolna, then stops the call (`POST /call/{id}/stop`) or marks it failed.
-5. The round advances to haggle when **3 citable quotes are in** or **every call has finished**. Still-queued calls are stopped. One live retry for `no_answer`, 3 minutes later, if the round is still open. One live retry for `callback_requested` at `callbackWhenText`, if that is within 30 minutes and the round is still open (P8). A call in `callback_requested` with a retry scheduled counts as unfinished, so the round waits for it (at most 30 minutes).
+3. Live: enqueue a `dial` workpool job per call. Each job runs `internal.calls.claimDial(callId)` (§11), which checks every guard, reserves a live slot and moves `queued → dialing` atomically. Only then does it call Bolna `POST /call`. `claimDial` returns `ok`, `refuse` (reason code; the call is `cancelled` with that reason) or `wait` (no free slot, R2): on `wait` the call stays `queued` and the job is enqueued again when any live call reaches a final status (plus a 15 s backstop), until its 10-minute queue deadline, then it is `cancelled` with `queue_timeout`. The live slot count, not the pool's parallelism, limits concurrent calls (dial pool parallelism 1). An unknown dial outcome is **not retried**: check `GET /v2/agent/{id}/executions` first.
+4. Each call gets a **deadline** (`deadlineAt`), and a watchdog (`internal.bolna.watchdog`) runs at each deadline: queued 10 min; ringing 45 s; in progress = `call_terminate` + 30 s; disconnected 90 s. It polls Bolna, then stops the call (`POST /call/{id}/stop`) or marks it failed. Every live call therefore reaches a final status, which frees its slot.
+5. The round advances to haggle when **3 citable quotes are in** or **every call has finished**. Still-queued calls are stopped. Retries are new call rows (attempt + 1) through `claimDial`, within the per-order limit (R3): one live retry for `no_answer`, 3 minutes later, if the round is still open; or one for `callback_requested` at `callbackWhenText`, if that is within 30 minutes and the round is still open (P8). A call with a retry scheduled counts as unfinished, so the round waits for it (at most 30 minutes).
 6. "सब कॉल रोकिए" (stop all): cancels queued jobs, stops in-progress calls, and moves the order to `ready` with what we have.
 
 ### 6.3 Live call lifecycle (Bolna, B3)
 - `POST https://api.bolna.ai/call` with `Authorization: Bearer`. The body has `agent_id`, `recipient_phone_number`, `from_phone_number` and `user_data` (including `molbhav_call_id`). The response gives `execution_id`.
 - `POST /bolna/webhook` (Convex HTTP action): check the `x-molbhav-secret` header → `internal.bolna.ingest` (dedupe on executionId + status into `providerEvents`; map to our call by `providerExecutionId`, or by `context_details.recipient_data.molbhav_call_id` if the webhook beats our write) → return 200 in under 1 s.
-- `internal.bolna.process` re-fetches `GET /executions/{id}` and applies a status only if `rank(new) > statusRank`; final statuses never change. **`completed` is the done signal** (not `call-disconnected`). On `completed`: store transcript, duration, `total_cost` (US cents) and termination reason; enqueue `media.copyRecording` and `llm` extraction. On `rescheduled`, create a new attempt row (attempt + 1, `queued`); `statusRank` never decreases.
+- `internal.bolna.process` re-fetches `GET /executions/{id}` and applies a status only if `rank(new) > statusRank`; final statuses never change. **`completed` is the done signal** (not `call-disconnected`). On `completed`: store transcript, duration, `total_cost` (US cents) and termination reason; enqueue `media.copyRecording` and `llm` extraction. On any final status, kick the waiting dial jobs (R2).
+- **Status map and ranks (R4).** Webhooks set only `status`; `outcome` comes from extraction.
+
+  | Bolna status | Our `status` | Rank |
+  |---|---|---|
+  | `scheduled`, `queued` | `queued` | 0 |
+  | `initiated` | `dialing` | 1 |
+  | `ringing` | `ringing` | 2 |
+  | `in-progress` | `in_progress` | 3 |
+  | `call-disconnected` | `disconnected` | 4 |
+  | `completed` | `completed` (final) | 10 |
+  | `no-answer` | `no_answer` (final) | 10 |
+  | `busy` | `busy` (final) | 10 |
+  | `failed`, `error`, `balance-low` | `failed` (final, keep the reason) | 10 |
+  | `canceled`, `stopped` | `cancelled` (final) | 10 |
+  | `rescheduled` | not expected: Bolna-side retries are off (R2). Mark `cancelled` with reason `bolna_rescheduled`, stop the execution, and log an alert. | 10 |
+  | anything unknown | no change; log it | — |
+
+  `claimDial` sets `dialing` itself (rank 1) before `POST /call`. The watchdog may set `failed` or `cancelled` (rank 10).
 - `POST /bolna/report-quote` (custom function endpoint): verify the secret, update `calls.slots` and `calls.provisionalTotal`, and reply in under 100 ms (C8). For the Match agent the reply carries `cite: true|false`, decided by `lib/pricing.ts` (his first rate vs the best citable total), never by the LLM.
 - After **ranking is frozen at `ready`**, late webhooks update only call records, never the ranking.
 
@@ -350,17 +396,17 @@ export default defineSchema({
 ### 6.5 Extraction
 `llm` workpool job (parallelism 4, 3 retries with backoff; stale if `roundSeq` changed):
 1. `llm.extractQuote` sends the transcript plus order items to Gemini (§8.2), checking `extractCache` first.
-2. Outcomes `declined`, `callback`, `opt_out` or `terms_changed` set the call status. Otherwise:
-3. Code checks (C4, S5): the assistant turns before the dealer's first rate include both "AI" and "रिकॉर्ड" (the dealer may interrupt the welcome, so the agent repeats it); each extracted rate appears in a dealer turn as digits or Hindi words (`lib/numbers.ts` parser); a dealer "हाँ" follows the agent's read-back (sets `readBackConfirmed`).
-4. `lib/pricing.ts` computes landed totals, flags, `comparable` and `citable` (§9). Then `orders.advance`.
+2. Outcomes `declined`, `callback`, `opt_out` or `terms_changed` set `calls.outcome` (`declined`, `callback_requested`, `opted_out`, `terms_changed`; R4). Otherwise:
+3. Code checks (C4, S5): the assistant turns before the dealer's first rate include both "AI" and "रिकॉर्ड" (the dealer may interrupt the welcome, so the agent repeats it), else `outcome: disclosure_failed` and the quote is dropped; each extracted rate and any stated all-in figure appears in a dealer turn as digits or Hindi words (`lib/numbers.ts` parser); a dealer "हाँ" follows the agent's read-back (sets `readBackConfirmed`).
+4. `lib/pricing.ts` computes landed totals, flags, `comparable` and `citable` (§9), and `outcome: quoted` (or `no_quote`). Then `orders.advance`.
 5. If extraction fails after retries, the row shows "रेट समझ नहीं आया · रिकॉर्डिंग सुनिए", and the quote is excluded.
 
 ### 6.6 Haggle (round 2) and match (round 3)
 `lib/haggle.ts`, pure and tested:
 1. Needs at least 2 citable, comparable quotes in the same tier; otherwise skip to match/result.
 2. Call #2 citing #1's exact total and terms. If #2 beats #1, call #1 citing #2's new total. Never cite a higher number. At most 2 haggle calls.
-2a. **A haggle or match-final quote starts from the same dealer's earlier quote in this order.** Extraction gets that quote as context and overrides only what the dealer changed in this call. Unchanged lines, GST mode, delivery, unloading, brand, bill, weight and credit carry over. The read-back states the full terms, and the dealer's "हाँ" confirms them.
-3. **Match call** to the regular dealer (if held): Match agent with the best citable total. `firstTotal` is recorded before any number is cited (P2). If no citable total exists, it is a normal Quote call.
+2a. **A haggle or match-final quote starts from the same dealer's earlier quote in this order.** Extraction gets that quote as context and overrides only what the dealer changed in this call. Unchanged lines, GST mode, delivery, unloading, brand, bill, weight and credit carry over. The read-back repeats the changed figures and the full terms in the dealer's own words (never a computed total, R1), and the dealer's "हाँ" confirms them. If he gave a new all-in figure without a rate for every item, that figure is the landed total (`totalSource: stated`, §9), and the per-item lines of that quote are no longer cited.
+3. **Match call** to the regular dealer (if held): Match agent with the best citable total. His first rate is captured before any number is cited, and `firstTotal` is computed in code from it (P2, R1). If no citable total exists, it is a normal Quote call.
 4. Then rank by total within the tier (table order). The winner is the quote with the most credit days among those within 0.5% of the cheapest, then the earlier delivery, then the lower total. Freeze `ranking` and set `ready`.
 
 ### 6.7 Place and confirm (round 4, C5)
@@ -373,7 +419,7 @@ export default defineSchema({
 The route `POST /api/voice/order?sandbox=1` calls `checkBotId()` and refuses bots. The mic is behind a tap, and the request is made with `fetch` from the `/try` page, so BotID's challenge headers are attached. Limits: `sbx:device` 3/h, `sbx:ip` 10/h, `sbx:global` 500/day, plus a daily ₹ kill switch (`SANDBOX_DAILY_INR_CAP`), on a separate billed Gemini key. Then `sandbox.createDraft` (server secret) creates `kind: "sandbox"`, forced to sim mode, with `expiresAt` 24 h. Sandbox orders never get `publicId` and never go live. A cron deletes expired sandbox orders. The landing-page hero board runs on client-side fixtures only.
 
 ### 6.10 Shared parchi (G4)
-`share.create({ orderId, mode })` makes a revocable 21-character `publicId`. `share.public({ publicId })` returns only: dealer name, items (no rates in `savings` mode), total, saving vs the first rate, delivery window, and a DEMO watermark flag. **Never** site, date, phone numbers, recordings or losing prices. The page is `noindex`. `opengraph-image.tsx` renders the same data with `@vercel/og` 1.0.3 and static TTFs. The client prefetches it when Result settles and calls `navigator.share({ files })` inside the tap, falling back to a wa.me link to `/p/...`.
+`share.create({ orderId, mode })` makes a revocable 22-character (128-bit) `publicId`. `share.public({ publicId })` returns only: dealer name, items (no rates in `savings` mode), total, saving vs the first rate, delivery window, and a DEMO watermark flag. **Never** site, date, phone numbers, recordings or losing prices. The page is `noindex`. `opengraph-image.tsx` renders the same data with `@vercel/og` 1.0.3 and static TTFs. The client prefetches it when Result settles and calls `navigator.share({ files })` inside the tap, falling back to a wa.me link to `/p/...`.
 
 ### 6.11 Recordings and retention (B6, S4)
 - `media.copyRecording` (media pool) follows Bolna's recording URL (a 24 h presigned redirect) and saves the file to Convex storage.
@@ -416,7 +462,8 @@ The route `POST /api/voice/order?sandbox=1` calls `checkBotId()` and refuses bot
 - A number **bought from Bolna** needs a compliance application with a CIN and GST certificate. Alternatively connect **your own Plivo or Exotel account** (Settings → Integrations → Telephony); calls then use that provider's numbers and KYC, which accepts a sole proprietorship. `bolna.dial` then passes the provider number as `from`.
 - No mid-call transcript stream. Custom functions can run mid-call, with a 50–500 ms pause.
 - Webhooks are retried, so be idempotent. Custom webhook headers are supported.
-- Helpers: the `setup-webhook`, `setup-tools` and `get-executions` skills only (`START_HERE.md` A3), and the Web Call SDK for browser tests. Never the calling or number-buying skills.
+- Agents are created and updated through the agent API (`/v2/agent`; confirm the exact create/patch shape in Bolna's docs) by `pnpm bolna:sync`, from the configs in `bolna/agents/` (R12). It never dials. Agent-level retry and reschedule settings stay off (R2).
+- Helpers: the `setup-webhook`, `setup-tools` and `get-executions` skills only (`START_HERE.md` A3), and the Web Call SDK for browser tests. Never the calling or number-buying skills, and never the `transfer_call` tool (it would bridge a live call to another number).
 
 **Vercel BotID:**
 - `pnpm i botid`.
@@ -441,8 +488,10 @@ Rules:
 - Steel tier: "branded" if Tata/JSW/SAIL/Jindal or "ब्रांडेड/बड़ी कंपनी" is said; "local_isi" if "लोकल/ISI" is said; "both" if "दोनों"; else null.
 - Cement tier: "branded" if UltraTech/ACC/Ambuja/Shree/JK or "नामी कंपनी"; "any" if "कोई भी"; else null.
 - brand: only if a brand is named. siteText: the site or area as spoken. deliverByText: delivery time as said. creditDaysWanted: days of udhaar.
+- deliverBy: map the delivery time to one of today, tomorrow_morning, tomorrow, day_after, this_week, flexible; null if not said or unclear.
 Output only JSON matching the schema.
 ```
+After parsing, code (not the LLM) matches `siteText` to the contractor's sites and the city's `CITY_AREAS` list; the result is confirmed with a chip on Confirm (R7).
 Schema:
 ```json
 {
@@ -460,6 +509,7 @@ Schema:
     }, "required": ["material", "quantity", "unit"] } },
     "siteText": { "type": "string", "nullable": true },
     "deliverByText": { "type": "string", "nullable": true },
+    "deliverBy": { "type": "string", "enum": ["today", "tomorrow_morning", "tomorrow", "day_after", "this_week", "flexible"], "nullable": true },
     "creditDaysWanted": { "type": "number", "nullable": true },
     "missing": { "type": "array", "items": { "type": "string" } },
     "notes": { "type": "array", "items": { "type": "string" } }
@@ -480,47 +530,59 @@ Schema:
 You read a phone call transcript between Molbhav's AI assistant ("assistant") and a building-material dealer ("user"), plus the order items with ids.
 Extract ONLY what the dealer said. Never compute totals. Never fill a value the dealer did not say.
 Per item: rate as spoken and its unit; gstMode for that line ("included" if "GST milake/with GST", "extra" if "GST alag/plus GST", else "unknown"); brand and tier offered; stock (yes/partial/no/unknown); credit rate if different from cash.
-lumpSumTotal: an all-in total if the dealer said one, with what it includes (gst, delivery, unloading).
+lumpSumTotal: an all-in total only if the dealer said one as a single figure, with what it includes (gst, delivery, unloading). Never add numbers up yourself.
 deliveryCharge / unloadingCharge (bhada / utarai or hamali): a number (0 if they said free or included); null if not said.
-deliveryEtaText, creditDays, billType (pakka/kachcha/unknown), weightBasis (kanta/standard/unknown), validityText.
-firstTotal: in a match call, the dealer's all-in rate given before the assistant cited any other number.
+deliveryEtaText, deliveryBy (today/tomorrow_morning/tomorrow/day_after/this_week/flexible, or null), creditDays, billType (pakka/kachcha/unknown), weightBasis (kanta/standard/unknown), validityText.
+first: in a match call only, the same fields (lines, lumpSumTotal, charges, GST modes) as the dealer said them BEFORE the assistant cited any other number. Code computes his first total from it.
 outcome: quoted | declined | callback | opt_out | terms_changed | no_quote. callbackWhenText if given.
 saidFinal: the dealer said this is final/last. confidence 0..1, lower if numbers were unclear or corrected.
 Output only JSON.
 ```
-Same `nullable` style. `evals/extract.golden.json`: 10 cases, including a per-quintal rate with unclear GST, a dealer who corrects his own number, a no-bill offer, a match call, and (once available) real call transcripts with names and numbers replaced.
+Same `nullable` style. The LLM never returns a computed total; `lib/pricing.ts` computes every total, including `firstTotal` (R1). `evals/extract.golden.json`: 10 cases, including a per-quintal rate with unclear GST, a dealer who corrects his own number, a no-bill offer, a match call, and (once available) real call transcripts with names and numbers replaced.
 
 ## 9. Pricing, comparability and citing (`lib/pricing.ts`)
 
 ```
-Money in integer paise. Display rounded to the rupee. Spoken totals exact (lib/numbers.ts).
+Money in integer paise. Spoken totals exact (lib/numbers.ts), in whole rupees.
 toKg: kg ×1, quintal ×100, ton ×1000
 normaliseRate(rate, rateUnit, orderUnit): steel via kg; cement bag↔bag only (else flag unit_mismatch)
-subtotal = Σ normalisedRate × quantity            (use creditRate when the order wants credit and one was given)
-gst      = Σ per line: gstMode ∈ {extra, unknown} ? lineSubtotal × GST_RATE[material] : 0
+lineSubtotal = normalisedRate × quantity, in paise    (use creditRate when the order wants credit and one was given)
+subtotal = Σ lineSubtotal
+gst      = Σ per line: gstMode ∈ {extra, unknown} ? round(lineSubtotal × GST_RATE[material]) to the paisa : 0
 delivery = deliveryCharge ?? 0   (undefined → flag delivery_unknown)
 unloading= unloadingCharge ?? 0  (undefined → flag unloading_unknown)
-total    = subtotal + gst + delivery + unloading
+computed = subtotal + gst + delivery + unloading
+
+statedAllIn = lumpSumTotal, only when lumpSumIncludes covers gst, delivery and unloading (R1)
+total (R1, R5):
+  - this call gave a rate for every item → computed; if statedAllIn was also said in this call and
+    |statedAllIn − computed| / computed > 0.5% → flag lump_sum_mismatch            (totalSource: computed)
+  - else, statedAllIn said in this call → statedAllIn; the quote's lines are not cited  (totalSource: stated)
+  - else → computed from what exists (inherited lines for haggle/match-final), with flags  (totalSource: computed)
+  then round the total to the nearest rupee ONCE (half up); that rupee figure is used everywhere
 
 flags: gst_unclear, delivery_unknown, unloading_unknown, missing_item, partial_stock, stock_unknown, low_confidence (<0.8),
        tier_mismatch, no_bill (billType ≠ pakka), weight_unknown, brand_unknown, unit_mismatch,
-       not_read_back, rate_not_in_transcript, out_of_band (outside PRICE_BANDS[city][material]),
+       not_read_back, rate_not_in_transcript, out_of_band (outside priceBands[city][material]), lump_sum_mismatch,
        outlier (|total − median| / median > 0.15, needs 3+ quotes)
+       (a stated all-in figure covers GST, delivery and unloading, so it clears gst_unclear, delivery_unknown and unloading_unknown)
 
 comparable (may win) = no missing_item, no partial_stock, no stock_unknown, no tier_mismatch, no no_bill,
-                       no brand_unknown, no weight_unknown, no delivery_unknown, no gst_unclear, no outlier,
-                       no unit_mismatch, no rate_not_in_transcript
+                       no brand_unknown, no weight_unknown, no delivery_unknown, no unloading_unknown (R6),
+                       no gst_unclear, no outlier, no unit_mismatch, no rate_not_in_transcript, no lump_sum_mismatch
 citable (may be cited) = comparable AND readBackConfirmed AND confidence ≥ 0.8 AND flags = []
-                         AND PRICE_BANDS updated within 14 days
+                         AND the city's priceBands row updated within 14 days
                          (sim: the band check uses the persona's own band, always fresh; seed:reset and
                           admin.resetDemo write updatedAt = now, so the demo never goes stale)
 rank: comparable quotes, same tier, by total ascending
-winner: among comparable quotes within 0.5% of the cheapest, the most creditDays, then earlier delivery, then lower total
+winner: among comparable quotes within 0.5% of the cheapest, the most creditDays, then earlier deliveryBy, then lower total
 savings: vs the regular dealer's first rate ("आपके dealer के पहले रेट से"): firstTotal from his match call, or his
-         quote-round total when askFirst (only if that quote is comparable); else vs the median of
-         comparable quotes ("बीच वाले रेट से"); never vs the maximum; also report the regular dealer's own drop
+         quote-round total when askFirst (only if that quote is comparable); else vs the median of the comparable
+         QUOTE-ROUND totals ("बीच वाले रेट से"; even count → the lower of the two middle values, R5); never vs the
+         maximum; with fewer than 2 comparable quotes and no regular-dealer rate, no saving is shown ("सिर्फ 1 रेट मिला");
+         also report the regular dealer's own drop
 ```
-`GST_RATE = { tmt_steel: 0.18, cement: 0.18 }` (cement fell from 28% to 18% on 22 Sep 2025). `PRICE_BANDS` and `BRAND_TIERS` live in `lib/config.ts` per city, each with an `updatedAt` date.
+`GST_RATE = { tmt_steel: 0.18, cement: 0.18 }` (cement fell from 28% to 18% on 22 Sep 2025). `BRAND_TIERS`, `CITY_AREAS` and the price-band seeds live in `lib/config.ts` per city; the live bands are the Convex `priceBands` table (dated, editable in `/app/admin`, R13).
 
 ### Golden tests (order: 2 ton TMT 12 mm local ISI + 150 bags PPC, any brand)
 Unless a row says otherwise, every quote has a named brand, tier offered local ISI (steel) / any (cement), inStock yes for both items, and confidence 0.9.
@@ -535,13 +597,20 @@ Unless a row says otherwise, every quote has a named brand, tier offered local I
 | Median fallback | no regular dealer | | median of A, B, D = 2,00,750; A saves ₹140 vs median |
 | Tie flips | E 2,00,000 credit 0 · F 2,00,800 credit 15 (both comparable) | | F wins; table order stays E, F |
 | Haggle inherit | A's haggle: steel ₹56.50/kg and unloading ₹0 said; everything else inherited from A's quote | | total **1,98,830** · comparable, citable |
+| Haggle per item | B's haggle: steel ₹66,700/ton and cement ₹430/bag said; the rest inherited | | total **1,99,400** · totalSource computed |
+| Haggle all-in only | B's haggle said only as "सब मिलाके एक लाख निन्यानवे हज़ार चार सौ", read back | | total **1,99,400** · totalSource stated · comparable, citable; its lines are not cited |
+| All-in agrees | A's quote plus "सब मिलाके दो लाख" said (0.30% from 2,00,610) | | total **2,00,610** (computed) · no flag |
+| All-in disagrees | A's quote plus "सब मिलाके दो लाख पाँच हज़ार" said (2.19% off) | | flag lump_sum_mismatch · **not comparable** |
+| Unloading unknown | A with unloading not said | | total 2,00,010 · flag unloading_unknown · **not comparable** (R6) |
+| Median, even count | comparable quote-round totals A 2,00,610 and B 2,00,750; winner A's haggle 1,98,830; no regular dealer | | median = **2,00,610** (lower middle) · saving **₹1,780** "बीच वाले रेट से" (TEAM_TEST Run 1) |
+| Rounding | ₹57.35/kg × 2,000 kg + 150 × ₹371.15/bag, GST extra, delivery ₹0, unloading ₹0 | | subtotal 1,70,372.50 · GST per line to the paisa (20,646.00 + 10,021.05) · total ₹2,01,039.55 → **₹2,01,040** |
 | Not citable | A without the dealer's "हाँ" after the read-back | | comparable, **not citable** (not_read_back) |
 | Kachcha | A with billType kachcha | | flag no_bill, not comparable |
 
 These numbers are test fixtures, not market prices.
 
 ## 10. Simulator personas (`convex/sim/personas.ts`)
-All demo dealers are fictional, shown with a DEMO badge, and use made-up prices (base × seeded jitter).
+All demo dealers are fictional, shown with a DEMO badge, and use made-up prices (base × seeded jitter). **For the demo order** (the TEAM_TEST line), Agarwal (`perkg_gst_extra`), Om Sai (`perton_gst_incl`), Rathore (`whatsapp_dodger`) and Shree Balaji (`regular_match`) use exactly the TEAM_TEST Card A–D numbers, with no jitter, including their haggle and match drops. The demo contractor's dealer book (`saved`) is Agarwal, Om Sai, Rathore and Gupta (`no_answer`), with Shree Balaji as the regular dealer, so the default Choose screen gives 4 calls (2 comparable stamps, 1 "जाँच बाकी", 1 no answer) plus the held match call. The other personas are seeded but off by default.
 
 | Key | Behaviour |
 |---|---|
@@ -556,13 +625,13 @@ All demo dealers are fictional, shown with a DEMO badge, and use made-up prices 
 | `reprice_at_confirm` | Changes the rate in the confirm call (terms_changed). |
 
 ## 11. Live-call guards and compliance (`internal.calls.claimDial`)
-A live dial happens only if **all** pass, checked atomically in one mutation:
+A live dial happens only if **all** pass, checked atomically in one mutation. Every failure is a **refusal** (no dial, a reason code), except a full live slot in guard 6, which is a **wait** (R2):
 1. `LIVE_CALLS_ENABLED === "true"`.
 2. The contractor is `verified`; per-contractor daily cap not exceeded.
 3. Consent is `test_ok` or `opted_in`, and not `opted_out`.
-4. AI calls to this dealer's `phoneHash` today come from at most 2 orders across all contractors (a quote or match call opens a slot; that order's haggle and confirm calls ride on it), and never more than 4 calls in total (`callLog`). Trial mode (B9): `TEST_DAILY_CALLS` (default 10) for `test_ok` dealers listed in `TEST_PHONE_HASHES`.
+4. Dealer limits (S2, R3), counted from `callLog` rows for this `phoneHash` since midnight IST: AI calls come from at most **2 distinct orders** across all contractors (a quote or match call opens an order's slot; that order's haggle and confirm calls ride on it), and at most **4 AI calls per order** to this number (one opening call, one retry if it didn't connect, one haggle, one confirm). `claimDial` writes the `callLog` row (with `orderId` and `callId`) when it reserves the dial. Trial mode (B9): instead, `TEST_DAILY_CALLS` (default 10) per day for `test_ok` dealers listed in `TEST_PHONE_HASHES`.
 5. The current time in `Asia/Kolkata` is within `CALL_HOURS_START`–`CALL_HOURS_END` (default 10–19), and not Sunday unless `ALLOW_SUNDAY`. Skipped in trial mode for listed `test_ok` dealers (teammates).
-6. Under `MAX_LIVE_SWEEPS_PER_HOUR` and `MAX_LIVE_CALLS_PER_ORDER` (12), and a concurrency slot is free (reserved here).
+6. Under `MAX_LIVE_CALLS_PER_ORDER` (12, refuse), and a live slot is free: fewer than `LIVE_CONCURRENCY` live calls in `dialing`, `ringing`, `in_progress` or `disconnected` (`calls.by_mode_status`, counted in this transaction). A full slot returns **wait** (R2). `MAX_LIVE_SWEEPS_PER_HOUR` is checked in `orders.startSweep`, not per dial.
 7. `BOLNA_FROM_NUMBER` is set (a number registered to our business, from Bolna or our own Plivo/Exotel account, declared for A2P use under TRAI's 2026 rules). In trial mode (`BOLNA_TRIAL=true`) Bolna's trial caller ID is accepted, but only `test_ok` dealers whose phone hash is in `TEST_PHONE_HASHES` can be dialled; `opted_in` dealers always need trial mode off and a registered number.
 8. `GEMINI_API_KEY_BILLED` is set (real transcripts never go to the free tier).
 9. The number matches `^\+91[6-9]\d{9}$` and the dealer is not `isDemo` (B10).
@@ -596,7 +665,8 @@ Store `costUsdCents` per call and show live cost to admins in the presenter.
 - **Manual:** a ₹12k Android outdoors at noon each week; Safari on iPhone for the recorder and recording seek.
 
 ## 15. Deployment
+- Claude Code runs the deploys and env changes through the Convex and Vercel CLIs (R12), after the human has signed in once (device flows). Production env changes for live calls (`LIVE_CALLS_ENABLED`, `BOLNA_TRIAL`, `A2P_DECLARED`, `LIVE_STAGE`) need the human's explicit go-ahead each time.
 - Convex: `dev`, `prod` and a separate **`demo`** deployment for judges.
-- Vercel: production plus previews. The voice route is pinned to `bom1`.
+- Vercel: production plus previews. The voice route is pinned to `bom1`. If the Convex plan has no preview deploy keys, previews are turned off and phones test through the `cloudflared` tunnel instead.
 - Bolna: agents' webhook URL points at the matching Convex site, with a header secret.
 - Live calls stay off in production until §11 can pass for real.

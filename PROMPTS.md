@@ -1,51 +1,55 @@
 # Molbhav: Claude Code prompts, in order
 
 ## How to use this file
-1. **New conversation per phase.** In VS Code, ⌘⇧Esc opens a fresh conversation tab. CLAUDE.md loads automatically, so context carries through the docs, not the chat.
-2. **Plan first.** The mode indicator under the prompt box must say **Plan** (set it as the default in A3, or type `/plan`). Paste the prompt, read the plan, correct anything off, then click **Yes, manually approve edits**. In Phases 1C, 8B and 9 always use Manual, so you approve every deploy, `convex env set --prod` and Bolna call.
+**Working model (DECISIONS R12): Claude Code does the work.** It runs the installs, CLI sign-ins (you approve a device code in the browser), env vars, deploys and the Bolna agent setup. You provide accounts, keys, phones, money, legal and field work, and the design-taste reviews. Claude still never places a live call itself, never bypasses a guard, and asks before anything that spends money or is legally binding.
+
+1. **One phase at a time:** type `/phase <id>` (for example `/phase 1A`). A new conversation per phase (⌘⇧Esc) keeps context small; CLAUDE.md loads automatically, so context carries through the docs, not the chat.
+2. **Plan, then build.** Claude posts a short plan, then builds. It stops to ask only when the plan needs something only you can give: an account, a key, a phone, money, a legal step or a design call.
 3. **Check, then tag.**
-   - Run the panel review (bottom of this file) **before** you check "Done when" yourself.
-   - Then commit, push and tag: `git tag phase-1A && git push --tags`.
-   - The full five-reviewer panel runs after 1A, 2B, 5, 6B and 8B. After the other phases, run the light version (reviewers 4 and 5 only). This saves Claude usage.
-4. **No dates.** Work steadily, one phase at a time. Your own tasks (accounts, field work, keys to set) are in `START_HERE.md` Part C.
+   - Run the panel review (`/review`, bottom of this file) **before** checking "Done when".
+   - Then Claude commits, pushes and tags: `git tag phase-1A && git push --tags`.
+   - The full five-reviewer panel runs after 1A, 3, 2B, 5, 6B and 8B. After the other phases, run the light version (reviewers 4 and 5 only). This saves Claude usage.
+4. **No dates.** Work steadily, one phase at a time. What you provide, per phase, is in `START_HERE.md` Part C.
 
 **Two milestones, one codebase (G8).**
 - **Milestone 1 (hackathon)** ends with real AI calls proven on teammates' verified phones (`docs/TEAM_TEST.md`).
 - **Milestone 2 (real dealers)** adds Phase 10 and changes settings, numbers and consent. Nothing is rebuilt.
 
-Run the phases in this order:
+Run the phases in this order (DECISIONS R11: the negotiation agent first; phase ids are unchanged):
 
 | Order | Phase | What | Milestone | Gate |
 |---|---|---|---|---|
-| 1 | 0 | Read-through (no code) | 1 | Doc issues fixed |
-| 2 | 1A | Scaffold, Convex, auth, schema, access rules, CI | 1 | Access tests and CI green |
-| 3 | 1B | Tokens, fonts, wordmark, i18n, styleguide | 1 | Styleguide right at 360 and 1440 px, fonts ≤ 250 KB |
-| 4 | 1C | Landing page, waitlist, dealer opt-in, privacy, deploy | 1 | Live URL collecting sign-ups |
-| 5 | 2A | The 20-second "money shot" | 1 | **Your design review on a cheap Android at noon and on a 1440 px screen** |
+| 1 | 0 | Read-through and doc fixes (no code) | 1 | Done (DECISIONS §R) |
+| 2 | 1A | Scaffold, Convex, auth, schema, access rules, CI, deploy pipeline | 1 | Access tests and CI green; the skeleton deploys |
+| 3 | 3 | **The negotiation brain:** pricing, haggle, numbers, commands, personas, seed | 1 | Golden tests pass |
+| 4 | 1B | Tokens, fonts, wordmark, i18n, styleguide | 1 | Styleguide right at 360 and 1440 px, fonts within budget |
+| 5 | 2A | The 20-second "money shot" | 1 | **Your design review on a cheap Android at noon and on a 1440 px screen** (Claude continues with non-UI work meanwhile) |
 | 6 | 2B | Component library and Munshi desk shell | 1 | Styleguide matches `design/reference` |
-| 7 | 3 | Pricing, haggle, numbers, commands, seed | 1 | Golden tests pass |
-| 8 | 4 | Voice order (mic → Confirm) | 1 | Demo line works on your phone over HTTPS in about 2.5 s |
-| 9 | 5 | Dealer pick and sim sweep | 1 | 5 dealers stamp correct totals |
-| 10 | 6A | Haggle, match call, result | 1 | Result screen correct for every persona |
-| 11 | 6B | Place, confirm, share | 1 | Full sim flow plus Playwright |
-| 12 | 8A | Live-call guards and admin (no Bolna API yet) | 1 | Guard tests pass |
-| 13 | 8B | Bolna dial, webhooks, report_quote | 1 | One AI sweep to teammates' verified phones |
-| 14 | 8C | Recordings and retention | 1 | Recording plays with seeking; crons verified |
-| 15 | **Team test** | `docs/TEAM_TEST.md` Runs 1–6 (you and your teammates, no prompt) | 1 | Every check passes; the run log and clips are saved |
+| 7 | 4 | Voice order (mic → Confirm) | 1 | Demo line works on your phone over HTTPS in about 2.5 s |
+| 8 | 5 | Dealer pick and sim sweep | 1 | The demo order: 4 calls (2 stamps, 1 "जाँच बाकी", 1 no answer) and the held match |
+| 9 | 6A | Haggle, match call, result | 1 | Result screen correct for every persona |
+| 10 | 6B | Place, confirm, share | 1 | Full sim flow plus Playwright |
+| 11 | 8A | Live-call guards and admin (no Bolna API yet) | 1 | Guard tests pass |
+| 12 | 8B | Bolna dial, webhooks, report_quote, agent sync | 1 | One AI sweep to teammates' verified phones |
+| 13 | 8C | Recordings and retention | 1 | Recording plays with seeking; crons verified |
+| 14 | **Team test** | `docs/TEAM_TEST.md` Runs 1–6 (you and your teammates on the phones; Claude sets up and watches the logs) | 1 | Every check passes; the run log and clips are saved |
+| 15 | 1C | Landing page, waitlist, dealer opt-in, privacy | 1 | Live URL collecting sign-ups |
 | 16 | 7 | Presenter, landing hero board, sandbox | 1 (`/try` optional) | Judge demo runs in `/present` |
 | 17 | 9 | Hardening, demo deployment, rehearsal | 1 | Drills pass, RUNBOOK written |
 | 18 | 10 | Go-live for real dealers | **2** | First live sweep to an opted-in dealer from your own number |
 
-Phases 8A–8C come before 7 on purpose: live calls are what Milestone 1 must prove.
+Phase 3 comes right after 1A because it is the negotiation itself (pure, tested logic). Phases 8A–8C come before 1C and 7 on purpose: live calls are what Milestone 1 must prove. 8A has no UI dependency and can be pulled forward any time after 3.
 
-**Hackathon minimum, if time runs short:** 1A → 1B → 2A → 3 → 4 → 5 → 6A → 6B → 8A → 8B → Team test (Runs 1–2) → Phase 7 item 3 (`/present`) → Phase 9 items 1–2 (demo deployment, drills).
-- **Skip:** 1C's landing, waitlist and /dealer (but keep its deploy step, `START_HERE.md` C4), 2B's desk layout, 8C and `/try`.
+**Hackathon minimum, if time runs short:** 1A → 3 → 1B → 2A → 4 → 5 → 6A → 6B → 8A → 8B → Team test (Runs 1–2) → Phase 7 item 3 (`/present`) → Phase 9 items 1–2 (demo deployment, drills).
+- **Skip:** 1C, 2B's desk layout, 8C and `/try`.
 - **Without 8C,** download the clips from the Bolna dashboard within 24 hours and skip the recording-seek check.
 - **Live calls to teammates stay in,** because they're the proof.
 
 ---
 
 ## Phase 0: Read-through (no code)
+
+**Done on 15 Nov 2026.** Its findings and fixes are DECISIONS.md §R. Re-run it only after large doc changes.
 
 Do `START_HERE.md` Part A (A1–A5) first. Then paste:
 
@@ -64,7 +68,7 @@ Fix any doc issues it finds, or ask it to edit the docs, before moving on.
 ## Phase 1A: Scaffold, Convex, auth, schema and access rules
 
 ```
-Phase 1A of Molbhav. Read CLAUDE.md; docs/DECISIONS.md §A and F1, F2, F6, F10, B1, B10, S3, S4; docs/ARCHITECTURE.md §1, §3, §4, §5, §12.
+Phase 1A of Molbhav. Read CLAUDE.md; docs/DECISIONS.md §A, §R and F1, F2, F6, F10, B1, B10, S3, S4; docs/ARCHITECTURE.md §1, §3, §4, §5, §12, §15.
 
 Build:
 1. Scaffold (F10): this is a Mac (zsh, Apple Silicon). Run `pnpm create next-app@latest` (TypeScript, App Router, Tailwind v4, ESLint, pnpm, no src dir, alias @/*) in a TEMP folder outside this repo, then merge it in without touching docs/, design/, CLAUDE.md, PROMPTS.md, START_HERE.md, README.md, .env.example or .mcp.json, and merge .gitignore rather than replacing it.
@@ -78,7 +82,7 @@ Build:
    - proxy.ts wraps Convex Auth's Next.js middleware (it handles /api/auth; check the current @convex-dev/auth docs for Next 16's proxy). It also sets the `lang` cookie and sends `/` to `/app` only when a session cookie exists.
    - app/manifest.ts with start_url and scope /app.
    - Placeholder pages for /, /dealer and /privacy in (marketing); /app, /try, /present and /styleguide live in (product).
-3. Convex: I will run `npx convex dev` myself in another terminal; tell me when. Install @convex-dev/auth (Anonymous provider; I will run `npx @convex-dev/auth` when you ask), @convex-dev/workpool and @convex-dev/rate-limiter. Write convex/schema.ts exactly as ARCHITECTURE.md §4 (tell me about any change and why).
+3. Convex (R12): sign in with `npx convex login` (show me the device code and URL to approve), create the project "molbhav" and its dev deployment without prompts (check `npx convex dev --help` for the non-interactive flags), and push with `npx convex dev --once`. Install @convex-dev/auth (Anonymous provider; run `npx @convex-dev/auth` yourself), @convex-dev/workpool and @convex-dev/rate-limiter. Write convex/schema.ts exactly as ARCHITECTURE.md §4, including the §R changes (tell me about any further change and why).
 4. Security baseline (B1, B10):
    - convex/lib/access.ts with requireContractor(ctx), requireOwner(ctx, doc) and requireAdmin(ctx) (against ADMIN_USER_IDS).
    - A rule that every public query and mutation uses them.
@@ -86,9 +90,11 @@ Build:
    - Dealer phone numbers are never returned.
    - lib/server/hash.ts: HMAC-SHA256 with HASH_SECRET for IPs and phones, behind `import "server-only"` (and the same helper in Convex).
    - convex-test tests proving that user B cannot read or change user A's order, calls or quotes; that no public function returns phoneE164; and that non-admins can't call admin functions.
-5. CI (GitHub Actions): commit convex/_generated so CI can typecheck without a deployment. Run typecheck, lint and test. Locally, run `npx convex dev --once` before the first typecheck (F10).
+5. CI (GitHub Actions): commit convex/_generated so CI can typecheck without a deployment or a deploy key. Run typecheck, lint and test. Locally, run `npx convex dev --once` after schema or function changes and before a typecheck (F10).
+6. Deploy pipeline (ARCHITECTURE §15, R12), once I have a Vercel account: sign in with the Vercel CLI (device code for me), create and link the project on my personal account, set the build command `npx convex deploy --cmd 'pnpm build'`, create the Convex production deployment and its deploy key (CLI if it can; otherwise tell me exactly which dashboard button to press and where to paste), set CONVEX_DEPLOY_KEY for Production, run `npx @convex-dev/auth --prod` and set SITE_URL, then deploy the skeleton. If the Convex plan has no preview deploy keys, turn Vercel previews off. If I don't have a Vercel account yet, skip this item and say so.
+7. Check the versions you installed against the docs' claims: print `next`, `convex`, `@convex-dev/auth` versions, run `pnpm audit`, and stop and ask on any mismatch with F6 (M15).
 
-Done when: typecheck, lint and test pass locally and in CI; the access tests pass; /app creates an anonymous session (visible in the Convex dashboard under Data → users). Commit.
+Done when: typecheck, lint and test pass locally and in CI; the access tests pass; /app creates an anonymous session (visible in the Convex dashboard under Data → users, or via `npx convex data users`); the skeleton is live on Vercel (or item 6 is reported as waiting on the account). Commit.
 ```
 
 ---
@@ -108,7 +114,7 @@ Build:
    - Mukta 400 and 600;
    - Plex Mono 500 and 600, Latin + ₹.
 
-   Also copy static TTFs to assets/og/ for share images. Load the fonts with next/font/local and preload only Mukta 400 and the width-125 digits file. Print every file's size; the total on /app must be ≤ 250 KB. Commit the generated files.
+   Also copy static TTFs to assets/og/ for share images. Load the fonts with next/font/local and preload only Mukta 400 and the width-125 digits file. Use the subset ranges in DESIGN.md §6. Print every file's size; the fonts requested on the first render of /app must total ≤ 250 KB (measure it; drop Plex Mono 600 first if over, R13). Commit the generated files.
 3. Wordmark as an inline SVG component (ink letters, 0.08em haldi painted shadow), per DESIGN.md §4.
 4. i18n (F8): lib/i18n/{hi,en}.ts with every key from DESIGN.md §14. getDict(lang) on the server, useT() on the client, `<html lang>` set on the server from the `lang` cookie. Hindi is the default.
 5. lib/numbers.ts: formatINR (Intl en-IN, ₹, Indian grouping, no decimals for whole rupees), with tests.
@@ -121,8 +127,14 @@ Done when: /styleguide renders correctly at 360 px and 1440 px in both languages
 
 ## Phase 1C: Landing page, waitlist and dealer opt-in (deploy it)
 
+Runs after the Team test (DECISIONS R11). The phase id is kept so references still work.
+
+**Before this phase (you):**
+- The team WhatsApp Business number (for `NEXT_PUBLIC_WHATSAPP_NUMBER`).
+- Line up a lawyer to read `/privacy` and the consent text before the landing link is shared publicly.
+
 ```
-Phase 1C of Molbhav. Read docs/DECISIONS.md G1, G2, G5, G6, S2, S4, B10; docs/DESIGN.md §14, §16, §21; docs/ARCHITECTURE.md §6.13; and design/reference/Landing.html and LandingPhone.html.
+Phase 1C of Molbhav. Read docs/DECISIONS.md G1, G2, G5, G6, S2, S4, B10, R11, R12; docs/DESIGN.md §14, §16, §21; docs/ARCHITECTURE.md §6.13; and design/reference/Landing.html and LandingPhone.html.
 
 Build (server components only, no Convex client on these pages):
 1. Landing `/` in the G1 order:
@@ -135,7 +147,8 @@ Build (server components only, no Convex client on these pages):
    Copy rules:
    - The hero copy is exactly per G2, including the pilot line "जयपुर पायलट: हमारी टीम आपके लिए dealers को कॉल करती है". Never claim live AI calls.
    - Do NOT render the proof band or the sandbox section yet. They appear only when real figures or /try exist.
-   - Until Phase 6B the header button and every CTA open WhatsApp click-to-chat (NEXT_PUBLIC_WHATSAPP_NUMBER), not /app.
+   - The header button and CTAs open /app (complete in sim by now), with WhatsApp click-to-chat (NEXT_PUBLIC_WHATSAPP_NUMBER) beside them.
+   - "How it works" describes what the team does in the pilot; AI calling is shown as "जल्द" until Stage 2 (DESIGN §21).
 
    For now the hero visual is a static composition of tokens and a DEMO-watermarked parchi; Phase 7 replaces it with the live fixture board. Match the reference at 360 px and 1440 px.
 2. Waitlist (G5):
@@ -145,14 +158,10 @@ Build (server components only, no Convex client on these pages):
    - Explains what Molbhav is: calls are AI and recorded, AI calls for at most 2 orders a day, and "आगे कॉल मत करना" stops them at once.
    - Form: shop name, area, materials, WhatsApp number, consent to AI quote calls. It writes waitlist role "dealer" with consentAiCalls.
    - It does NOT make the number callable (S2).
-4. Analytics (G6): the /api/e route plus events.track (server secret, allow-listed names only, no personal data). Fire waitlist_submit and dealer_optin now.
+4. Analytics (G6): the /api/e route plus events.track (server secret, allow-listed names only, no personal data), if 6B hasn't built them already. Fire waitlist_submit and dealer_optin now.
 5. Privacy page /privacy (plain Hindi + English): what we store, where (Convex in AWS US East; Vercel; Sarvam, Gemini and Bolna as processors), for how long, recordings, erasure on request.
 6. SEO: metadata and a static OG image for `/`. robots allows `/`, `/dealer` and `/privacy`, and disallows /app, /try, /p, /present and /styleguide.
-7. Deploy: give me step-by-step instructions (I will click and run them; you don't run deploy commands):
-   - the Vercel import and build command `npx convex deploy --cmd 'pnpm build'`;
-   - CONVEX_DEPLOY_KEY for Production and Preview;
-   - every env var for Vercel and for `npx convex env set --prod`;
-   - Convex Auth setup for the production deployment.
+7. Deploy (R12): the pipeline exists since Phase 1A. Generate CONVEX_SERVER_SECRET and HASH_SECRET if they don't exist yet (`openssl rand -hex 32`, the same value everywhere), set every env var this phase needs on Vercel and with `npx convex env set --prod` yourself, deploy, and check the production URL. Show me the list of what you set (names only, never values).
 
 Done when: the production URL loads fast on a phone (Lighthouse mobile performance ≥ 90 on `/`), a waitlist entry and a dealer opt-in appear in the Convex production dashboard, both languages work, and nothing on the page claims AI calls are live or shows unproven numbers.
 ```
@@ -221,26 +230,31 @@ Done when: /styleguide shows every component and state in both languages; the sh
 
 ---
 
-## Phase 3: Pricing, haggle, numbers, commands and seed
+## Phase 3: Pricing, haggle, numbers, commands and seed (the negotiation brain)
+
+Runs right after 1A (DECISIONS R11). Nothing to provide: it needs no keys.
 
 ```
-Phase 3 of Molbhav. Read docs/ARCHITECTURE.md §9, §10; docs/PRODUCT.md §9; DECISIONS.md P1–P4, P7, C3, C4, B10.
+Phase 3 of Molbhav. Read docs/ARCHITECTURE.md §6.6, §9, §10; docs/PRODUCT.md §9; DECISIONS.md P1–P4, P7, C3, C4, B10 and §R (R1, R3, R5, R6, R7, R10, R13).
 
 Build pure TypeScript in lib/ (no Convex imports), with tests next to each file:
 1. lib/config.ts, all clearly marked as fixture data:
    - GST_RATE;
    - call hours and limits;
-   - PRICE_BANDS per city and material, with an updatedAt date;
-   - BRAND_TIERS per city (steel: branded/local_isi; cement: branded/any).
+   - price-band seeds per city and material (steel per kg, cement per bag), with an updatedAt date; the live bands are the Convex priceBands table (R13);
+   - BRAND_TIERS per city (steel: branded/local_isi; cement: branded/any);
+   - CITY_AREAS per city (Jaipur: Mansarovar, Jagatpura, Vaishali Nagar, Malviya Nagar, Sanganer, Sitapura, Tonk Road, Ajmer Road, Jhotwara, Vidhyadhar Nagar, Raja Park, C-Scheme, and more), each with hi and en names (R7);
+   - DELIVER_BY: the six deliverBy values with their hi/en phrases and an order for the tie-break.
 2. lib/pricing.ts, exactly per §9:
-   - money in integer paise, with unit normalisation;
+   - money in integer paise, with unit normalisation; GST rounded to the paisa per line; the total rounded to the rupee once (R5);
    - per-line gstMode;
-   - unknown delivery or unloading is flagged, never assumed free;
+   - the stated all-in rule and lump_sum_mismatch (R1), with totalSource;
+   - unknown delivery or unloading is flagged, never assumed free, and makes the quote not comparable (R6);
    - every flag, then comparable and citable;
-   - rank by total within the tier (table order); the winner is the most credit days among quotes within 0.5% of the cheapest, then earlier delivery, then lower total; lib/haggle's #1 and #2 follow the rank;
-   - savings vs the regular dealer's firstTotal, else vs the median, never vs the max.
+   - rank by total within the tier (table order); the winner is the most credit days among quotes within 0.5% of the cheapest, then earlier deliveryBy, then lower total; lib/haggle's #1 and #2 follow the rank;
+   - savings vs the regular dealer's firstTotal, else vs the median of comparable quote-round totals (lower middle for an even count), never vs the max; none with fewer than 2 comparable quotes and no regular-dealer rate.
 
-   lib/pricing.test.ts covers every golden case in §9 (A, B, C, D, rank, savings 3,690, median fallback 140, tie flips, not citable, kachcha) plus edge cases you think of.
+   lib/pricing.test.ts covers every golden case in §9 (A, B, C, D, rank, savings 3,690, median fallback 140, tie flips, haggle inherit, haggle per item, haggle all-in only, all-in agrees, all-in disagrees, unloading unknown, median even count 1,780, rounding 2,01,040, not citable, kachcha) plus edge cases you think of.
 3. lib/haggle.ts:
    - Input: the ranked quotes and the calls so far.
    - Output, in order: haggle #2 citing #1; then #1 citing #2's new total if it beat #1 (max 2 haggles); then the match call for the held regular dealer; then done.
@@ -253,16 +267,18 @@ Build pure TypeScript in lib/ (no Convex imports), with tests next to each file:
    - a parser that finds rates in dealer turns, as digits or words (for rate_not_in_transcript);
    - the order line spoken for call variables, built in code.
 5. lib/commands.ts (V4): a local grammar for voice commands (हाँ / शुरू कीजिए / confirm करो / <dealer> को confirm करो / रद्द / रुकिए). Any negation (मत, नहीं, रुकिए, बाद में) means no action. Tests include "अभी confirm मत करो" and "नहीं, रुकिए".
-6. convex/sim/personas.ts: the personas in §10. For the demo order, perkg_gst_extra (Agarwal), perton_gst_incl (Om Sai), whatsapp_dodger (Rathore) and regular_match (Shree Balaji) use exactly the numbers of docs/TEAM_TEST.md Cards A–D, including their haggle and match drops, so sim and live show the same totals (winner ₹1,98,830; regular dealer ₹2,04,300 → ₹2,00,100).
+6. convex/sim/personas.ts: the personas in §10. For the demo order, perkg_gst_extra (Agarwal), perton_gst_incl (Om Sai), whatsapp_dodger (Rathore) and regular_match (Shree Balaji) use exactly the numbers of docs/TEAM_TEST.md Cards A–D, including their haggle and match drops, so sim and live show the same totals (winner ₹1,98,830; regular dealer ₹2,04,300 → ₹2,00,100). Om Sai's haggle is said as one all-in figure in sim ("सब मिलाके एक लाख निन्यानवे हज़ार चार सौ"), so the stated-total path is exercised.
 7. convex/seed.ts (internal, CLI only):
    - demo contractor "Ramesh Yadav" (hi);
-   - sites Mansarovar (default) and Jagatpura;
+   - sites Mansarovar (default) and Jagatpura, from CITY_AREAS;
    - 9 fictional DEMO dealers across Jaipur, one per persona in §10, with isDemo true and invalid numbers +9100000000NN (Indian mobiles start with 6–9, so these can never ring anyone); a seed flag can force reprice_at_confirm on whichever dealer wins;
-   - Shree Balaji linked as the regular dealer.
+   - the dealer book: Agarwal, Om Sai, Rathore and Gupta (no_answer) as "saved", and Shree Balaji linked as the regular dealer (ARCHITECTURE §10);
+   - priceBands rows for Jaipur from the config seeds, with updatedAt = now.
 
    Also admin.resetDemo (requireAdmin; touches demo rows only).
+8. A golden-number test that runs the demo order end to end through lib/ only (quote round → lib/haggle plan → haggle quotes → match → rank → savings) and lands on: winner ₹1,98,830, "₹5,470 कम · आपके dealer के पहले रेट से", regular dealer ₹2,04,300 → ₹2,00,100 (₹4,200 drop, ₹1,270 more).
 
-Done when: all tests pass and `npx convex run seed:reset` populates the dev deployment.
+Done when: all tests pass and `npx convex run seed:reset` populates the dev deployment (Claude runs it).
 ```
 
 ---
@@ -270,12 +286,12 @@ Done when: all tests pass and `npx convex run seed:reset` populates the dev depl
 ## Phase 4: Voice order (mic to Confirm)
 
 **Before this phase (you):**
-- Put `SARVAM_API_KEY`, `SARVAM_STT_MODEL`, `SARVAM_TTS_MODEL`, `SARVAM_TTS_SPEAKER`, `GEMINI_MODEL`, `GEMINI_API_KEY` and `HASH_SECRET` in `.env.local`.
-- Put the billed Gemini key in Vercel Preview and Production.
-- Record `e2e/demo.wav`: you saying the demo line, 16 kHz mono.
+- Give Claude a Sarvam API key, a free Gemini API key (Google AI Studio) and a billed Gemini key (a Google Cloud project with billing, a budget alert and a daily quota). Claude puts them in `.env.local` and Vercel, picks the current model ids and a Hindi speaker from the vendors' docs, and generates `HASH_SECRET`.
+- Record the demo line in Voice Memos and drop it in `~/Downloads/demo.m4a`; Claude converts it to `e2e/demo.wav` (16 kHz mono).
+- Have a real phone ready for the HTTPS test (Claude starts the tunnel).
 
 ```
-Phase 4 of Molbhav. Read docs/DESIGN.md §12.1–§12.3, §13, §20; docs/ARCHITECTURE.md §6.1, §7 (Sarvam, Gemini), §8.1; DECISIONS.md V1–V5, V7, F3, F4, F9, S3, S4. Use the Sarvam speech-to-text skill and the sarvam-docs MCP server to confirm the current endpoint, headers, model ids and limits before writing the integration.
+Phase 4 of Molbhav. Read docs/DESIGN.md §12.1–§12.3, §13, §20; docs/ARCHITECTURE.md §6.1, §7 (Sarvam, Gemini), §8.1; DECISIONS.md V1–V5, V7, F3, F4, F9, S3, S4, R7, R8, R10. Use the Sarvam speech-to-text skill and the sarvam-docs MCP server to confirm the current endpoint, headers, model ids and limits before writing the integration.
 
 Build:
 1. The real recorder (lib/client/recorder.ts):
@@ -296,7 +312,9 @@ Build:
 
    Key choice: in production use GEMINI_API_KEY_BILLED only; in development fall back to the free GEMINI_API_KEY (team test speech only). Audio is never stored. Log the timing of each step.
 4. Onboarding (§12.1, max 3 steps, with a consent notice), Home (§12.2) and Confirm (§12.3):
-   - editable chips and TierChips (remembered per contractor);
+   - the site area picked from CITY_AREAS (speech matched in code, confirmed with a chip; R7);
+   - editable chips and TierChips (remembered per contractor): steel asked if unspoken, cement pre-selected (R8), "दोनों" asks which tier (R10);
+   - the delivery time as a deliverBy chip (R7);
    - missing fields asked one at a time with 2–4 chips;
    - suta always asked with mm chips (P7);
    - a typed fallback that skips STT.
@@ -314,19 +332,19 @@ Done when: on my phone over HTTPS (a tunnel or Vercel preview, never a LAN IP), 
 
 ## Phase 5: Dealer pick and the sim sweep
 
-**Before this phase (you):** set the dev Convex env: `npx convex env set GEMINI_API_KEY …`, plus `GEMINI_MODEL`, `SIM_PACE demo`, `SIM_EXTRACT groundtruth` and `HASH_SECRET` (the same value as `.env.local`).
+**Before this phase:** nothing from you. Claude sets the dev Convex env itself: `GEMINI_API_KEY`, `GEMINI_MODEL`, `SIM_PACE=demo`, `SIM_EXTRACT=groundtruth` and `HASH_SECRET` (the same value as `.env.local`).
 
 ```
-Phase 5 of Molbhav. Read docs/ARCHITECTURE.md §6.2, §6.4, §6.5, §8.2, §9, §10; docs/DESIGN.md §12.4, §12.5, §19; DECISIONS.md P1, P4, B4, B5, D5, D7, C4, S5.
+Phase 5 of Molbhav. Read docs/ARCHITECTURE.md §6.2, §6.3, §6.4, §6.5, §8.2, §9, §10; docs/DESIGN.md §12.4, §12.5, §19; DECISIONS.md P1, P4, B4, B5, D5, D7, C4, S5, R1, R2, R4.
 
 Build:
 1. Choose dealers (§12.4):
-   - dealers in the site's city, with 4–6 on by default;
+   - dealers in the site's city, same area first; the contractor's dealer book ("saved") on by default, 4–6 (R13);
    - the regular dealer pinned as "आख़िर में match का मौका", with the toggle "पहले भी पूछिए" (askFirst);
    - the footer disclosure line.
 2. orders.startSweep (sim): checks ownership and that every item has a quantity, unit and tier; increments roundSeq; creates calls (not for the held regular dealer unless askFirst).
 3. convex/pools.ts with three workpools:
-   - dial: parallelism = LIVE_CONCURRENCY (2 on the Bolna trial, 10 on paid plans), 0 retries;
+   - dial: parallelism 1, 0 retries (claimDial's live-slot count is what limits concurrent calls, R2);
    - llm: 4, with 3 retries and backoff;
    - media: 2, with 3 retries.
 
@@ -338,8 +356,8 @@ Build:
    - with SIM_EXTRACT=groundtruth, that job takes the persona's ground-truth quote instead of calling Gemini, but still runs every code check.
 5. Extraction (§6.5):
    - Gemini with the §8.2 schema, through extractCache;
-   - then the code checks: the disclosure ("AI" and "रिकॉर्ड") appears in the assistant turns before the dealer's first rate (S5); every rate found in a dealer turn; a dealer "हाँ" after the read-back sets readBackConfirmed;
-   - then lib/pricing.ts and orders.advance;
+   - then the code checks: the disclosure ("AI" and "रिकॉर्ड") appears in the assistant turns before the dealer's first rate (S5); every rate and any stated all-in figure found in a dealer turn; a dealer "हाँ" after the read-back sets readBackConfirmed;
+   - then lib/pricing.ts, calls.outcome (R4) and orders.advance;
    - if extraction fails after retries: "रेट समझ नहीं आया · रिकॉर्डिंग सुनिए".
 6. Per-call deadlines and a watchdog (B5). The round advances when 3 citable quotes are in or every call has finished. "सब कॉल रोकिए" stops everything and shows what we have.
 7. The sweep board (§12.5):
@@ -353,8 +371,8 @@ Build:
 8. evals/extract.golden.json with 10 transcripts (8 generated from personas, plus one per-quintal quote with GST unclear, and a dealer who corrects his own number), and `pnpm eval:extract` (always uses Gemini, i.e. SIM_EXTRACT=llm).
 
 Done when:
-- With SIM_PACE=demo, from Confirm, I watch 5 dealers ring, talk and stamp correct landed totals in about 1 minute (2–4 minutes realistic).
-- The no_answer, whatsapp_dodger, kachcha_lowball and callback personas behave correctly.
+- With SIM_PACE=demo, from Confirm, the demo order's default selection rings 4 dealers in about 1 minute (2–4 minutes realistic): Agarwal ₹2,00,610 and Om Sai ₹2,00,750 stamp, Rathore shows "जाँच बाकी", Gupta doesn't answer, and Shree Balaji is held for the match call.
+- With the other personas switched on, the cement_only, kachcha_lowball and callback_later personas behave correctly.
 - eval:extract ≥ 9/10.
 - A normal sim sweep makes zero LLM calls.
 ```
@@ -363,8 +381,10 @@ Done when:
 
 ## Phase 6A: Haggle, match call and result
 
+**Before this phase:** nothing from you. Claude sets `SARVAM_API_KEY`, `SARVAM_TTS_MODEL` and `SARVAM_TTS_SPEAKER` in the dev Convex env (for the spoken result).
+
 ```
-Phase 6A of Molbhav. Read docs/ARCHITECTURE.md §6.6, §6.8; docs/CALL_SCRIPT.md (Agents 2–3 and the dealer situations); docs/DESIGN.md §12.6, §12.7; DECISIONS.md P2, C3, D6, V7; design/reference/Result.html.
+Phase 6A of Molbhav. Read docs/ARCHITECTURE.md §6.6, §6.8, §9; docs/CALL_SCRIPT.md (Agents 2–3 and the dealer situations); docs/DESIGN.md §12.6, §12.7; DECISIONS.md P2, C3, D6, V7, R1, R5; design/reference/Result.html.
 
 Build:
 1. Haggle driven by lib/haggle.ts:
@@ -405,12 +425,11 @@ Build:
    - /p/[publicId]: noindex. It never shows the site, date, phone numbers, recordings or losing prices. It credits "रमेश जी ने ₹X बचाए", with a DEMO watermark when it comes from sim.
    - /p/[publicId]/opengraph-image with @vercel/og pinned to exactly 1.0.3, on Node, with the static TTFs. Check that Hindi conjuncts (e.g. "क्ष", "द्ध", "श्र") render correctly.
    - Prefetch the PNG when Result settles. Call navigator.share({ files }) inside the tap; fall back to a wa.me link.
-   - Fire parchi_share, parchi_open and parchi_cta.
-3. Switch the landing CTAs from WhatsApp to /app now that the flow is complete (G1).
+   - Fire parchi_share, parchi_open and parchi_cta (build the /api/e route and events.track here: server secret, allow-listed names only, no personal data; G6).
 
 Done when:
 - The full sim flow from mic to Placed works in hi and en in under 3 minutes at demo pace, on phone and desk.
-- The Playwright test passes: Pixel 7 profile, fake audio from e2e/demo.wav. Speak → 5 dealers → expected winner → place → the share link shows no site, date or phone.
+- The Playwright test passes: Pixel 7 profile, fake audio from e2e/demo.wav. Speak → the default demo dealers → expected winner (₹1,98,830) → place → the share link shows no site, date or phone.
 ```
 
 ---
@@ -418,8 +437,8 @@ Done when:
 ## Phase 7: Sandbox, landing hero board and presenter
 
 **Before this phase (you):**
-- Create the sandbox's billed Gemini key.
-- Set `ADMIN_USER_IDS` (`START_HERE.md` C2 shows how to find your user id).
+- Give Claude a billed Gemini key from a second Google Cloud project, for the sandbox (its own budget alert and quota).
+- Open `/app` on the presenter laptop once, so Claude can add that session's user id to `ADMIN_USER_IDS` (`START_HERE.md` C2).
 
 ```
 Phase 7 of Molbhav. Read docs/ARCHITECTURE.md §6.9, §6.12; docs/DESIGN.md §12.9, §21; DECISIONS.md G1–G3, G7, B8; docs/DEMO.md; design/reference/Present.html and Landing.html.
@@ -454,15 +473,16 @@ Done when: the docs/DEMO.md script runs start to finish in /present in under 3 m
 ## Phase 8A: Live-call guards and admin (no Bolna API calls yet)
 
 ```
-Phase 8A of Molbhav. Read docs/DECISIONS.md §A, B2, B9, B10, S1, S2, S5, C1; docs/ARCHITECTURE.md §5, §11; docs/CALL_SCRIPT.md (hard rules and welcomes).
+Phase 8A of Molbhav. Read docs/DECISIONS.md §A, B2, B9, B10, S1, S2, S5, C1, R2, R3, R4; docs/ARCHITECTURE.md §5, §6.2, §6.3, §11; docs/CALL_SCRIPT.md (hard rules and welcomes).
 
 Build (no network calls to Bolna in this phase):
 1. internal.calls.claimDial (B2):
-   - checks every guard in ARCHITECTURE.md §11 atomically, including trial mode (B9) and the number and demo checks (B10); guard 10 is built now and fails closed: opted_in dealers are refused unless A2P_DECLARED=true and LIVE_STAGE allows;
-   - reserves the concurrency slot and moves queued → dialing;
-   - each failure returns a reason code the UI can show in hi and en.
+   - checks every guard in ARCHITECTURE.md §11 atomically, including trial mode (B9), the number and demo checks (B10) and the per-order dealer limits from callLog (R3); guard 10 is built now and fails closed: opted_in dealers are refused unless A2P_DECLARED=true and LIVE_STAGE allows;
+   - returns ok, refuse (with a reason code the UI can show in hi and en) or wait (no free live slot, R2);
+   - on ok: writes the callLog row (orderId, callId) and moves queued → dialing in the same transaction;
+   - MAX_LIVE_SWEEPS_PER_HOUR is checked in orders.startSweep for live sweeps.
 
-   Unit-test every guard, both with trial mode on and off. settings.liveAvailable returns only a boolean and a reason code.
+   Unit-test every guard, both with trial mode on and off, plus: a full slot waits and the call dials once a slot frees; the queue deadline cancels with queue_timeout; a placed order's confirm call passes the dealer limits; two parallel claimDial calls for the last slot let exactly one through. settings.liveAvailable returns only a boolean and a reason code.
 2. Admin (S1, S2), using requireAdmin, with every change written to auditLog:
    - admin.verifyContractor, which locks name and phone at verification;
    - admin.addDealer (consent test_ok or opted_in; stores phoneE164 and the HMAC phoneHash; re-adding an opted_out number needs a fresh consent note and is logged);
@@ -480,10 +500,10 @@ Done when: all guard tests pass; with LIVE_CALLS_ENABLED=false nothing can reach
 
 ## Phase 8B: Bolna dial, webhooks and report_quote
 
-**Before this phase (you):** do `START_HERE.md` C5 steps 1–3 (trial mode is enough; no business number needed yet). Step 4 and `LIVE_CALLS_ENABLED=true` come after this phase writes `docs/BOLNA_SETUP.md`.
+**Before this phase (you):** a Bolna account on the trial (no business number needed; **don't buy a number**), its API key for Claude, and each teammate's phone verified in the Bolna dashboard. Claude does the rest of `START_HERE.md` C5 (admin entries, hashes, env vars, agents). `LIVE_CALLS_ENABLED=true` (dev only) comes after the agents are synced and you say go.
 
 ```
-Phase 8B of Molbhav. Read docs/DECISIONS.md B2, B3, B5, B7, C1–C8; docs/ARCHITECTURE.md §6.2, §6.3, §7 (Bolna), §11, §13; docs/CALL_SCRIPT.md fully. Use the installed Bolna skills and Bolna's docs (https://www.bolna.ai/docs/AGENTS.md) to confirm the request, webhook and custom-function shapes before coding.
+Phase 8B of Molbhav. Read docs/DECISIONS.md B2, B3, B5, B7, C1–C8, R1, R2, R4, R12; docs/ARCHITECTURE.md §6.2, §6.3, §7 (Bolna), §11, §13; docs/CALL_SCRIPT.md fully. Use the installed Bolna skills and Bolna's docs (https://www.bolna.ai/docs/AGENTS.md) to confirm the request, webhook, agent and custom-function shapes before coding.
 
 Build:
 1. convex/bolna.ts (internal):
@@ -494,15 +514,16 @@ Build:
 2. The webhook (B3):
    - POST /bolna/webhook checks the x-molbhav-secret header.
    - ingest dedupes on executionId + status, maps by providerExecutionId or recipient_data.molbhav_call_id, and returns 200 in under 1 s.
-   - process re-fetches, then applies the status only if its rank is higher. "completed" is the done signal.
+   - process re-fetches, then maps and applies the status per the ARCHITECTURE §6.3 table only if its rank is higher. "completed" is the done signal. Any final status kicks the waiting dial jobs (R2).
    - It stores the transcript, duration, costUsdCents (total_cost is US cents) and the termination reason, then enqueues the media and llm jobs.
-   - "rescheduled" creates a new attempt row (attempt + 1, queued); statusRank never decreases. Late webhooks after "ready" never change the ranking.
-   - One retry for callback_requested at the time the dealer gave, if within 30 minutes and the round is open (P8).
-3. POST /bolna/report-quote (C8): verify the secret, update calls.slots and calls.provisionalTotal, reply in under 100 ms. For the Match agent, reply with cite: true|false decided by lib/pricing.ts (his first rate vs the best citable total).
-4. `pnpm bolna:check`: verifies the key, prints the wallet and concurrency from GET /user/me, lists the four agents and their webhook URLs and headers.
-5. Write docs/BOLNA_SETUP.md: exact steps for me to create the four agents (Quote, Haggle, Match, Confirm) from CALL_SCRIPT.md in the Bolna dashboard, each with the webhook https://<deployment>.convex.site/bolna/webhook, the x-molbhav-secret header, and the report_quote function pointing at https://<deployment>.convex.site/bolna/report-quote. Then the env vars for the four agent ids.
+   - "rescheduled" should never arrive (Bolna-side retries are off): mark cancelled, stop it, alert. statusRank never decreases. Late webhooks after "ready" never change the ranking.
+   - Retries (no_answer after 3 minutes; callback_requested at the time the dealer gave, if within 30 minutes and the round is open, P8) are new call rows through claimDial, within the per-order limit (R3).
+3. POST /bolna/report-quote (C8): verify the secret, update calls.slots and calls.provisionalTotal, reply in under 100 ms. For the Match agent's "first" stage, compute his first total from the rates he said in lib/pricing.ts and reply cite: true|false (his first total vs the best citable total; false if it can't be computed, R1).
+4. `pnpm bolna:check`: verifies the key, prints the wallet and concurrency from GET /user/me, lists the four agents and their webhook URLs and headers. Read-only.
+5. `pnpm bolna:sync` (R12): bolna/agents/{quote,haggle,match,confirm}.json built from CALL_SCRIPT.md (welcomes, prompts, settings, report_quote pointing at https://<deployment>.convex.site/bolna/report-quote, the webhook https://<deployment>.convex.site/bolna/webhook with the x-molbhav-secret header, retries off, no other tools). It creates or updates the four agents through Bolna's agent API, prints their ids, and never dials. Then set the four agent-id env vars yourself. Also write docs/BOLNA_SETUP.md: what bolna:sync does, how to check the agents in the dashboard, and the manual fallback if the API refuses something.
+6. Set the dev Convex env yourself: BOLNA_API_KEY, BOLNA_WEBHOOK_SECRET (generate it), BOLNA_TRIAL=true, TEST_PHONE_HASHES (from the admin page), GEMINI_API_KEY_BILLED, REC_TOKEN_SECRET (generate it). Show me the names you set, never the values.
 
-Do not place any real call yourself. When the code is ready, tell me exactly how to run the first test sweep to two verified teammate phones, what to watch in the Convex logs, and how to roll back (LIVE_CALLS_ENABLED=false).
+Do not place any real call yourself. When the code is ready, ask me before setting LIVE_CALLS_ENABLED=true on dev, then tell me exactly how to start the first test sweep to two verified teammate phones from the app, watch the Convex logs while it runs, and know how to roll back (LIVE_CALLS_ENABLED=false).
 
 Done when:
 - A live sweep to 2 verified teammate phones completes (docs/TEAM_TEST.md Run 1), and webhooks update the board in real time.
@@ -542,10 +563,10 @@ Copy the transcripts of our live calls into evals/extract.golden.json after repl
 ```
 Phase 9 of Molbhav. Read docs/ARCHITECTURE.md §13–§15, docs/DEMO.md, DECISIONS.md G7, S4, B8.
 
-1. Write docs/DEPLOYMENTS.md with step-by-step instructions for me:
+1. Set up the deployments yourself (R12) and write docs/DEPLOYMENTS.md describing them:
    - Convex dev and prod.
-   - A separate demo setup: a second Convex project "molbhav-demo" plus a second Vercel project on the same repo with its own CONVEX_DEPLOY_KEY. Run the Convex Auth setup there, seed it, set ADMIN_USER_IDS and run admin.claimDemoContractor from the presenter laptop.
-   - Clones of the four Bolna agents pointing at the demo webhook, if the demo includes an AI call (each agent has one webhook).
+   - A separate demo setup: a second Convex project "molbhav-demo" plus a second Vercel project on the same repo with its own CONVEX_DEPLOY_KEY. Run the Convex Auth setup there, seed it, set ADMIN_USER_IDS and tell me when to run admin.claimDemoContractor from the presenter laptop.
+   - Clones of the four Bolna agents pointing at the demo webhook (`pnpm bolna:sync --target demo`), if the demo includes an AI call (each agent has one webhook).
 
    Live calls stay off in production until ARCHITECTURE.md §11 can pass for real. List every env var per deployment.
 2. Failure drills, each with a test or a written manual check:
@@ -620,7 +641,7 @@ Done when:
 ## Utility prompts (use anytime)
 
 **Panel review: run at the end of every phase, before your own check.**
-- After 1A, 2B, 5, 6B and 8B: the full panel.
+- After 1A, 3, 2B, 5, 6B and 8B: the full panel.
 - After the other phases: reviewers 4 and 5 only.
 ```
 Review this phase's work: `git diff <previous phase tag>..HEAD` (the first phase: everything). Use 5 subagents in parallel. Each is an independent expert who has not seen the others' notes:
