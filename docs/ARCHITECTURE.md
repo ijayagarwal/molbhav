@@ -219,7 +219,7 @@ export default defineSchema({
     transcript: v.string(),
     siteText: v.optional(v.string()),    // display only; never sent to agents (R7)
     items: v.array(orderItem),
-    deliverBy: v.optional(deliverBy),    // what agents hear (R7)
+    deliverBy: v.optional(deliverBy),    // what agents hear (R7); Confirm sets flexible when it wasn't said (R15)
     deliverByText: v.optional(v.string()), // display only
     creditDaysWanted: v.optional(v.number()),
     missing: v.array(v.string()),
@@ -323,7 +323,8 @@ export default defineSchema({
   }).index("by_target", ["target"]),
 
   callLog: defineTable({                 // kept 1 year: number hash, time, consent (no audio, no text)
-    phoneHash: v.string(), at: v.number(), consent: v.string(), round, outcome: v.string(),
+    phoneHash: v.string(), at: v.number(), consent: v.string(), round,
+    outcome: v.optional(v.string()),     // filled in when the call ends
     orderId: v.id("orders"), callId: v.id("calls"),   // written by claimDial at reservation (R3)
   }).index("by_phoneHash_at", ["phoneHash", "at"]),
 
@@ -361,8 +362,8 @@ export default defineSchema({
 1. `orders.startSweep({ orderId, mode })` checks ownership and confirmation (every item has quantity, unit and a single tier: branded, local_isi or any). In live mode it also checks `MAX_LIVE_SWEEPS_PER_HOUR` (R2). It increments `roundSeq` and creates `calls` rows (`round: "quote"`) for the selected dealers, **except the regular dealer unless `askFirst`**; he is held for the match call (P1).
 2. Sim: schedule `sim.runCall` per call with staggered starts.
 3. Live: enqueue a `dial` workpool job per call. Each job runs `internal.calls.claimDial(callId)` (§11), which checks every guard, reserves a live slot and moves `queued → dialing` atomically. Only then does it call Bolna `POST /call`. `claimDial` returns `ok`, `refuse` (reason code; the call is `cancelled` with that reason) or `wait` (no free slot, R2): on `wait` the call stays `queued` and the job is enqueued again when any live call reaches a final status (plus a 15 s backstop), until its 10-minute queue deadline, then it is `cancelled` with `queue_timeout`. The live slot count, not the pool's parallelism, limits concurrent calls (dial pool parallelism 1). An unknown dial outcome is **not retried**: check `GET /v2/agent/{id}/executions` first.
-4. Each call gets a **deadline** (`deadlineAt`), and a watchdog (`internal.bolna.watchdog`) runs at each deadline: queued 10 min; ringing 45 s; in progress = `call_terminate` + 30 s; disconnected 90 s. It polls Bolna, then stops the call (`POST /call/{id}/stop`) or marks it failed. Every live call therefore reaches a final status, which frees its slot.
-5. The round advances to haggle when **3 citable quotes are in** or **every call has finished**. Still-queued calls are stopped. Retries are new call rows (attempt + 1) through `claimDial`, within the per-order limit (R3): one live retry for `no_answer`, 3 minutes later, if the round is still open; or one for `callback_requested` at `callbackWhenText`, if that is within 30 minutes and the round is still open (P8). A call with a retry scheduled counts as unfinished, so the round waits for it (at most 30 minutes).
+4. Each call gets a **deadline** (`deadlineAt`), and a watchdog (`internal.bolna.watchdog`) runs at each deadline: queued 10 min; dialing 30 s (check `GET /v2/agent/{id}/executions` first, R15); ringing 45 s; in progress = `call_terminate` + 30 s; disconnected 90 s. It polls Bolna, then stops the call (`POST /call/{id}/stop`) or marks it failed. Every live call therefore reaches a final status, which frees its slot.
+5. The round advances to haggle when **3 citable quotes are in** or **every call has finished**. Still-queued calls are stopped. Retries are new call rows (attempt + 1) through `claimDial`, within the per-order limit (R3): one live retry for `no_answer`, 3 minutes later, if the round is still open; or one for `callback_requested` at `callbackWhenText`, if that is within 30 minutes and the round is still open (P8). A retry row is created at its scheduled time, so its 10-minute queue deadline starts then (R15). A call with a retry scheduled counts as unfinished, so the round waits for it (at most 30 minutes).
 6. "सब कॉल रोकिए" (stop all): cancels queued jobs, stops in-progress calls, and moves the order to `ready` with what we have.
 
 ### 6.3 Live call lifecycle (Bolna, B3)
@@ -387,7 +388,7 @@ export default defineSchema({
   | anything unknown | no change; log it | — |
 
   `claimDial` sets `dialing` itself (rank 1) before `POST /call`. The watchdog may set `failed` or `cancelled` (rank 10).
-- `POST /bolna/report-quote` (custom function endpoint): verify the secret, update `calls.slots` and `calls.provisionalTotal`, and reply in under 100 ms (C8). For the Match agent the reply carries `cite: true|false`, decided by `lib/pricing.ts` (his first rate vs the best citable total), never by the LLM.
+- `POST /bolna/report-quote` (custom function endpoint): verify the secret, update `calls.slots` and `calls.provisionalTotal`, and reply in under 100 ms (C8). For the Match agent the reply carries `cite: true|false`, decided by `lib/pricing.ts` (his first total, computed from the rates he said, vs the best citable total), never by the LLM. With `outcome: opt_out` it applies the opt-out at once (R15): `dealers.consent = opted_out`, cancel that dealer's queued calls, and schedule deletion of all their recordings. With `outcome: confirmed` or `terms_changed` (Confirm agent) it records a provisional `calls.outcome`; extraction confirms it.
 - After **ranking is frozen at `ready`**, late webhooks update only call records, never the ranking.
 
 ### 6.4 Sim call lifecycle
@@ -396,7 +397,7 @@ export default defineSchema({
 ### 6.5 Extraction
 `llm` workpool job (parallelism 4, 3 retries with backoff; stale if `roundSeq` changed):
 1. `llm.extractQuote` sends the transcript plus order items to Gemini (§8.2), checking `extractCache` first.
-2. Outcomes `declined`, `callback`, `opt_out` or `terms_changed` set `calls.outcome` (`declined`, `callback_requested`, `opted_out`, `terms_changed`; R4). Otherwise:
+2. Outcomes `declined`, `callback`, `opt_out`, `terms_changed` or `confirmed` set `calls.outcome` (`declined`, `callback_requested`, `opted_out`, `terms_changed`, `confirmed`; R4). `opt_out` also applies the opt-out (as in §6.3) if `report_quote` hasn't already. Otherwise:
 3. Code checks (C4, S5): the assistant turns before the dealer's first rate include both "AI" and "रिकॉर्ड" (the dealer may interrupt the welcome, so the agent repeats it), else `outcome: disclosure_failed` and the quote is dropped; each extracted rate and any stated all-in figure appears in a dealer turn as digits or Hindi words (`lib/numbers.ts` parser); a dealer "हाँ" follows the agent's read-back (sets `readBackConfirmed`).
 4. `lib/pricing.ts` computes landed totals, flags, `comparable` and `citable` (§9), and `outcome: quoted` (or `no_quote`). Then `orders.advance`.
 5. If extraction fails after retries, the row shows "रेट समझ नहीं आया · रिकॉर्डिंग सुनिए", and the quote is excluded.
@@ -410,7 +411,7 @@ export default defineSchema({
 4. Then rank by total within the tier (table order). The winner is the quote with the most credit days among those within 0.5% of the cheapest, then the earlier delivery, then the lower total. Freeze `ranking` and set `ready`.
 
 ### 6.7 Place and confirm (round 4, C5)
-`orders.place({ orderId, expectedQuoteId })` checks that the winner hasn't changed and starts the undo window (`UNDO_WINDOW_SEC`: 120 s live, 5 s sim demo). The scheduled job id is stored in `placeJobId`, so "रद्द" cancels it. Then a Confirm agent call (relay only). `terms_changed` brings the contractor back to Result with the runner-up highlighted. Voice confirm goes through `lib/commands.ts` (V4).
+`orders.place({ orderId, expectedQuoteId })` checks that the winner hasn't changed and starts the undo window (`UNDO_WINDOW_SEC`: 120 s live, 5 s sim demo). The scheduled job id is stored in `placeJobId`, so "रद्द" cancels it. Then a Confirm agent call (relay only). `outcome: confirmed` moves the order to `placed`. `terms_changed` brings the contractor back to Result with the runner-up highlighted. A confirm call that doesn't connect (no answer, busy, failed) leaves the order in `placing` with "dealer से बात नहीं हो पाई" (`placed.notReached`) and a retry option (R15). Voice confirm goes through `lib/commands.ts` (V4).
 
 ### 6.8 Result summary
 `tts.summary` builds 2–3 short sentences in code, speaking the site and deadline only if they are non-default, then calls Bulbul v4 Flash. Audio is cached in storage for 24 h. Muted by default when the user has turned the spoken result off (V7).
@@ -534,7 +535,7 @@ lumpSumTotal: an all-in total only if the dealer said one as a single figure, wi
 deliveryCharge / unloadingCharge (bhada / utarai or hamali): a number (0 if they said free or included); null if not said.
 deliveryEtaText, deliveryBy (today/tomorrow_morning/tomorrow/day_after/this_week/flexible, or null), creditDays, billType (pakka/kachcha/unknown), weightBasis (kanta/standard/unknown), validityText.
 first: in a match call only, the same fields (lines, lumpSumTotal, charges, GST modes) as the dealer said them BEFORE the assistant cited any other number. Code computes his first total from it.
-outcome: quoted | declined | callback | opt_out | terms_changed | no_quote. callbackWhenText if given.
+outcome: quoted | declined | callback | opt_out | terms_changed | confirmed (confirm calls: every term matched) | no_quote. callbackWhenText if given.
 saidFinal: the dealer said this is final/last. confidence 0..1, lower if numbers were unclear or corrected.
 Output only JSON.
 ```
@@ -564,7 +565,7 @@ total (R1, R5):
 flags: gst_unclear, delivery_unknown, unloading_unknown, missing_item, partial_stock, stock_unknown, low_confidence (<0.8),
        tier_mismatch, no_bill (billType ≠ pakka), weight_unknown, brand_unknown, unit_mismatch,
        not_read_back, rate_not_in_transcript, out_of_band (outside priceBands[city][material]), lump_sum_mismatch,
-       outlier (|total − median| / median > 0.15, needs 3+ quotes)
+       outlier (|total − median| / median > 0.15, the median of the order's quote totals in the same round and tier; needs 3+ quotes)
        (a stated all-in figure covers GST, delivery and unloading, so it clears gst_unclear, delivery_unknown and unloading_unknown)
 
 comparable (may win) = no missing_item, no partial_stock, no stock_unknown, no tier_mismatch, no no_bill,
@@ -590,7 +591,7 @@ Unless a row says otherwise, every quote has a named brand, tier offered local I
 |---|---|---|---|
 | A | ₹57/kg + ₹370/bag, GST extra, delivery free, unloading ₹600, pakka, kanta, read back | 7 d | subtotal 1,69,500 · GST 30,510 · total **2,00,610** · comparable, citable |
 | B | ₹67,000/ton + ₹435/bag, GST included, delivery ₹1,500, unloading included, pakka, kanta, read back | 0 | subtotal 1,99,250 · total **2,00,750** · comparable, citable |
-| C | ₹5,750/quintal + ₹380/bag, GST, delivery, unloading not said | — | subtotal 1,72,000 · GST 30,960 · total **2,02,960** · flags gst_unclear, delivery_unknown, unloading_unknown, no_bill, weight_unknown, brand_unknown, not_read_back · **not comparable** |
+| C | ₹5,750/quintal + ₹380/bag; GST, delivery, unloading, brand, bill and weighing not said; no read-back | — | subtotal 1,72,000 · GST 30,960 · total **2,02,960** · flags gst_unclear, delivery_unknown, unloading_unknown, no_bill, weight_unknown, brand_unknown, not_read_back · **not comparable** |
 | D | ₹58/kg + ₹365/bag, GST extra, delivery ₹800, unloading ₹450, pakka, kanta, read back | 15 d | subtotal 1,70,750 · GST 30,735 · total **2,02,735** · comparable, citable |
 | Rank | A, B, D (C excluded) | | B is within 0.5% of A, but A has more credit, so A wins |
 | Savings | regular dealer firstTotal 2,04,300 | | A saves ₹3,690 vs his first rate |

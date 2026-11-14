@@ -38,9 +38,9 @@ Run the phases in this order (DECISIONS R11: the negotiation agent first; phase 
 | 17 | 9 | Hardening, demo deployment, rehearsal | 1 | Drills pass, RUNBOOK written |
 | 18 | 10 | Go-live for real dealers | **2** | First live sweep to an opted-in dealer from your own number |
 
-Phase 3 comes right after 1A because it is the negotiation itself (pure, tested logic). Phases 8A–8C come before 1C and 7 on purpose: live calls are what Milestone 1 must prove. 8A has no UI dependency and can be pulled forward any time after 3.
+Phase 3 comes right after 1A because it is the negotiation itself (pure, tested logic). Phases 8A–8C come before 1C and 7 on purpose: live calls are what Milestone 1 must prove. 8A's guards and admin functions can be pulled forward any time after 3; its LIVE toggle needs Phase 5's Choose screen.
 
-**Hackathon minimum, if time runs short:** 1A → 3 → 1B → 2A → 4 → 5 → 6A → 6B → 8A → 8B → Team test (Runs 1–2) → Phase 7 item 3 (`/present`) → Phase 9 items 1–2 (demo deployment, drills).
+**Hackathon minimum, if time runs short:** 1A → 3 → 1B → 2A → 2B (components only) → 4 → 5 → 6A → 6B → 8A → 8B → Team test (Runs 1–2) → Phase 7 item 3 (`/present`) → Phase 9 items 1–2 (demo deployment, drills).
 - **Skip:** 1C, 2B's desk layout, 8C and `/try`.
 - **Without 8C,** download the clips from the Bolna dashboard within 24 hours and skip the recording-seek check.
 - **Live calls to teammates stay in,** because they're the proof.
@@ -117,7 +117,7 @@ Build:
    Also copy static TTFs to assets/og/ for share images. Load the fonts with next/font/local and preload only Mukta 400 and the width-125 digits file. Use the subset ranges in DESIGN.md §6. Print every file's size; the fonts requested on the first render of /app must total ≤ 250 KB (measure it; drop Plex Mono 600 first if over, R13). Commit the generated files.
 3. Wordmark as an inline SVG component (ink letters, 0.08em haldi painted shadow), per DESIGN.md §4.
 4. i18n (F8): lib/i18n/{hi,en}.ts with every key from DESIGN.md §14. getDict(lang) on the server, useT() on the client, `<html lang>` set on the server from the `lang` cookie. Hindi is the default.
-5. lib/numbers.ts: formatINR (Intl en-IN, ₹, Indian grouping, no decimals for whole rupees), with tests.
+5. Use formatINR from lib/numbers.ts (built in Phase 3) wherever money is shown on the styleguide.
 6. /styleguide v0: colours with measured contrast ratios, the type scale in hi and en, the wordmark, radii and painted shadows. Add size-limit to CI.
 
 Done when: /styleguide renders correctly at 360 px and 1440 px in both languages; font sizes are reported and within budget; lint passes; there are no hard-coded colours or strings outside tokens and dictionaries. Commit.
@@ -158,7 +158,7 @@ Build (server components only, no Convex client on these pages):
    - Explains what Molbhav is: calls are AI and recorded, AI calls for at most 2 orders a day, and "आगे कॉल मत करना" stops them at once.
    - Form: shop name, area, materials, WhatsApp number, consent to AI quote calls. It writes waitlist role "dealer" with consentAiCalls.
    - It does NOT make the number callable (S2).
-4. Analytics (G6): the /api/e route plus events.track (server secret, allow-listed names only, no personal data), if 6B hasn't built them already. Fire waitlist_submit and dealer_optin now.
+4. Analytics (G6): the /api/e route plus events.track (server secret, allow-listed names only, no personal data), (built in 6B; extend the allow-list). Fire waitlist_submit and dealer_optin now.
 5. Privacy page /privacy (plain Hindi + English): what we store, where (Convex in AWS US East; Vercel; Sarvam, Gemini and Bolna as processors), for how long, recordings, erasure on request.
 6. SEO: metadata and a static OG image for `/`. robots allows `/`, `/dealer` and `/privacy`, and disallows /app, /try, /p, /present and /styleguide.
 7. Deploy (R12): the pipeline exists since Phase 1A. Generate CONVEX_SERVER_SECRET and HASH_SECRET if they don't exist yet (`openssl rand -hex 32`, the same value everywhere), set every env var this phase needs on Vercel and with `npx convex env set --prod` yourself, deploy, and check the production URL. Show me the list of what you set (names only, never values).
@@ -261,13 +261,14 @@ Build pure TypeScript in lib/ (no Convex imports), with tests next to each file:
    - Never cite a higher number or a non-citable quote.
 
    With tests.
-4. lib/numbers.ts additions, with tests:
+4. lib/numbers.ts, with tests:
+   - formatINR (Intl en-IN, ₹, Indian grouping, no decimals for whole rupees);
    - exact Hindi spoken money both ways ("दो लाख छह सौ दस रुपये" ⇄ 200610), plus Roman Hindi;
    - Hindi quantity words (sava, dedh, dhai, saade, paune, sau, hazaar, lakh);
    - a parser that finds rates in dealer turns, as digits or words (for rate_not_in_transcript);
    - the order line spoken for call variables, built in code.
 5. lib/commands.ts (V4): a local grammar for voice commands (हाँ / शुरू कीजिए / confirm करो / <dealer> को confirm करो / रद्द / रुकिए). Any negation (मत, नहीं, रुकिए, बाद में) means no action. Tests include "अभी confirm मत करो" and "नहीं, रुकिए".
-6. convex/sim/personas.ts: the personas in §10. For the demo order, perkg_gst_extra (Agarwal), perton_gst_incl (Om Sai), whatsapp_dodger (Rathore) and regular_match (Shree Balaji) use exactly the numbers of docs/TEAM_TEST.md Cards A–D, including their haggle and match drops, so sim and live show the same totals (winner ₹1,98,830; regular dealer ₹2,04,300 → ₹2,00,100). Om Sai's haggle is said as one all-in figure in sim ("सब मिलाके एक लाख निन्यानवे हज़ार चार सौ"), so the stated-total path is exercised.
+6. convex/sim/personas.ts: the personas in §10. For the demo order, perkg_gst_extra (Agarwal), perton_gst_incl (Om Sai), whatsapp_dodger (Rathore) and regular_match (Shree Balaji) use exactly the numbers of docs/TEAM_TEST.md Cards A–D, including their haggle and match drops, so sim and live show the same totals (winner ₹1,98,830; regular dealer ₹2,04,300 → ₹2,00,100). On other orders, perton_gst_incl says its haggle as one all-in figure, so the stated-total path (R1) is exercised in sim too.
 7. convex/seed.ts (internal, CLI only):
    - demo contractor "Ramesh Yadav" (hi);
    - sites Mansarovar (default) and Jagatpura, from CITY_AREAS;
@@ -392,7 +393,7 @@ Build:
    - sim personas react to the exact cited total;
    - PriceStrike on drops;
    - the honesty line under the banner;
-   - skipped with fewer than 2 citable quotes ("सिर्फ 1 रेट मिला").
+   - skipped with fewer than 2 citable quotes (`haggle.skipped`; "सिर्फ 1 रेट मिला" only when a single comparable quote came in).
 2. The match call for the held regular dealer: his firstTotal is recorded before any number is cited, then the best citable total is cited. Uses the regular_match persona.
 3. Result (§12.7):
    - the winner's Parchi;
@@ -417,7 +418,7 @@ Build:
 1. Place (§6.7):
    - orders.place with expectedQuoteId;
    - an undo window (UNDO_WINDOW_SEC; 5 s at demo pace) with "रद्द";
-   - a confirm call (sim) that relays approved terms only;
+   - a confirm call (sim) that relays approved terms only; outcome confirmed → Placed; a confirm call that doesn't connect → `placed.notReached` with a retry (R15);
    - reprice_at_confirm → terms_changed → back to Result with the runner-up highlighted;
    - voice confirm through lib/commands.ts.
 2. Share (G4, F5):

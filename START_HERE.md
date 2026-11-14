@@ -30,7 +30,7 @@ Also pick one person, ideally a native Hindi speaker, to review designs and copy
 ### Milestone 1: the hackathon (live calls proven on teammates' phones)
 1. **Setup:** Part A, plus Udyam and the organisers' email from Part B.
 2. **Build:** Phases 1A → 6B in the order in `PROMPTS.md` (the negotiation brain, Phase 3, right after 1A; DECISIONS R11). That covers the whole product in sim: voice order, sweep, haggle, match, result, place, share.
-3. **Live calls:** Phase 8A, then the C5 trial-mode setup, then Phases 8B and 8C.
+3. **Live calls:** Phase 8A, then 8B (it includes the C5 trial-mode setup), then 8C.
 4. **Team test:** `docs/TEAM_TEST.md` Runs 1–6. Teammates role-play dealers on their Bolna-verified phones, and every check must pass. Save the run log and the clips.
 5. **Showcase:** Phase 1C (landing, waitlist, dealer opt-in), Phase 7 (`/present`, the landing hero; `/try` if there's time), then Phase 9 (demo deployment, drills, rehearsal).
 6. **Field track in parallel:** Part D's spread test and interviews. These give the real numbers and real dealer recordings for the pitch.
@@ -211,7 +211,7 @@ Claude Code does the running (DECISIONS R12):
 
 ### C2. Make yourself an admin (needed from Phase 3)
 Sign-in is anonymous, so your admin identity is the browser session you use:
-1. Open `/app` on the laptop you'll present from, finish onboarding, and tell Claude Code.
+1. Open `/app` on the laptop you'll present from (the anonymous session is enough; onboarding arrives in Phase 4), and tell Claude Code.
 2. Claude Code finds your user's `_id` (`npx convex data users`) and sets `ADMIN_USER_IDS` (with `--prod` for production; the demo project needs its own).
 3. **Don't clear that browser's cookies.** If you do, you become a new user: repeat these steps. A separate browser profile just for admin work helps.
 

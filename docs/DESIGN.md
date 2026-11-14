@@ -191,7 +191,7 @@ With `prefers-reduced-motion: reduce`, replace movement with instant state chang
 | `Chip` | 56 px tall minimum, 16 px horizontal padding, radius 12. Selected: ink fill, paper text, `aria-pressed`. Unanswered required choice: 2 px dashed lal border, lal text, ending in "?". |
 | `PrimaryButton` | Full width, 64 px, haldi fill, ink label, painted ink shadow, Phosphor icon left. Pressed: shadow collapses (button "presses into paper"). |
 | `SecondaryButton` | 56 px, card fill, 1.5 px ink border. |
-| `DealerRow` | Avatar with initials, dealer name, area and distance, regular-dealer badge ("आपके dealer"). Body shows the state: ringing (icon wiggle), talking (status word, elapsed timer in Plex Mono, `SlotChecklist`; plus a caption labelled DEMO **in sim only**), quoted (area line, total stamped), haggling, match call, final, no answer, busy, callback, declined, "आख़िर में match का मौका" (held regular dealer), not comparable ("जाँच बाकी"). Landed total on the right; dropped prices use `PriceStrike`. Tap to open `CallDetail`. 72 px rows on phone, 72 px on desk with the latest line as line 2. |
+| `DealerRow` | Avatar with initials, dealer name, area (no distance until P1, R13), regular-dealer badge ("आपके dealer"). Body shows the state: ringing (icon wiggle), talking (status word, elapsed timer in Plex Mono, `SlotChecklist`; plus a caption labelled DEMO **in sim only**), quoted (area line, total stamped), haggling, match call, final, no answer, busy, callback, declined, "आख़िर में match का मौका" (held regular dealer), not comparable ("जाँच बाकी"). Landed total on the right; dropped prices use `PriceStrike`. Tap to open `CallDetail`. 72 px rows on phone, 72 px on desk with the latest line as line 2. |
 | `StatusPill` | Icon + word, never colour alone. Ringing (neel), talking (neel; waveform in sim only), quoted (ink), best (haldi fill, ink text), no answer (ink-3), declined (lal text). |
 | `SlotChecklist` | Four small chips: रेट · GST · भाड़ा · उधार. ✓ when known. Live mode fills it from `report_quote` (provisional) and then from extraction. Both modes. |
 | `StopAllButton` | "सब कॉल रोकिए", secondary with a lal border, on the sweep while calls run. Stops queued and in-progress calls and shows what we have. |
@@ -246,7 +246,7 @@ An active sweep shows a banner above the mic: "Molbhav chal raha hai · 3/4 rate
 │ │ ▤ TMT sariya        2 ton│ │
 │ │ [12mm] [Fe500D]          │ │
 │ │ कौन सा सरिया?             │ │
-│ │ [ब्रांडेड] [लोकल ISI] [दोनों]│ │
+│ │ [ब्रांडेड] [लोकल ISI]        │ │
 │ └──────────────────────────┘ │
 │ ┌──────────────────────────┐ │
 │ │ ▥ PPC cement     150 bori│ │
@@ -359,7 +359,7 @@ Left: the real app in an iframe (`/app?embed=1`, demo contractor, sim) inside a 
 
 ## 14. Copy deck (key strings)
 
-Always the respectful "aap" form; no gendered first-person verbs; the app speaks as "हम". English material words (TMT, PPC, GST, ISI, mm, ton) stay in Latin script inside Hindi text.
+Always the respectful "aap" form; no gendered first-person verbs; the app speaks as "हम". The `status.*` keys cover both `calls.status` and `calls.outcome` (R4): a row shows its outcome when set, else its status. The keys added for R15 need the native speaker's review. English material words (TMT, PPC, GST, ISI, mm, ton) stay in Latin script inside Hindi text.
 
 | Key | हिंदी | English |
 |---|---|---|
@@ -406,6 +406,11 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `status.noQuote` | रेट नहीं मिला | No quote |
 | `status.failed` | कॉल नहीं लगी | Call failed |
 | `status.notComparable` | जाँच बाकी | Needs checking |
+| `status.cancelled` | रोक दी | Stopped |
+| `status.optedOut` | आगे कॉल नहीं | No more calls |
+| `status.disclosureFailed` | रेट नहीं गिना गया | Quote not counted |
+| `haggle.skipped` | मोलभाव के लिए 2 पक्के रेट चाहिए | Bargaining needs 2 confirmed quotes |
+| `placed.notReached` | dealer से बात नहीं हो पाई | Couldn't reach the dealer |
 | `haggle.title` | मोलभाव राउंड | Bargaining round |
 | `haggle.honest` | सिर्फ असली रेट बताया, नाम नहीं | Only real quotes shared, never names |
 | `match.title` | आपके dealer को मौका | Your dealer's chance |
