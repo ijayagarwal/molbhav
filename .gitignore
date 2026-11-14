@@ -1,6 +1,37 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# python (font script)
 .venv/
-node_modules/
-.next/
+
+# testing
+/coverage
+/test-results/
+/playwright-report/
+
+# next.js
+/.next/
+/out/
+/build
+*.tsbuildinfo
+next-env.d.ts
+
+# env files: real values never get committed; .env.example is the reference list
 .env*.local
+.env
+.env.development
+.env.production
+
+# vercel
+.vercel
+
+# misc
 .DS_Store
+*.pem
+npm-debug.log*
+.pnpm-debug.log*
+
+# the original build-pack download (an exact copy of docs/, design/ and the root docs)
 molbhav-build-pack.zip
