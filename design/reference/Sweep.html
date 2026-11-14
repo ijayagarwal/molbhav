@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live sweep and haggle</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anek+Devanagari:wdth,wght@75..125,100..800&amp;family=Mukta:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1E3A8A}a:hover{color:#15120E}
+@keyframes ringp{0%{transform:scale(1);opacity:.6}100%{transform:scale(1.7);opacity:0}}
+@keyframes wig{0%,100%{transform:rotate(0)}25%{transform:rotate(-14deg)}75%{transform:rotate(14deg)}}
+@keyframes lvl{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes stamp{0%{transform:scale(1.18);opacity:0}60%{transform:scale(.97);opacity:1}100%{transform:scale(1)}}
+@keyframes draw{from{stroke-dashoffset:120}to{stroke-dashoffset:0}}
+@keyframes swipe{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes rise{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+.ringp{animation:ringp 1.2s ease-out infinite}
+.wig{animation:wig .5s ease-in-out infinite}
+.lvl{transform-origin:center;animation:lvl .8s ease-in-out infinite}
+.stamp{animation:stamp .38s cubic-bezier(.2,.8,.2,1) both}
+.draw{stroke-dasharray:120;animation:draw .32s ease-out both}
+.swipe{transform-origin:left;animation:swipe .35s ease-out both}
+.rise{animation:rise .24s ease-out both}
+@media (prefers-reduced-motion: reduce){.ringp,.wig,.lvl,.stamp,.draw,.swipe,.rise{animation:none}}
+</style>
+</head>
+<body>
+
+<script>
+// Minimal stand-in for the design canvas runtime: sc-if, sc-for, {{path}} bindings, onClick.
+(function () {
+  class DCLogic { constructor(p) { this.props = p || {}; this.state = {}; }
+    setState(u) { Object.assign(this.state, u); window.__dcRender(); } }
+  window.DCLogic = DCLogic;
+  const get = (ctx, expr) => {
+    expr = expr.trim();
+    if (expr === 'true') return true; if (expr === 'false') return false;
+    return expr.split('.').reduce((o, k) => (o == null ? undefined : o[k]), ctx);
+  };
+  const interp = (s, ctx) => s.replace(/\{\{([^}]*)\}\}/g, (_, e) => { const v = get(ctx, e); return v == null ? '' : String(v); });
+  const one = (s) => { const m = /^\s*\{\{([^}]*)\}\}\s*$/.exec(s || ''); return m ? m[1] : null; };
+  const cache = new WeakMap();
+  function build(node, ctx, out) {
+    if (node.nodeType === 3) { out.appendChild(document.createTextNode(interp(node.nodeValue, ctx))); return; }
+    if (node.nodeType !== 1) return;
+    const tag = node.tagName.toLowerCase();
+    if (tag === 'sc-if') { if (get(ctx, one(node.getAttribute('value')) || 'false')) node.childNodes.forEach((c) => build(c, ctx, out)); return; }
+    if (tag === 'sc-for') {
+      const list = get(ctx, one(node.getAttribute('list'))) || []; const as = node.getAttribute('as');
+      let store = cache.get(node); if (!store) { store = new Map(); cache.set(node, store); }
+      const next = new Map();
+      list.forEach((item) => {
+        const key = JSON.stringify(item);
+        let frag = store.get(key);
+        if (!frag) { const f = document.createDocumentFragment(); node.childNodes.forEach((c) => build(c, Object.assign({}, ctx, { [as]: item }), f)); frag = Array.from(f.childNodes); }
+        next.set(key, frag); frag.forEach((n) => out.appendChild(n));
+      });
+      cache.set(node, next); return;
+    }
+    const el = document.createElement(tag);
+    for (const a of node.attributes) {
+      if (a.name.startsWith('hint-')) continue;
+      if (a.name.toLowerCase() === 'onclick') { const fn = get(ctx, one(a.value) || ''); if (typeof fn === 'function') el.addEventListener('click', fn); continue; }
+      el.setAttribute(a.name, interp(a.value, ctx));
+    }
+    node.childNodes.forEach((c) => build(c, ctx, el));
+    out.appendChild(el);
+  }
+  window.addEventListener('DOMContentLoaded', () => {
+    const tpl = document.getElementById('dc-template'); const root = document.getElementById('dc-root');
+    const props = JSON.parse(tpl.dataset.props || '{}'); const defaults = {};
+    Object.keys(props).forEach((k) => { if (props[k] && 'default' in props[k]) defaults[k] = props[k].default; });
+    const comp = new window.Component(defaults);
+    window.__dcRender = () => { const f = document.createDocumentFragment(); tpl.content.childNodes.forEach((c) => build(c, comp.renderVals(), f)); root.replaceChildren(f); };
+    window.__dcRender(); if (comp.componentDidMount) comp.componentDidMount();
+  });
+})();
+</script>
+<script>
+
+window.Component = class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { step: 0 }; }
+  componentDidMount() { this.start(); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  start() {
+    clearInterval(this.timer);
+    const ms = { slow: 2200, normal: 1500, fast: 900 }[this.props.speed || 'normal'];
+    this.timer = setInterval(() => {
+      if (this.state.step >= 9) { clearInterval(this.timer); return; }
+      this.setState({ step: this.state.step + 1 });
+    }, ms);
+  }
+  renderVals() {
+    const s = this.state.step;
+    const D = [
+      { id: 'A', name: 'अग्रवाल ट्रेडर्स', area: 'वैशाली नगर · 3.1 km', initials: 'अग' },
+      { id: 'B', name: 'ओम साई बिल्डिंग', area: 'जगतपुरा · 4.4 km', initials: 'ओसा' },
+      { id: 'C', name: 'श्री बालाजी स्टील', area: 'मानसरोवर · 1.2 km', initials: 'श्बा', regular: true },
+      { id: 'D', name: 'राठौड़ हार्डवेयर', area: 'सांगानेर · 5.0 km', initials: 'रा' },
+      { id: 'E', name: 'गुप्ता आयरन स्टोर', area: 'सीतापुरा · 6.2 km', initials: 'गु' }
+    ];
+    const T = {
+      A: ['ring','talk|2|0:24|सत्तावन रुपये किलो, GST अलग','q|₹2,00,610','q|₹2,00,610','q|₹2,00,610','q|₹2,00,610','talk|4|0:41|ठीक है, सब मिलाके आखिरी बताता हूँ…','x|₹2,00,610|₹1,98,830','x|₹2,00,610|₹1,98,830','x|₹2,00,610|₹1,98,830'],
+      B: ['ring','talk|1|0:12|हाँ जी, पूरा माल है','talk|3|0:38|सड़सठ हज़ार टन, GST मिलाके','q|₹2,00,750','q|₹2,00,750','talk|4|0:29|थोड़ा कम कर देते हैं…','x|₹2,00,750|₹1,99,400','x|₹2,00,750|₹1,99,400','x|₹2,00,750|₹1,99,400','x|₹2,00,750|₹1,99,400'],
+      C: ['wait','wait','wait','wait','wait','wait','wait','talk|2|0:26|आपके लिए दो लाख चार हज़ार तीन सौ, सब मिलाके','talk|4|0:44|ठीक है, दो लाख सौ कर देंगे','x|₹2,04,300|₹2,00,100'],
+      D: ['ring','talk|0|0:15|रेट WhatsApp कर देता हूँ','talk|1|0:33|मोटा-मोटा बता दूँ… 5,750 क्विंटल','talk|3|0:52|सीमेंट 380 बोरी','g|₹2,02,960','g|₹2,02,960','g|₹2,02,960','g|₹2,02,960','g|₹2,02,960','g|₹2,02,960'],
+      E: ['ring','ring','ring','no','no','no','no','no','no','no']
+    };
+    const SL = ['रेट', 'GST', 'भाड़ा', 'उधार'];
+    const best = s >= 7 ? 'A' : s >= 6 ? 'B' : s >= 2 ? 'A' : null;
+    const rows = D.map((d) => {
+      const p = T[d.id][Math.min(s, 9)].split('|');
+      const kind = p[0];
+      const n = kind === 'talk' ? Number(p[1]) : 0;
+      const slots = SL.map((label, i) => ({ label, mark: i < n ? '✓' : '·', border: i < n ? '#15120E' : '#D8D0C2', color: i < n ? '#15120E' : '#6B6358', bg: i < n ? '#FFFFFF' : 'transparent' }));
+      const haggleTalk = s >= 5 && (d.id === 'A' || d.id === 'B') && kind === 'talk';
+      const matchTalk = d.id === 'C' && kind === 'talk';
+      const r = { ...d, regular: !!d.regular, isRinging: kind === 'ring', isTalking: kind === 'talk', isNoAnswer: kind === 'no', isWaiting: kind === 'wait',
+        isDone: kind === 'q' || kind === 'g' || kind === 'x', caption: kind === 'talk' ? p[3] : '', timer: kind === 'talk' ? p[2] : '', slots,
+        statusWord: matchTalk ? 'match कॉल' : haggleTalk ? 'मोलभाव' : 'बात चल रही है',
+        hasTotal: kind === 'q' || kind === 'g' || kind === 'x', hasFlag: kind === 'g', hasOld: kind === 'x', total: '', oldTotal: '', totalNote: '', best: d.id === best };
+      if (kind === 'q' || kind === 'g') { r.total = p[1]; r.totalNote = 'सब मिलाके'; }
+      if (kind === 'x') { r.oldTotal = p[1]; r.total = p[2]; r.totalNote = d.id === 'C' ? 'आपके dealer · कम किया' : (d.id === 'A' && s >= 7 ? 'आखिरी रेट' : 'कम हुआ'); }
+      return r;
+    });
+    const quoted = rows.filter((r) => r.hasTotal && r.id !== 'C').length;
+    const bestRow = rows.find((r) => r.id === best);
+    return {
+      rows,
+      title: s >= 9 ? 'पूरा हुआ' : s >= 7 ? 'आपके dealer को मौका' : s >= 5 ? 'मोलभाव राउंड' : 'मोलभाव चल रहा है',
+      haggling: s >= 5,
+      running: s < 9,
+      done: s >= 9,
+      progressText: s >= 9 ? 'पूरा हुआ' : s >= 7 ? 'match कॉल' : quoted + '/4 रेट मिले',
+      progressWidth: (s >= 9 ? 100 : s >= 7 ? 90 : Math.round((quoted / 4) * 80)) + '%',
+      bestName: bestRow ? bestRow.name : 'रेट आ रहे हैं…',
+      bestTotal: bestRow ? bestRow.total : '—',
+      replay: () => { this.setState({ step: 0 }); this.start(); }
+    };
+  }
+}
+
+</script>
+<template id="dc-template" data-props='{"$preview":{"width":390,"height":844},"speed":{"editor":"enum","options":["slow","normal","fast"],"default":"normal"}}'>
+
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F6F2E9; color: #15120E; font-family: 'Mukta', sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+  <header style="padding: 12px 16px; border-bottom: 1px solid #D8D0C2; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+      <h1 style="margin: 0; font-family: 'Anek Devanagari', sans-serif; font-weight: 700; font-size: 24px">{{title}}</h1>
+      <div style="display: flex; align-items: center; gap: 6px">
+        <button onClick="{{replay}}" style="height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid #D8D0C2; background: #FFFFFF; color: #45403A; font-family: 'Mukta', sans-serif; font-weight: 600; font-size: 14px">फिर से</button>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 8px; background: #E9E3D7; color: #45403A">DEMO</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px">
+      <div style="flex: 1; height: 10px; border-radius: 5px; background: #E9E3D7; overflow: hidden">
+        <div style="height: 10px; background: #15120E; border-radius: 5px; transition: width .4s ease; width: {{progressWidth}}"></div>
+      </div>
+      <span style="font-size: 15px; font-weight: 600; white-space: nowrap">{{progressText}}</span>
+    </div>
+    <div style="min-height: 60px; border-radius: 12px; border: 2px solid #15120E; background: #FFFFFF; box-shadow: 3px 3px 0 #15120E; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between">
+      <div style="display: flex; flex-direction: column">
+        <span style="font-size: 14px; color: #45403A; font-weight: 600">अभी तक सबसे सस्ता</span>
+        <span style="font-size: 16px; font-weight: 600">{{bestName}}</span>
+      </div>
+      <span class="stamp" style="font-family: 'Anek Devanagari', sans-serif; font-weight: 800; font-stretch: 112%; font-size: 24px; font-variant-numeric: tabular-nums">{{bestTotal}}</span>
+    </div>
+    <sc-if value="{{haggling}}" hint-placeholder-val="{{ false }}">
+      <div class="rise" style="font-size: 14px; color: #45403A; display: flex; align-items: center; gap: 6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#115533" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/></svg>
+        सिर्फ असली रेट बताया, नाम नहीं
+      </div>
+    </sc-if>
+  </header>
+
+  <ol style="list-style: none; margin: 0; padding: 0 16px; flex: 1; overflow: hidden">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+      <li style="min-height: 80px; padding: 10px 0; border-bottom: 1px solid #D8D0C2; display: flex; gap: 12px; align-items: flex-start">
+        <div style="position: relative; width: 44px; height: 44px; flex: none">
+          <sc-if value="{{r.isRinging}}" hint-placeholder-val="{{ false }}"><span class="ringp" style="position: absolute; inset: 0; border-radius: 50%; border: 2px solid #1E3A8A" aria-hidden="true"></span></sc-if>
+          <div style="position: absolute; inset: 0; border-radius: 50%; background: #E9E3D7; display: flex; align-items: center; justify-content: center; font-family: 'Anek Devanagari', sans-serif; font-weight: 700; font-size: 16px">{{r.initials}}</div>
+        </div>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap">
+            <span style="font-size: 17px; font-weight: 600">{{r.name}}</span>
+            <sc-if value="{{r.regular}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; font-weight: 600; padding: 1px 8px; border-radius: 8px; border: 1.5px solid #15120E">आपके dealer</span></sc-if>
+          </div>
+
+          <sc-if value="{{r.isRinging}}" hint-placeholder-val="{{ false }}">
+            <span style="display: flex; align-items: center; gap: 6px; color: #1E3A8A; font-size: 15px; font-weight: 600">
+              <svg class="wig" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1E3A8A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
+              घंटी जा रही है
+            </span>
+          </sc-if>
+          <sc-if value="{{r.isTalking}}" hint-placeholder-val="{{ false }}">
+            <span style="display: flex; align-items: center; gap: 8px; color: #1E3A8A; font-size: 15px; font-weight: 600">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E3A8A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
+              {{r.statusWord}} · <span style="font-family: 'IBM Plex Mono', monospace">{{r.timer}}</span>
+            </span>
+            <span style="display: flex; flex-wrap: wrap; gap: 4px" aria-label="Collected so far">
+              <sc-for list="{{r.slots}}" as="sl" hint-placeholder-count="4">
+                <span style="font-size: 13px; font-weight: 600; border-radius: 8px; padding: 1px 7px; border: 1.5px solid {{sl.border}}; color: {{sl.color}}; background: {{sl.bg}}">{{sl.mark}} {{sl.label}}</span>
+              </sc-for>
+            </span>
+            <span class="rise" style="font-size: 15px; line-height: 22px; color: #15120E; background: #E9E3D7; border-radius: 10px; padding: 4px 8px"><b style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #45403A; margin-right: 4px">DEMO</b>“{{r.caption}}”</span>
+          </sc-if>
+          <sc-if value="{{r.isNoAnswer}}" hint-placeholder-val="{{ false }}">
+            <span style="font-size: 15px; font-weight: 600; color: #6B6358">✕ उठाया नहीं</span>
+          </sc-if>
+          <sc-if value="{{r.isWaiting}}" hint-placeholder-val="{{ false }}">
+            <span style="font-size: 15px; font-weight: 600; color: #45403A">आख़िर में match का मौका</span>
+          </sc-if>
+          <sc-if value="{{r.isDone}}" hint-placeholder-val="{{ false }}">
+            <span style="font-size: 14px; color: #45403A">{{r.area}}</span>
+          </sc-if>
+          <sc-if value="{{r.hasFlag}}" hint-placeholder-val="{{ false }}">
+            <span style="align-self: flex-start; font-size: 13px; font-weight: 600; color: #93180F; border: 1.5px solid #93180F; border-radius: 8px; padding: 0 6px">GST चेक कीजिए · मोलभाव में नहीं</span>
+          </sc-if>
+        </div>
+        <div style="flex: none; min-width: 104px; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; padding-top: 2px">
+          <sc-if value="{{r.hasOld}}" hint-placeholder-val="{{ false }}">
+            <span style="position: relative; font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #6B6358">{{r.oldTotal}}<svg style="position: absolute; left: -4px; top: 50%; width: calc(100% + 8px); height: 10px; margin-top: -5px; overflow: visible" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><path class="draw" d="M0 6 C 30 2, 60 9, 100 3" fill="none" stroke="#93180F" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg></span>
+          </sc-if>
+          <sc-if value="{{r.hasTotal}}" hint-placeholder-val="{{ false }}">
+            <span style="position: relative; display: inline-block">
+              <sc-if value="{{r.best}}" hint-placeholder-val="{{ false }}"><span class="swipe" style="position: absolute; left: -4px; right: -4px; top: 6px; bottom: 2px; background: #FFC61A; border-radius: 4px" aria-hidden="true"></span></sc-if>
+              <span class="stamp" style="position: relative; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 17px">{{r.total}}</span>
+            </span>
+            <span style="font-size: 13px; color: #45403A">{{r.totalNote}}</span>
+          </sc-if>
+        </div>
+      </li>
+    </sc-for>
+  </ol>
+
+  <footer style="padding: 12px 16px 28px; border-top: 1px solid #D8D0C2; display: flex; gap: 10px">
+    <sc-if value="{{running}}" hint-placeholder-val="{{ true }}">
+      <button style="height: 56px; padding: 0 16px; border-radius: 12px; border: 1.5px solid #93180F; background: #FFFFFF; color: #93180F; font-family: 'Mukta', sans-serif; font-weight: 600; font-size: 16px">सब कॉल रोकिए</button>
+      <div style="flex: 1; height: 56px; border-radius: 12px; background: #E9E3D7; color: #45403A; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; text-align: center; padding: 0 8px">नतीजा आते ही बताएँगे · फ़ोन रख सकते हैं</div>
+    </sc-if>
+    <sc-if value="{{done}}" hint-placeholder-val="{{ false }}">
+      <a href="Result.html" style="flex: 1; height: 56px; border-radius: 12px; background: #FFC61A; border: 2px solid #15120E; box-shadow: 3px 3px 0 #15120E; color: #15120E; text-decoration: none; display: flex; align-items: center; justify-content: center; font-family: 'Anek Devanagari', sans-serif; font-weight: 700; font-size: 18px">नतीजा देखिए</a>
+    </sc-if>
+  </footer>
+</div>
+</template>
+<div id="dc-root"></div>
+</body>
+</html>
