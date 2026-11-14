@@ -28,7 +28,7 @@ export default defineConfig({
         resolve: { alias },
         test: {
           name: "unit",
-          include: ["lib/**/*.test.ts", "scripts/**/*.test.ts"],
+          include: ["lib/**/*.test.ts", "scripts/**/*.test.ts", "features/**/*.test.ts"],
           environment: "node",
         },
       },

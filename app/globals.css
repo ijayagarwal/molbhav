@@ -179,6 +179,16 @@
   }
 }
 
+/* Tally odometer (DESIGN §9): each digit column rolls from 0 to its digit. */
+@keyframes mb-odometer {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(var(--digit) * -1em));
+  }
+}
+
 @layer utilities {
   /* Weight utilities map to the real font files (two families, see app/fonts.ts), never synthesised. */
   .font-ui-semibold {
@@ -200,6 +210,13 @@
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     white-space: nowrap; /* money never wraps (D4) */
+  }
+  /* Devanagari matras and the reph rise above the line box (Anek is about 1.7 em tall). Truncated text
+     clips with overflow:hidden, which turned the ी loop into a stray dot: give it room above and below
+     without changing the layout (DESIGN §6). */
+  .truncate {
+    padding-block: 0.3em;
+    margin-block: -0.3em;
   }
   /* "Presses into paper": the painted shadow collapses and the element moves 2 px down-right (§7). */
   .press-paint {

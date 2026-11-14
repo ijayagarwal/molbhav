@@ -67,6 +67,9 @@ export const en: Record<DictKey, string> = {
 
   "match.title": "Your dealer's chance",
 
+  "result.tallyLess": "less",
+  "result.vsFirst": "than your dealer's first rate (₹{y})",
+  "result.vsMedian": "than the middle quote",
   "result.title": "Cheapest",
   "result.savedVsFirst": "₹{x} less than your dealer's first rate (₹{y})",
   "result.savedVsMedian": "₹{x} less than the middle quote",
@@ -123,4 +126,36 @@ export const en: Record<DictKey, string> = {
   "styleguide.sampleEn": "Two ton 12 mm local ISI steel, and 150 bags of PPC",
   "styleguide.pass": "Pass",
   "styleguide.minimum": "At least {min}:1 · {use}",
+  "haggle.dropped": "₹{x} less",
+  "sweep.allIn": "All-in",
+  "sweep.notInHaggle": "Not in the bargaining",
+
+  "parchi.title": "Parchi",
+  "parchi.allIn": "All-in: GST, delivery, unloading",
+  "parchi.gst": "GST {rate}%",
+  "parchi.deliveryUnloading": "Delivery · unloading",
+  "parchi.free": "Free",
+  "parchi.credit": "{n} days credit",
+  "parchi.cash": "Cash",
+  "parchi.pakka": "GST bill",
+  "parchi.kanta": "Weighed on a scale",
+
+  "unit.kg": "kg",
+  "unit.ton": "ton",
+  "unit.quintal": "quintal",
+  "unit.bag": "bags",
+
+  "ledger.dealer": "Dealer",
+  "ledger.status": "Status",
+  "ledger.landed": "Landed",
+  "ledger.credit": "Credit",
+  "ledger.delivery": "Delivery",
+
+  "moneyShot.title": "Money shot",
+  "moneyShot.replay": "Replay",
+  "moneyShot.soundOn": "Sound on",
+  "moneyShot.soundOff": "Sound off",
+  "moneyShot.phone": "Phone",
+  "moneyShot.desk": "Desk",
+  "moneyShot.bigOrder": "A big order: money never wraps",
 };
