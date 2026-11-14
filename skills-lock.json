@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "skills": {
+    "get-executions": {
+      "source": "bolna-ai/skills",
+      "sourceType": "github",
+      "skillPath": "get-executions/SKILL.md",
+      "computedHash": "995f024dfae13d81071c76991dd21a912556ef739d147f713e115cd3b7bc0be7"
+    },
+    "setup-tools": {
+      "source": "bolna-ai/skills",
+      "sourceType": "github",
+      "skillPath": "setup-tools/SKILL.md",
+      "computedHash": "d493ed2d71d92c60c8bfbdd3b65999e58349c7f4678b1eb5f396564481501116"
+    },
+    "setup-webhook": {
+      "source": "bolna-ai/skills",
+      "sourceType": "github",
+      "skillPath": "setup-webhook/SKILL.md",
+      "computedHash": "9fd709a6789d897143e2563a8ff4a74bd0bfe1f04fe15e59479cf7a03d56b877"
+    },
+    "speech-to-text": {
+      "source": "sarvamai/skills",
+      "sourceType": "github",
+      "skillPath": "speech-to-text/SKILL.md",
+      "computedHash": "ef5732043e6ced1b1fef18dbe609e1f914ef4723bd50772e1f26fff1e47dc071"
+    },
+    "text-to-speech": {
+      "source": "sarvamai/skills",
+      "sourceType": "github",
+      "skillPath": "text-to-speech/SKILL.md",
+      "computedHash": "00594f4e52b92b37e21cd74a00cfee17d1201215db838921fd4702c6f71fb50e"
+    }
+  }
+}
