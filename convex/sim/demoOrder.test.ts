@@ -10,7 +10,7 @@ import {
   computeSavings,
   pickWinner,
   priceQuote,
-  rankQuotes,
+  rankStanding,
   standingQuotes,
   type Contender,
   type PricingContext,
@@ -102,15 +102,16 @@ describe("the demo order, end to end through lib/", () => {
     expect(regular?.final.total).toBe(20010000);
 
     // Result: standing offers, rank, winner, savings.
-    const ranked = rankQuotes(standingQuotes(heard));
-    const winner = pickWinner(ranked);
+    const ranked = rankStanding(standingQuotes(heard));
+    const winner = pickWinner(ranked, { wantsCredit: true });
     expect(winner).toMatchObject({ dealerId: "agarwal", total: 19883000 });
     expect(ranked.map((r) => r.dealerId)).toEqual(["agarwal", "omsai", "balaji"]);
 
     const savings = computeSavings({
       winner: winner!,
+      cheapestTotal: ranked[0].total,
       quoteRoundComparableTotals: quoteRound.filter((q) => q.comparable).map((q) => q.total),
-      regular: { dealerId: REGULAR.dealerId, firstTotal: regular!.first.total, finalTotal: regular!.final.total },
+      regular: { dealerId: REGULAR.dealerId, firstTotal: regular!.first.total, firstComparable: regular!.first.comparable, finalTotal: regular!.final.total },
     });
     expect(savings).toEqual({ basis: "first_rate", basisTotal: 20430000, saved: 547000, regularIsCheapest: false, regularDrop: 420000, regularGap: 127000 });
   });

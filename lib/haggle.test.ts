@@ -61,9 +61,19 @@ describe("nextCall (§6.6)", () => {
     expect(nextCall(state)).toEqual({ kind: "match", dealerId: "balaji", cite: null });
   });
 
-  test("equal totals give nothing lower to cite", () => {
+  test("equal totals give nothing lower to cite, so the haggle is skipped", () => {
     const state: HaggleState = { quoteRound: [agarwal, q("other", 200610)], haggles: [], matchPlaced: false };
-    expect(nextCall(state)).toEqual({ kind: "done", skippedHaggle: false });
+    expect(nextCall(state)).toEqual({ kind: "done", skippedHaggle: true });
+  });
+
+  test("a dealer with two quote-round rows is never cited his own total", () => {
+    const retry = q("agarwal", 200500, { quoteId: "agarwal-retry" });
+    const state: HaggleState = { quoteRound: [agarwal, retry], haggles: [], matchPlaced: false };
+    expect(nextCall(state)).toEqual({ kind: "done", skippedHaggle: true });
+    const withOther: HaggleState = { quoteRound: [agarwal, retry, omsai], haggles: [], matchPlaced: false };
+    const n = nextCall(withOther);
+    expect(n.kind).toBe("haggle");
+    if (n.kind === "haggle") expect(n.cite.dealerId).not.toBe(n.dealerId);
   });
 
   test("never more than 2 haggle calls, and never a higher number", () => {
@@ -76,9 +86,17 @@ describe("nextCall (§6.6)", () => {
       matchPlaced: false,
     };
     expect(nextCall(state)).toEqual({ kind: "done", skippedHaggle: false });
-    for (const s of [state]) {
-      const n = nextCall(s);
-      if (n.kind === "haggle") expect(n.cite.total).toBeLessThan(200750);
+  });
+
+  test("every haggle step cites a strictly lower total from a different dealer", () => {
+    for (const totals of [[200610, 200750], [199000, 205000, 201000], [150000, 150001]]) {
+      const quoteRound = totals.map((t, i) => q(`d${i}`, t));
+      const n = nextCall({ quoteRound, haggles: [], matchPlaced: false });
+      if (n.kind === "haggle") {
+        const target = quoteRound.find((x) => x.dealerId === n.dealerId)!;
+        expect(n.cite.total).toBeLessThan(target.total);
+        expect(n.cite.dealerId).not.toBe(n.dealerId);
+      }
     }
   });
 

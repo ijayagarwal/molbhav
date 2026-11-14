@@ -534,7 +534,7 @@ Schema:
 You read a phone call transcript between Molbhav's AI assistant ("assistant") and a building-material dealer ("user"), plus the order items with ids.
 Extract ONLY what the dealer said. Never compute totals. Never fill a value the dealer did not say.
 Per item: rate as spoken and its unit; gstMode for that line ("included" if "GST milake/with GST", "extra" if "GST alag/plus GST", else "unknown"); brand and tier offered; stock (yes/partial/no/unknown); credit rate if different from cash.
-lumpSumTotal: an all-in total only if the dealer said one as a single figure, with what it includes (gst, delivery, unloading). Never add numbers up yourself.
+lumpSumTotal: an all-in total only if the dealer said one as a single figure, with what it includes (gst, delivery, unloading) and lumpSumScope: "order" if it is for the whole order, "partial" if for part of it (e.g. only the steel). Never add numbers up yourself.
 deliveryCharge / unloadingCharge (bhada / utarai or hamali): a number (0 if they said free or included); null if not said.
 deliveryEtaText, deliveryBy (today/tomorrow_morning/tomorrow/day_after/this_week/flexible, or null), creditDays, billType (pakka/kachcha/unknown), weightBasis (kanta/standard/unknown), validityText.
 first: in a match call only, the same fields (lines, lumpSumTotal, charges, GST modes) as the dealer said them BEFORE the assistant cited any other number. Code computes his first total from it.
@@ -557,30 +557,38 @@ delivery = deliveryCharge ?? 0   (undefined → flag delivery_unknown)
 unloading= unloadingCharge ?? 0  (undefined → flag unloading_unknown)
 computed = subtotal + gst + delivery + unloading
 
-statedAllIn = lumpSumTotal, only when lumpSumIncludes covers gst, delivery and unloading (R1)
+statedAllIn = lumpSumTotal, only when lumpSumIncludes covers gst, delivery and unloading AND lumpSumScope = "order" (R1, R17);
+              an all-in said this call that isn't usable → flag lump_sum_mismatch
 total (R1, R5):
-  - this call gave a rate for every item → computed; if statedAllIn was also said in this call and
-    |statedAllIn − computed| / computed > 0.5% → flag lump_sum_mismatch            (totalSource: computed)
+  - this call gave a rate for every item → computed; if statedAllIn was also said in this call and it is more than
+    0.5% from both the computed and the cash-rate total → flag lump_sum_mismatch     (totalSource: computed)
   - else, statedAllIn said in this call → statedAllIn; the quote's lines are not cited  (totalSource: stated)
+    it must sit inside the bands' GST-inclusive range (else out_of_band), and a drop of more than 5% below the
+    same dealer's earlier total (previousTotal) flags outlier (R17)
   - else → computed from what exists (inherited lines for haggle/match-final), with flags  (totalSource: computed)
   then round the total to the nearest rupee ONCE (half up); that rupee figure is used everywhere
 
 flags: gst_unclear, delivery_unknown, unloading_unknown, missing_item, partial_stock, stock_unknown, low_confidence (<0.8),
        tier_mismatch, no_bill (billType ≠ pakka), weight_unknown, brand_unknown, unit_mismatch,
-       not_read_back, rate_not_in_transcript, out_of_band (outside priceBands[city][material]), lump_sum_mismatch,
+       not_read_back, rate_not_in_transcript, out_of_band (a line's per-kg/per-bag rate before GST outside priceBands[city][material]), lump_sum_mismatch,
        outlier (|total − median| / median > 0.15, the median of the round's otherwise-comparable totals, so a no-bill lowball can't move it; needs 3+ of them)
        (a stated all-in figure covers GST, delivery and unloading, so it clears gst_unclear, delivery_unknown and unloading_unknown)
 
 comparable (may win) = no missing_item, no partial_stock, no stock_unknown, no tier_mismatch, no no_bill,
                        no brand_unknown, no weight_unknown, no delivery_unknown, no unloading_unknown (R6),
-                       no gst_unclear, no outlier, no unit_mismatch, no rate_not_in_transcript, no lump_sum_mismatch
+                       no gst_unclear, no outlier, no unit_mismatch, no rate_not_in_transcript, no lump_sum_mismatch,
+                       no out_of_band (R17)
+       tier: a brand on the city's list decides it (an LLM tag that disagrees is tier_mismatch); steel must be ordered
+             in exactly one tier and an item without quantity is missing_item (R17)
 citable (may be cited) = comparable AND readBackConfirmed AND confidence ≥ 0.8 AND flags = []
                          AND the city's priceBands row updated within 14 days
                          (sim: the band check uses the persona's own band, always fresh; seed:reset and
                           admin.resetDemo write updatedAt = now, so the demo never goes stale)
-rank: comparable quotes, same tier, by total ascending
-winner: among comparable quotes within 0.5% of the cheapest, the most creditDays, then earlier deliveryBy, then lower total
-savings: vs the regular dealer's first rate ("आपके dealer के पहले रेट से"): firstTotal from his match call, or his
+rank: each dealer's standing offer (latest comparable quote), the outlier rule over all of them, comparable ones by total ascending
+winner: among comparable quotes within 0.5% of the cheapest, the most creditDays (only if the contractor wants credit),
+        then earlier deliveryBy, then lower total
+savings: vs the regular dealer's first rate ("आपके dealer के पहले रेट से"): firstTotal from his match call (only if that
+         first quote was comparable, R17), or his
          quote-round total when askFirst (only if that quote is comparable); else vs the median of the comparable
          QUOTE-ROUND totals ("बीच वाले रेट से"; even count → the lower of the two middle values, R5); never vs the
          maximum; with fewer than 2 comparable quotes and no regular-dealer rate, no saving is shown ("सिर्फ 1 रेट मिला");

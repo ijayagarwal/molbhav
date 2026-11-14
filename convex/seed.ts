@@ -41,6 +41,7 @@ async function deleteDemoRows(ctx: MutationCtx): Promise<{ deleted: number; prev
     previousUserId = c.userId;
     const orders = await ctx.db.query("orders").withIndex("by_contractor", (q) => q.eq("contractorId", c._id)).collect();
     for (const o of orders) {
+      if (o.placeJobId) await ctx.scheduler.cancel(o.placeJobId as Id<"_scheduled_functions">).catch(() => undefined);
       for (const table of ["calls", "quotes", "callEvents"] as const) {
         const rows = await ctx.db.query(table).withIndex("by_order", (q) => q.eq("orderId", o._id)).collect();
         for (const r of rows) {
@@ -63,23 +64,48 @@ async function deleteDemoRows(ctx: MutationCtx): Promise<{ deleted: number; prev
     await ctx.db.delete(c._id);
     deleted++;
   }
-  const demoDealers = (await ctx.db.query("dealers").withIndex("by_city", (q) => q.eq("city", CITY)).collect()).filter((d) => d.isDemo);
-  for (const d of demoDealers) {
-    await ctx.db.delete(d._id);
-    deleted++;
-  }
+  // Demo dealers are NOT deleted: they are updated in place (upsertDemoDealers), so their ids stay stable
+  // and real users' sim and sandbox orders, calls and dealer books never point at a deleted dealer.
   return { deleted, previousUserId };
 }
 
+/** Writes the fixture bands only where there is no band or only a seed-owned one: field data set in /app/admin is never overwritten. */
 async function refreshPriceBands(ctx: MutationCtx, now: number) {
-  const existing = await ctx.db.query("priceBands").withIndex("by_city_material", (q) => q.eq("city", CITY)).collect();
-  for (const b of existing) await ctx.db.delete(b._id);
   for (const seed of PRICE_BAND_SEEDS[CITY]) {
+    const rows = await ctx.db
+      .query("priceBands")
+      .withIndex("by_city_material", (q) => q.eq("city", CITY).eq("material", seed.material))
+      .collect();
+    if (rows.some((r) => r.updatedBy !== "seed")) continue;
+    for (const r of rows) await ctx.db.delete(r._id);
     await ctx.db.insert("priceBands", {
       city: CITY, material: seed.material, unit: seed.unit,
       minPaise: seed.minRupees * 100, maxPaise: seed.maxRupees * 100, updatedAt: now, updatedBy: "seed",
     });
   }
+}
+
+/** Creates or updates the 9 demo dealers, matched by persona, so their ids never change. */
+async function upsertDemoDealers(ctx: MutationCtx): Promise<Record<string, Id<"dealers">>> {
+  const existing = (await ctx.db.query("dealers").withIndex("by_city", (q) => q.eq("city", CITY)).collect()).filter((d) => d.isDemo);
+  const ids: Record<string, Id<"dealers">> = {};
+  for (const [i, d] of DEMO_DEALERS.entries()) {
+    const phone = `+9100000000${String(i + 1).padStart(2, "0")}`; // invalid on purpose (B10)
+    const row = {
+      name: d.name, nameHi: d.nameHi, area: d.area, city: CITY,
+      phoneE164: phone, phoneHash: await hashDemoPhone(phone),
+      materials: ["tmt_steel", "cement"] as ("tmt_steel" | "cement")[], source: "seed" as const, consent: "unknown" as const,
+      isDemo: true, simPersona: d.persona,
+    };
+    const found = existing.find((x) => x.simPersona === d.persona);
+    if (found) {
+      await ctx.db.replace(found._id, row);
+      ids[d.key] = found._id;
+    } else {
+      ids[d.key] = await ctx.db.insert("dealers", row);
+    }
+  }
+  return ids;
 }
 
 /** Wipes and re-creates every demo row. Returns what it did. */
@@ -102,15 +128,9 @@ export async function resetDemoData(ctx: MutationCtx, opts: { refreshBands: bool
   await ctx.db.insert("sites", { contractorId, name: area("mansarovar").hi, area: "mansarovar", city: CITY, isDefault: true });
   await ctx.db.insert("sites", { contractorId, name: area("jagatpura").hi, area: "jagatpura", city: CITY, isDefault: false });
 
-  const dealerIds: Record<string, Id<"dealers">> = {};
-  for (const [i, d] of DEMO_DEALERS.entries()) {
-    area(d.area);
-    const phone = `+9100000000${String(i + 1).padStart(2, "0")}`; // invalid on purpose (B10)
-    dealerIds[d.key] = await ctx.db.insert("dealers", {
-      name: d.name, nameHi: d.nameHi, area: d.area, city: CITY,
-      phoneE164: phone, phoneHash: await hashDemoPhone(phone),
-      materials: ["tmt_steel", "cement"], source: "seed", consent: "unknown", isDemo: true, simPersona: d.persona,
-    });
+  for (const d of DEMO_DEALERS) area(d.area);
+  const dealerIds = await upsertDemoDealers(ctx);
+  for (const d of DEMO_DEALERS) {
     if (d.relation) {
       await ctx.db.insert("contractorDealers", { contractorId, dealerId: dealerIds[d.key], relation: d.relation, askFirst: false });
     }
@@ -118,7 +138,7 @@ export async function resetDemoData(ctx: MutationCtx, opts: { refreshBands: bool
   return { deleted, contractorId, dealers: Object.keys(dealerIds).length, bandsRefreshed: opts.refreshBands };
 }
 
-/** CLI only: `npx convex run seed:reset`. Also refreshes the city's price bands (dated now). */
+/** CLI only: `npx convex run seed:reset`. Also refreshes seed-owned price bands (never field data set in /app/admin). */
 export const reset = internalMutation({
   args: { keepBands: v.optional(v.boolean()) },
   handler: async (ctx, { keepBands }) => {

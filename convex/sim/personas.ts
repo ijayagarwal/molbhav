@@ -212,110 +212,147 @@ function perTonQuote(items: OrderItem[], seed: number): QuoteFacts {
   });
 }
 
+/** Haggle reaction for most personas: about 1% off the per-kg/per-ton steel rate (cement 1% if there's no steel). */
+function dropOnePercent(items: OrderItem[], earlier: QuoteFacts, round: Round): QuoteFacts {
+  const steelIds = new Set(items.filter((i) => i.material === "tmt_steel").map((i) => i.id));
+  const target = steelIds.size > 0 ? steelIds : new Set(items.map((i) => i.id));
+  const lines = earlier.lines.map((l) =>
+    target.has(l.orderItemId) && l.inStock !== "no"
+      ? { ...l, rate: l.rateUnit === "bag" ? roundTo(l.rate * 0.99, 1) : roundTo(l.rate * 0.99, l.rateUnit === "kg" ? 0.5 : 50) }
+      : l,
+  );
+  return inherit(earlier, { round, lines, ratesSaidThisCall: [...target], lumpSumSaidThisCall: false });
+}
+
+interface PersonaScript {
+  quote: () => QuoteFacts;
+  haggle: (earlier: QuoteFacts, round: Round) => { facts: QuoteFacts; saidFinal: boolean };
+}
+
+function script(persona: PersonaKey, items: OrderItem[], seed: number, demo: boolean): PersonaScript | null {
+  switch (persona) {
+    case "perkg_gst_extra":
+      return {
+        quote: () => (demo ? cardAQuote(items) : perKgQuote(items, seed)),
+        haggle: (earlier, round) =>
+          demo
+            ? { facts: { ...cardAHaggle(items, earlier), round }, saidFinal: true }
+            : { facts: inherit(dropOnePercent(items, earlier, round), { unloadingCharge: 0 }), saidFinal: true },
+      };
+    case "reprice_at_confirm":
+      return { quote: () => perKgQuote(items, seed), haggle: (earlier, round) => ({ facts: dropOnePercent(items, earlier, round), saidFinal: false }) };
+    case "perton_gst_incl":
+      return {
+        quote: () => (demo ? cardBQuote(items) : perTonQuote(items, seed)),
+        haggle: (earlier, round) => {
+          if (demo) return { facts: { ...cardBHaggle(items, earlier), round }, saidFinal: false };
+          // About 0.7% off, said as one all-in figure for the whole order (exercises R1's stated total).
+          const prior = roughTotal(earlier, items);
+          return {
+            facts: inherit(earlier, {
+              round, ratesSaidThisCall: [], lumpSumTotal: roundTo(prior * 0.993, prior > 50000 ? 100 : 10),
+              lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumScope: "order", lumpSumSaidThisCall: true,
+            }),
+            saidFinal: false,
+          };
+        },
+      };
+    case "whatsapp_dodger": {
+      const quote = () =>
+        demo
+          ? cardCQuote(items)
+          : base({
+              lines: items.map((i) =>
+                i.material === "tmt_steel"
+                  ? steelLine(i, roundTo(baseRates(i, seed) * 100, 50), "quintal", "unknown", { brandOffered: undefined, tierOffered: undefined })
+                  : cementLine(i, baseRates(i, seed) + 5, "unknown", { brandOffered: undefined, tierOffered: undefined }),
+              ),
+              ratesSaidThisCall: ids(items), billType: "unknown", weightBasis: "unknown", readBackConfirmed: false, confidence: 0.85,
+            });
+      // Never sharpens a vague quote.
+      return { quote, haggle: (earlier, round) => ({ facts: { ...earlier, round, ratesSaidThisCall: [] }, saidFinal: false }) };
+    }
+    case "cement_only":
+      return {
+        quote: () => {
+          const q = perKgQuote(items, seed + 3);
+          // No steel today: the steel line is "not in stock", which makes the quote missing_item.
+          q.lines = q.lines.map((l) => (items.find((i) => i.id === l.orderItemId)?.material === "tmt_steel" ? { ...l, inStock: "no" } : l));
+          q.ratesSaidThisCall = items.filter((i) => i.material === "cement").map((i) => i.id);
+          return q;
+        },
+        haggle: (earlier, round) => ({ facts: dropOnePercent(items.filter((i) => i.material === "cement"), earlier, round), saidFinal: false }),
+      };
+    case "kachcha_lowball":
+      return {
+        // Offers a cheaper no-bill rate first; asked for the pakka-bill rate, gives this one (the kachcha rate is never used).
+        quote: () => {
+          const q = perKgQuote(items, seed + 5);
+          q.lines = q.lines.map((l) => ({ ...l, rate: l.rateUnit === "kg" ? l.rate + 1 : l.rate + 8 }));
+          q.creditDays = 0;
+          return q;
+        },
+        haggle: (earlier, round) => ({ facts: dropOnePercent(items, earlier, round), saidFinal: true }),
+      };
+    case "regular_match":
+      return {
+        // Asked first ("पहले भी पूछिए"): a normal quote, a little high, 15 days credit (§10).
+        quote: () => (demo ? { ...cardDFirst(items), round: "quote" } : { ...withPremium(perTonQuote(items, seed + 11), 1.02, 15), round: "quote" }),
+        haggle: (earlier, round) => ({ facts: dropOnePercent(items, earlier, round), saidFinal: false }),
+      };
+    default:
+      return null;
+  }
+}
+
 export function personaCall(input: PersonaCallInput): PersonaOutcome {
   const { persona, round, items } = input;
   const demo = isDemoOrder(items);
   const seed = seedOf(persona, items, "v1");
 
   if (round === "confirm") {
-    if (input.forceRepriceAtConfirm || persona === "reprice_at_confirm") {
-      return { kind: "terms_changed", whatChanged: "rate" };
-    }
+    if (input.forceRepriceAtConfirm || persona === "reprice_at_confirm") return { kind: "terms_changed", whatChanged: "rate" };
     return { kind: "confirmed" };
   }
+  if (persona === "no_answer") return { kind: "no_answer" };
+  if (persona === "callback_later") return round === "quote" ? { kind: "callback", whenText: "एक घंटे बाद" } : { kind: "no_answer" };
+  if (persona === "cement_only" && !items.some((i) => i.material === "cement")) return { kind: "declined", reason: "no_stock" };
 
-  switch (persona) {
-    case "no_answer":
-      return { kind: "no_answer" };
+  const s = script(persona, items, seed, demo);
+  if (s === null) return { kind: "no_answer" };
 
-    case "callback_later":
-      return round === "quote" ? { kind: "callback", whenText: "एक घंटे बाद" } : { kind: "no_answer" };
-
-    case "whatsapp_dodger":
-      // Gives a rough rate once pushed; GST, charges, bill and weighing stay unclear (not comparable).
-      if (demo) return { kind: "quoted", facts: cardCQuote(items), saidFinal: false };
-      return {
-        kind: "quoted",
-        facts: base({
-          lines: items.map((i) =>
-            i.material === "tmt_steel"
-              ? steelLine(i, roundTo(baseRates(i, seed) * 100, 50), "quintal", "unknown", { brandOffered: undefined, tierOffered: undefined })
-              : cementLine(i, baseRates(i, seed) + 5, "unknown", { brandOffered: undefined, tierOffered: undefined }),
-          ),
-          ratesSaidThisCall: ids(items), billType: "unknown", weightBasis: "unknown", readBackConfirmed: false, confidence: 0.85,
-        }),
-        saidFinal: false,
-      };
-
-    case "cement_only": {
-      if (!items.some((i) => i.material === "cement")) return { kind: "declined", reason: "no_stock" };
-      const q = perKgQuote(items, seed + 3);
-      // No steel today: the steel line is "not in stock", which makes the quote missing_item.
-      q.lines = q.lines.map((l) => (items.find((i) => i.id === l.orderItemId)?.material === "tmt_steel" ? { ...l, inStock: "no" } : l));
-      q.ratesSaidThisCall = items.filter((i) => i.material === "cement").map((i) => i.id);
-      return { kind: "quoted", facts: q, saidFinal: false };
-    }
-
-    case "kachcha_lowball": {
-      // Offers a cheaper no-bill rate first; asked for the pakka-bill rate, gives this one (the kachcha rate is never used).
-      const q = perKgQuote(items, seed + 5);
-      q.lines = q.lines.map((l) => ({ ...l, rate: l.rateUnit === "kg" ? l.rate + 1 : l.rate + 8 }));
-      q.creditDays = 0;
-      return { kind: "quoted", facts: q, saidFinal: false };
-    }
-
-    case "perkg_gst_extra":
-    case "reprice_at_confirm": {
-      if (round === "quote") return { kind: "quoted", facts: demo && persona === "perkg_gst_extra" ? cardAQuote(items) : perKgQuote(items, seed), saidFinal: false };
-      if (round === "haggle") {
-        const earlier = input.earlier ?? (demo ? cardAQuote(items) : perKgQuote(items, seed));
-        if (demo && persona === "perkg_gst_extra") return { kind: "quoted", facts: cardAHaggle(items, earlier), saidFinal: true };
-        // Drops about 1% on the steel rate and waives unloading, then says final.
-        const lines = earlier.lines.map((l) => (l.rateUnit === "kg" ? { ...l, rate: roundTo(l.rate * 0.99, 0.5) } : l));
-        return { kind: "quoted", facts: inherit(earlier, { round: "haggle", lines, unloadingCharge: 0, ratesSaidThisCall: items.filter((i) => i.material === "tmt_steel").map((i) => i.id), lumpSumSaidThisCall: false }), saidFinal: true };
-      }
-      return { kind: "quoted", facts: perKgQuote(items, seed), saidFinal: false };
-    }
-
-    case "perton_gst_incl": {
-      if (round === "quote") return { kind: "quoted", facts: demo ? cardBQuote(items) : perTonQuote(items, seed), saidFinal: false };
-      if (round === "haggle") {
-        const earlier = input.earlier ?? (demo ? cardBQuote(items) : perTonQuote(items, seed));
-        if (demo) return { kind: "quoted", facts: cardBHaggle(items, earlier), saidFinal: false };
-        // On other orders it drops about 0.7% and says it as one all-in figure (exercises R1's stated total).
-        const priorTotal = roughTotal(earlier, items);
-        return {
-          kind: "quoted",
-          facts: inherit(earlier, { round: "haggle", ratesSaidThisCall: [], lumpSumTotal: roundTo(priorTotal * 0.993, 100), lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumSaidThisCall: true }),
-          saidFinal: false,
-        };
-      }
-      return { kind: "quoted", facts: perTonQuote(items, seed), saidFinal: false };
-    }
-
-    case "regular_match": {
-      if (round === "quote") {
-        // Asked first ("पहले भी पूछिए"): a normal quote, a little high.
-        const q = demo ? { ...cardDFirst(items), round: "quote" as const } : perTonQuote(items, seed + 11);
-        return { kind: "quoted", facts: q, saidFinal: false };
-      }
-      // Match call: his own rate first, then a chance to match the cited total.
-      const first = demo ? cardDFirst(items) : withPremium(perTonQuote(items, seed + 11), 1.02, 15);
-      if (input.citedTotal === undefined) return { kind: "matched", first, final: first, saidFinal: false };
-      if (demo) return { kind: "matched", first, final: cardDFinal(items, first), saidFinal: true };
-      const firstTotal = roughTotal(first, items) * 100;
-      if (input.citedTotal >= firstTotal) return { kind: "matched", first, final: first, saidFinal: true };
-      // Matches 30% of the time (seeded); otherwise comes down most of the way.
-      const matches = seedOf(seed, "match") % 10 < 3;
-      const target = matches ? input.citedTotal : input.citedTotal + (firstTotal - input.citedTotal) * 0.3;
-      return {
-        kind: "matched",
-        first,
-        final: inherit(first, { ratesSaidThisCall: [], lumpSumTotal: roundTo(target / 100, 10), lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumSaidThisCall: true }),
-        saidFinal: true,
-      };
-    }
+  if (round === "quote") return { kind: "quoted", facts: s.quote(), saidFinal: false };
+  if (round === "haggle") {
+    const out = s.haggle(input.earlier ?? s.quote(), "haggle");
+    return { kind: "quoted", facts: out.facts, saidFinal: out.saidFinal };
   }
+
+  // Match call: his own rate first (before any number is cited), then a chance to match the cited total.
+  if (persona === "regular_match") {
+    const first = demo ? cardDFirst(items) : withPremium(perTonQuote(items, seed + 11), 1.02, 15);
+    if (input.citedTotal === undefined) return { kind: "matched", first, final: first, saidFinal: false };
+    if (demo) return { kind: "matched", first, final: cardDFinal(items, first), saidFinal: true };
+    const firstTotal = roughTotal(first, items) * 100;
+    if (input.citedTotal >= firstTotal) return { kind: "matched", first, final: first, saidFinal: true };
+    // Matches 30% of the time (seeded); otherwise comes down most of the way.
+    const matches = seedOf(seed, "match") % 10 < 3;
+    const target = matches ? input.citedTotal : input.citedTotal + (firstTotal - input.citedTotal) * 0.3;
+    return {
+      kind: "matched",
+      first,
+      final: inherit(first, {
+        ratesSaidThisCall: [], lumpSumTotal: roundTo(target / 100, 10), lumpSumIncludes: ["gst", "delivery", "unloading"],
+        lumpSumScope: "order", lumpSumSaidThisCall: true,
+      }),
+      saidFinal: true,
+    };
+  }
+  // Any other persona can be someone's regular dealer too.
+  const first = { ...s.quote(), round: "match" as const };
+  const cited = input.citedTotal;
+  if (cited === undefined || cited >= roughTotal(first, items) * 100) return { kind: "matched", first, final: first, saidFinal: false };
+  const out = s.haggle(first, "match");
+  return { kind: "matched", first, final: out.facts, saidFinal: out.saidFinal };
 }
 
 /** First rate a little high, with this dealer's credit days. */

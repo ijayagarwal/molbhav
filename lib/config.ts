@@ -18,6 +18,8 @@ export const PRICING = {
   lumpSumToleranceBps: 50, // 0.5%
   /** A quote this far from the median of comparable quotes is an outlier (needs 3+ quotes). */
   outlierBps: 1500, // 15%
+  /** A stated all-in this far below the same dealer's earlier total needs checking (R17). */
+  maxStatedDropBps: 500, // 5%
   minConfidence: 0.8,
   /** Citing stops when the city's price band is older than this (C4). */
   bandMaxAgeDays: 14,
