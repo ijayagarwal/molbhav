@@ -1,0 +1,15 @@
+[
+  {
+    "name": "Fonts (all generated woff2 subsets; /app's first render is measured by scripts/measure-app.ts)",
+    "path": "app/fonts/*.woff2",
+    "gzip": false,
+    "brotli": false,
+    "limit": "260 KB"
+  },
+  {
+    "name": "All client JS chunks, gzipped (coarse gate; /app's initial JS must stay under 200 KB)",
+    "path": ".next/static/chunks/**/*.js",
+    "gzip": true,
+    "limit": "450 KB"
+  }
+]

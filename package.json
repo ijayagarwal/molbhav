@@ -11,19 +11,23 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "size": "size-limit"
+    "size": "size-limit",
+    "measure": "tsx scripts/measure-app.ts",
+    "fonts": ".venv/bin/python scripts/fonts.py"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",
     "@convex-dev/auth": "0.0.98",
     "@convex-dev/rate-limiter": "^0.4.3",
     "@convex-dev/workpool": "^0.4.16",
+    "clsx": "^2.1.1",
     "convex": "1.50.0",
     "convex-helpers": "0.1.135",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
@@ -38,6 +42,7 @@
     "eslint-config-next": "16.4.6",
     "size-limit": "^14.3.0",
     "tailwindcss": "4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.1.0"
   },

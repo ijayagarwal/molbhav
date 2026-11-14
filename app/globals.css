@@ -1,17 +1,214 @@
 @import "tailwindcss";
 
-/* Design tokens (docs/DESIGN.md §5). Phase 1B adds the full set: type scale, radii,
-   painted shadows, spacing and the dark "Raat ki shift" tokens. */
-@theme {
-  --color-paper: #f6f2e9;
-  --color-card: #ffffff;
-  --color-cement: #e9e3d7;
-  --color-rule: #d8d0c2;
-  --color-ink: #15120e;
-  --color-ink-2: #45403a;
-  --color-ink-3: #6b6358;
-  --color-haldi: #ffc61a;
-  --color-lal: #93180f;
-  --color-hara: #115533;
-  --color-neel: #1e3a8a;
+/* ── Design tokens (docs/DESIGN.md §5–§9, D1–D4). Values mirror lib/tokens.ts (checked by its test). ── */
+
+:root {
+  --paper: #F6F2E9;
+  --card: #FFFFFF;
+  --cement: #E9E3D7;
+  --rule: #D8D0C2;
+  --ink: #15120E;
+  --ink-2: #45403A;
+  --ink-3: #6B6358;
+  --haldi: #FFC61A;
+  --lal: #93180F;
+  --hara: #115533;
+  --neel: #1E3A8A;
+  --paint-shadow: #15120E;
+  --on-lal: #FFFFFF;
+
+  /* Type scale, mobile (§6). Desktop bumps below. */
+  --fs-price-hero: 44px;
+  --lh-price-hero: 48px;
+  --fs-title-1: 28px;
+  --lh-title-1: 36px;
+  --fs-title-2: 22px;
+  --lh-title-2: 30px;
+
+  color-scheme: light;
+}
+
+/* "Raat ki shift" dark tokens (P1): defined, not exposed yet (D1). */
+[data-theme="dark"] {
+  --paper: #14110D;
+  --card: #1F1B16;
+  --cement: #2A251E;
+  --rule: #3A332A;
+  --ink: #F6F2E9;
+  --ink-2: #CFC6B8;
+  --ink-3: #A39A8C;
+  --haldi: #FFC61A;
+  --lal: #FF8A7A;
+  --hara: #6FD39B;
+  --neel: #9DB4FF;
+  --paint-shadow: #7A5A00;
+  --on-lal: #14110D;
+  color-scheme: dark;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --fs-price-hero: 56px;
+    --lh-price-hero: 60px;
+    --fs-title-1: 32px;
+    --lh-title-1: 40px;
+    --fs-title-2: 24px;
+    --lh-title-2: 32px;
+  }
+}
+
+@theme inline {
+  --color-*: initial;
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-cement: var(--cement);
+  --color-rule: var(--rule);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-haldi: var(--haldi);
+  --color-lal: var(--lal);
+  --color-hara: var(--hara);
+  --color-neel: var(--neel);
+  --color-on-lal: var(--on-lal);
+  --color-paint-shadow: var(--paint-shadow);
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /* shadcn/ui's names, mapped onto our tokens so added primitives start on-brand (Phase 1B item 1). */
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--haldi);
+  --color-primary-foreground: var(--ink);
+  --color-secondary: var(--card);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--cement);
+  --color-muted-foreground: var(--ink-2);
+  --color-accent: var(--cement);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--lal);
+  --color-border: var(--rule);
+  --color-input: var(--rule);
+  --color-ring: var(--ink);
+
+  /* Families come from next/font/local (app/fonts.ts). */
+  --font-display: var(--font-anek), var(--font-mukta), system-ui, sans-serif;
+  --font-sans: var(--font-mukta), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-digits: var(--font-digits-125), var(--font-anek), system-ui, sans-serif;
+
+  /* Type scale (§6). */
+  --text-price-hero: var(--fs-price-hero);
+  --text-price-hero--line-height: var(--lh-price-hero);
+  --text-title-1: var(--fs-title-1);
+  --text-title-1--line-height: var(--lh-title-1);
+  --text-title-2: var(--fs-title-2);
+  --text-title-2--line-height: var(--lh-title-2);
+  --text-body-lg: 19px;
+  --text-body-lg--line-height: 30px;
+  --text-body: 17px;
+  --text-body--line-height: 27px;
+  --text-label: 15px;
+  --text-label--line-height: 22px;
+  --text-meta: 14px;
+  --text-meta--line-height: 20px;
+  --text-ledger: 16px;
+  --text-ledger--line-height: 24px;
+
+  /* Shape (§7, D2): 12 for chips, buttons and cards; 4 for the parchi; 20 for sheets. */
+  --radius-*: initial;
+  --radius-none: 0;
+  --radius-card: 12px;
+  --radius-parchi: 4px;
+  --radius-sheet: 20px;
+  --radius-full: 9999px;
+
+  /* Depth (§7): borders, not shadows. The only shadow is the painted one, a hard offset, 0 blur, ink on paper. */
+  --shadow-*: initial;
+  --shadow-none: none;
+  --shadow-paint-sm: 2px 2px 0 var(--paint-shadow);
+  --shadow-paint: 3px 3px 0 var(--paint-shadow);
+  --shadow-paint-lg: 5px 5px 0 var(--paint-shadow);
+
+  /* Motion (§9). */
+  --ease-base: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --default-transition-duration: 240ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+:root {
+  --duration-fast: 150ms;
+  --duration-base: 240ms;
+  --duration-slow: 400ms;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    font-synthesis: none; /* never fake bold or italic (§6) */
+  }
+  body {
+    font-family: var(--font-sans);
+    font-size: 17px;
+    line-height: 27px;
+  }
+  /* Hindi titles need room for matras (§6 Devanagari rules); no letter-spacing on Devanagari. */
+  :lang(hi) :is(h1, h2, h3) {
+    line-height: 1.4;
+  }
+  :lang(hi) * {
+    letter-spacing: 0 !important;
+  }
+  /* Focus ring: 2 px ink outline, offset 2 px (§15), never ring-offset. */
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 120ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 120ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Weight utilities map to the real font files (two families, see app/fonts.ts), never synthesised. */
+  .font-ui-semibold {
+    font-family: var(--font-mukta-600), var(--font-mukta), system-ui, sans-serif;
+    font-weight: 600;
+  }
+  .text-label {
+    font-family: var(--font-mukta-600), var(--font-mukta), system-ui, sans-serif;
+    font-weight: 600;
+  }
+  .font-display {
+    font-weight: 700;
+  }
+  .font-mono {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .font-digits {
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap; /* money never wraps (D4) */
+  }
+  /* "Presses into paper": the painted shadow collapses and the element moves 2 px down-right (§7). */
+  .press-paint {
+    transition:
+      transform var(--duration-fast) ease-out,
+      box-shadow var(--duration-fast) ease-out;
+  }
+  .press-paint:active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
 }
