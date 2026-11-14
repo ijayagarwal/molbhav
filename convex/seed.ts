@@ -7,31 +7,11 @@ import { CITY_AREAS, PRICE_BAND_SEEDS, type City } from "../lib/config";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { hashDemoPhone } from "./lib/hash";
-import type { PersonaKey } from "./sim/personas";
+import { DEMO_DEALERS } from "../lib/fixtures/demoDealers";
 
 const CITY: City = "Jaipur";
 
-interface DemoDealer {
-  key: string;
-  name: string;
-  nameHi: string;
-  area: string; // CITY_AREAS key
-  persona: PersonaKey;
-  relation?: "saved" | "regular";
-}
-
-/** One fictional dealer per persona (ARCHITECTURE §10). The first five are the TEAM_TEST cast. */
-export const DEMO_DEALERS: readonly DemoDealer[] = [
-  { key: "agarwal", name: "Agarwal Steels", nameHi: "अग्रवाल स्टील्स", area: "mansarovar", persona: "perkg_gst_extra", relation: "saved" },
-  { key: "omsai", name: "Om Sai Traders", nameHi: "ओम साई ट्रेडर्स", area: "sanganer", persona: "perton_gst_incl", relation: "saved" },
-  { key: "rathore", name: "Rathore Building Material", nameHi: "राठौड़ बिल्डिंग मटेरियल", area: "jagatpura", persona: "whatsapp_dodger", relation: "saved" },
-  { key: "gupta", name: "Gupta Hardware", nameHi: "गुप्ता हार्डवेयर", area: "mansarovar", persona: "no_answer", relation: "saved" },
-  { key: "balaji", name: "Shree Balaji Traders", nameHi: "श्री बालाजी ट्रेडर्स", area: "mansarovar", persona: "regular_match", relation: "regular" },
-  { key: "mahaveer", name: "Mahaveer Cement Store", nameHi: "महावीर सीमेंट स्टोर", area: "sanganer", persona: "cement_only" },
-  { key: "bajrang", name: "Bajrang Traders", nameHi: "बजरंग ट्रेडर्स", area: "tonk_road", persona: "kachcha_lowball" },
-  { key: "krishna", name: "Krishna Building Supply", nameHi: "कृष्णा बिल्डिंग सप्लाई", area: "malviya_nagar", persona: "callback_later" },
-  { key: "jain", name: "Jain Steel Centre", nameHi: "जैन स्टील सेंटर", area: "vaishali_nagar", persona: "reprice_at_confirm" },
-];
+export { DEMO_DEALERS } from "../lib/fixtures/demoDealers";
 
 async function deleteDemoRows(ctx: MutationCtx): Promise<{ deleted: number; previousUserId?: Id<"users"> }> {
   let deleted = 0;

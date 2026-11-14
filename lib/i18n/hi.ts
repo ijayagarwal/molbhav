@@ -68,6 +68,9 @@ export const hi = {
 
   "match.title": "आपके dealer को मौका",
 
+  "result.tallyLess": "कम",
+  "result.vsFirst": "आपके dealer के पहले रेट (₹{y}) से",
+  "result.vsMedian": "बीच वाले रेट से",
   "result.title": "सबसे सस्ता",
   "result.savedVsFirst": "₹{x} कम · आपके dealer के पहले रेट (₹{y}) से",
   "result.savedVsMedian": "₹{x} कम · बीच वाले रेट से",
@@ -124,6 +127,38 @@ export const hi = {
   "styleguide.sampleEn": "Two ton 12 mm local ISI steel, and 150 bags of PPC",
   "styleguide.pass": "ठीक",
   "styleguide.minimum": "कम से कम {min}:1 · {use}",
+  "haggle.dropped": "₹{x} कम हुआ",
+  "sweep.allIn": "सब मिलाके",
+  "sweep.notInHaggle": "मोलभाव में नहीं",
+
+  "parchi.title": "पर्ची",
+  "parchi.allIn": "सब मिलाके: GST, डिलीवरी, उतराई",
+  "parchi.gst": "GST {rate}%",
+  "parchi.deliveryUnloading": "डिलीवरी · उतराई",
+  "parchi.free": "मुफ़्त",
+  "parchi.credit": "उधार {n} दिन",
+  "parchi.cash": "कैश",
+  "parchi.pakka": "पक्का बिल",
+  "parchi.kanta": "कांटे की तौल",
+
+  "unit.kg": "किलो",
+  "unit.ton": "टन",
+  "unit.quintal": "क्विंटल",
+  "unit.bag": "बोरी",
+
+  "ledger.dealer": "Dealer",
+  "ledger.status": "स्थिति",
+  "ledger.landed": "सब मिलाके",
+  "ledger.credit": "उधार",
+  "ledger.delivery": "डिलीवरी",
+
+  "moneyShot.title": "मनी शॉट",
+  "moneyShot.replay": "फिर से चलाइए",
+  "moneyShot.soundOn": "आवाज़ चालू",
+  "moneyShot.soundOff": "आवाज़ बंद",
+  "moneyShot.phone": "फ़ोन",
+  "moneyShot.desk": "डेस्क",
+  "moneyShot.bigOrder": "बड़ा ऑर्डर: पैसा कभी नहीं टूटता",
 } as const;
 
 export type DictKey = keyof typeof hi;

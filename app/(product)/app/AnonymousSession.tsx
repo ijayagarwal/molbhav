@@ -21,7 +21,7 @@ export function AnonymousSession({ labels }: { labels: Labels }) {
 
   const text = failed ? labels.error : isAuthenticated ? labels.ready : labels.connecting;
   return (
-    <p role="status" aria-live="polite" className="text-[17px] leading-[27px] text-ink-2">
+    <p role="status" aria-live="polite" className="text-body text-ink-2">
       {text}
     </p>
   );
