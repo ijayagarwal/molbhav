@@ -69,6 +69,7 @@ export default defineSchema({
     liveDailyCap: v.number(),
     consentAt: v.number(),               // privacy notice accepted
     tierPrefs: v.optional(v.object({ tmt_steel: v.optional(tier), cement: v.optional(tier) })),
+    isDemo: v.optional(v.boolean()),     // the seeded demo contractor (B8); admin.claimDemoContractor touches only these
   }).index("by_user", ["userId"]),
 
   sites: defineTable({
@@ -81,6 +82,7 @@ export default defineSchema({
 
   dealers: defineTable({
     name: v.string(), area: v.string(), city: v.string(),
+    nameHi: v.optional(v.string()),     // Devanagari display name; also matched by voice commands (lib/commands.ts)
     phoneE164: v.string(),               // never returned to clients
     phoneHash: v.string(),
     materials: v.array(material),

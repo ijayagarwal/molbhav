@@ -15,12 +15,15 @@ import type * as contractors from "../contractors.js";
 import type * as dealers from "../dealers.js";
 import type * as http from "../http.js";
 import type * as lib_access from "../lib/access.js";
+import type * as lib_domainCheck from "../lib/domainCheck.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_hash from "../lib/hash.js";
 import type * as lib_projections from "../lib/projections.js";
 import type * as limits from "../limits.js";
 import type * as orders from "../orders.js";
 import type * as quotes from "../quotes.js";
+import type * as seed from "../seed.js";
+import type * as sim_personas from "../sim/personas.js";
 
 import type {
   ApiFromModules,
@@ -36,12 +39,15 @@ declare const fullApi: ApiFromModules<{
   dealers: typeof dealers;
   http: typeof http;
   "lib/access": typeof lib_access;
+  "lib/domainCheck": typeof lib_domainCheck;
   "lib/functions": typeof lib_functions;
   "lib/hash": typeof lib_hash;
   "lib/projections": typeof lib_projections;
   limits: typeof limits;
   orders: typeof orders;
   quotes: typeof quotes;
+  seed: typeof seed;
+  "sim/personas": typeof sim_personas;
 }>;
 
 /**
