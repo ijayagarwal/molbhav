@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+/* Design tokens (docs/DESIGN.md §5). Phase 1B adds the full set: type scale, radii,
+   painted shadows, spacing and the dark "Raat ki shift" tokens. */
+@theme {
+  --color-paper: #f6f2e9;
+  --color-card: #ffffff;
+  --color-cement: #e9e3d7;
+  --color-rule: #d8d0c2;
+  --color-ink: #15120e;
+  --color-ink-2: #45403a;
+  --color-ink-3: #6b6358;
+  --color-haldi: #ffc61a;
+  --color-lal: #93180f;
+  --color-hara: #115533;
+  --color-neel: #1e3a8a;
+}

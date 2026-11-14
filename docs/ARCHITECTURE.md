@@ -7,8 +7,8 @@ Every decision here is traced in `docs/DECISIONS.md` (codes like B3, F3). Re-che
 | Layer | Choice | Notes |
 |---|---|---|
 | Web | **Next.js 16 (≥ 16.3.6)**, App Router, TypeScript strict, on Vercel | 16.3.6 fixes CVE-2026-94545 in ImageResponse (F6) |
-| Backend | Convex: DB, realtime queries, actions, HTTP actions, scheduler, storage | No India region, so latency-critical voice work runs on Vercel `bom1` (F3) |
-| Auth | **Convex Auth**: Anonymous provider now; Google sign-in for real contractors and founders in Phase 10; admin verification for live users | B1, S1, G8 |
+| Backend | Convex: DB, realtime queries, actions, HTTP actions, scheduler, storage | No India region: production runs in EU (Ireland), the closest (R16); latency-critical voice work runs on Vercel `bom1` (F3) |
+| Auth | **Convex Auth** (`@convex-dev/auth` 0.0.x; the 2.0 rewrite has no public Anonymous provider yet): Anonymous provider now; Google sign-in for real contractors and founders in Phase 10; admin verification for live users | B1, S1, G8 |
 | Durable jobs | `@convex-dev/workpool` (retries, parallelism), `@convex-dev/rate-limiter` | Convex scheduled actions run at most once (B4) |
 | UI | Tailwind CSS v4 (`@theme` tokens), shadcn/ui primitives restyled, Motion (`LazyMotion` + `m`), React `<ViewTransition>`, Phosphor icons (Bold; `/ssr` in server components) | F7 |
 | Fonts | `next/font/local` with static subset files from `scripts/fonts.py` | D3 |
@@ -667,7 +667,7 @@ Store `costUsdCents` per call and show live cost to admins in the presenter.
 
 ## 15. Deployment
 - Claude Code runs the deploys and env changes through the Convex and Vercel CLIs (R12), after the human has signed in once (device flows). Production env changes for live calls (`LIVE_CALLS_ENABLED`, `BOLNA_TRIAL`, `A2P_DECLARED`, `LIVE_STAGE`) need the human's explicit go-ahead each time.
-- Convex: `dev`, `prod` and a separate **`demo`** deployment for judges.
+- Convex: `dev`, `prod` (EU Ireland, R16) and a separate **`demo`** deployment for judges. The live list is in `docs/DEPLOYMENTS.md`.
 - Vercel: production plus previews. The voice route is pinned to `bom1`. If the Convex plan has no preview deploy keys, previews are turned off and phones test through the `cloudflared` tunnel instead.
 - Bolna: agents' webhook URL points at the matching Convex site, with a header secret.
 - Live calls stay off in production until §11 can pass for real.
