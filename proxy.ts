@@ -1,31 +1,32 @@
 import { convexAuthNextjsMiddleware } from "@convex-dev/auth/nextjs/server";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { DEFAULT_LANG, LANG_COOKIE, parseLang } from "./lib/i18n/lang";
+import { withHomeRedirect } from "./lib/routing";
 
-// Convex Auth handles /api/auth and keeps the session cookies fresh (DECISIONS B1).
-// On top of it (F1, F8): set the `lang` cookie, and send a returning device from `/` to `/app`
-// only when it already has a session cookie.
+// Convex Auth handles /api/auth and keeps the session cookies fresh (DECISIONS B1). On top of it:
+// the `lang` cookie (F8), and `/` → `/app` for a returning device (F1, applied after the auth
+// middleware; see lib/routing.ts for why).
 
-const ONE_YEAR = 60 * 60 * 24 * 365;
+const ONE_YEAR_S = 60 * 60 * 24 * 365;
 
-function hasSessionCookie(request: NextRequest): boolean {
-  return request.cookies.getAll().some((c) => c.name.endsWith("__convexAuthRefreshToken") && c.value.length > 0);
+const authProxy = convexAuthNextjsMiddleware(
+  async (request) => {
+    const response = NextResponse.next();
+    const current = request.cookies.get(LANG_COOKIE)?.value;
+    if (current === undefined || parseLang(current) !== current) {
+      response.cookies.set(LANG_COOKIE, DEFAULT_LANG, { path: "/", maxAge: ONE_YEAR_S, sameSite: "lax" });
+    }
+    return response;
+  },
+  // Persistent auth cookies: the anonymous identity is the browser session, so a closed browser
+  // must not turn a verified contractor into a new user (review of 1A). Matches convex/auth.ts.
+  { cookieConfig: { maxAge: ONE_YEAR_S } },
+);
+
+export default async function proxy(request: NextRequest, event: NextFetchEvent) {
+  const response = (await authProxy(request, event)) ?? NextResponse.next();
+  return withHomeRedirect(request, response);
 }
-
-export default convexAuthNextjsMiddleware(async (request) => {
-  const { pathname } = request.nextUrl;
-
-  const response =
-    pathname === "/" && hasSessionCookie(request)
-      ? NextResponse.redirect(new URL("/app", request.url))
-      : NextResponse.next();
-
-  const current = request.cookies.get(LANG_COOKIE)?.value;
-  if (current === undefined || parseLang(current) !== current) {
-    response.cookies.set(LANG_COOKIE, DEFAULT_LANG, { path: "/", maxAge: ONE_YEAR, sameSite: "lax" });
-  }
-  return response;
-});
 
 export const config = {
   // Everything except Next internals and static files (with a dot in the last segment).

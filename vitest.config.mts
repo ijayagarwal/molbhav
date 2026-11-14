@@ -19,7 +19,7 @@ export default defineConfig({
         test: {
           name: "convex",
           include: ["convex/**/*.test.ts"],
-          exclude: ["convex/accessRule.test.ts", "convex/_generated/**"],
+          exclude: ["convex/_generated/**"],
           environment: "edge-runtime",
           server: { deps: { inline: ["convex-test"] } },
         },
@@ -28,7 +28,7 @@ export default defineConfig({
         resolve: { alias },
         test: {
           name: "unit",
-          include: ["lib/**/*.test.ts", "convex/accessRule.test.ts", "scripts/**/*.test.ts"],
+          include: ["lib/**/*.test.ts", "scripts/**/*.test.ts"],
           environment: "node",
         },
       },

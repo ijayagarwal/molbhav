@@ -159,7 +159,8 @@ Build (server components only, no Convex client on these pages):
    - Form: shop name, area, materials, WhatsApp number, consent to AI quote calls. It writes waitlist role "dealer" with consentAiCalls.
    - It does NOT make the number callable (S2).
 4. Analytics (G6): the /api/e route plus events.track (server secret, allow-listed names only, no personal data), (built in 6B; extend the allow-list). Fire waitlist_submit and dealer_optin now.
-5. Privacy page /privacy (plain Hindi + English): what we store, where (Convex in AWS US East; Vercel; Sarvam, Gemini and Bolna as processors), for how long, recordings, erasure on request.
+5. Privacy page /privacy (plain Hindi + English): what we store, where (Convex production in AWS EU, Ireland, R16; Vercel functions in Mumbai, bom1; the Team test's teammate data on the dev deployment in AWS US East; Sarvam, Gemini and Bolna as processors, with Bolna's actual residency setting), for how long, recordings, erasure on request.
+6a. robots: replace the pre-launch app/robots.ts (disallow everything) with the rules in item 6.
 6. SEO: metadata and a static OG image for `/`. robots allows `/`, `/dealer` and `/privacy`, and disallows /app, /try, /p, /present and /styleguide.
 7. Deploy (R12): the pipeline exists since Phase 1A. Generate CONVEX_SERVER_SECRET and HASH_SECRET if they don't exist yet (`openssl rand -hex 32`, the same value everywhere), set every env var this phase needs on Vercel and with `npx convex env set --prod` yourself, deploy, and check the production URL. Show me the list of what you set (names only, never values).
 
@@ -324,6 +325,7 @@ Build:
    - No endpoint accepts arbitrary text.
    - Falls back to browser speechSynthesis hi-IN. Interruptible. Mute persists (V7).
 6. Voice "हाँ, शुरू कीजिए" goes through lib/commands.ts (negation-safe).
+6b. Anonymous sign-in moves from page load to the onboarding consent tap, and a returning device whose session can't be refreshed sees onboarding again instead of silently becoming a new user (review of 1A). The deployment-wide anonSignUp limit (convex/limits.ts) stays.
 7. evals/parse.golden.json with 20 utterances (Hinglish, Devanagari, English, suta, dedh/dhai/saade/sava, brands and tiers, a missing grade, a negation), and `pnpm eval:parse`.
 
 Done when: on my phone over HTTPS (a tunnel or Vercel preview, never a LAN IP), I can hold or tap the mic, say the demo order from docs/DEMO.md, and see the transcript in about 1.5 s and the correct Confirm screen in about 2.5 s after release; eval:parse passes ≥ 18/20. Report per-step latency from 5 runs.
@@ -465,6 +467,7 @@ Build:
    - Cost and readiness views need the admin role.
    - "Reset demo" (admin.resetDemo).
 4. A canned parse for the exact demo line, used only when STT or Gemini fails during a demo (clearly logged).
+5. The presenter opens the landing hero at `/?home` (proxy.ts never redirects it to /app).
 
 Done when: the docs/DEMO.md script runs start to finish in /present in under 3 minutes in sim mode, and the sandbox works on a phone with all its limits enforced on the server (show me the tests).
 ```
@@ -492,7 +495,8 @@ Build (no network calls to Bolna in this phase):
    - per-contractor daily caps;
    - a small /app/admin page for the founders, which also prints a phone's HMAC hash for TEST_PHONE_HASHES.
 3. The LIVE toggle on Choose dealers, shown only when liveAvailable is true; only callable dealers can be selected.
-4. A disclosure test: every welcome in CALL_SCRIPT.md has "AI" and "रिकॉर्ड" in its first sentence. S5 is enforced in extraction (assistant turns before the dealer's first rate).
+4. Admin hardening (review of 1A): admin access is an anonymous session cookie listed in ADMIN_USER_IDS. Decide in the plan between (a) keeping verifyContractor, addDealer and optOutDealer internal and run by Claude Code with `npx convex run` (the /app/admin page then only reads), or (b) pulling Google sign-in for admins forward from Phase 10. The demo deployment's admin is never the production admin.
+5. A disclosure test: every welcome in CALL_SCRIPT.md has "AI" and "रिकॉर्ड" in its first sentence. S5 is enforced in extraction (assistant turns before the dealer's first rate).
 
 Done when: all guard tests pass; with LIVE_CALLS_ENABLED=false nothing can reach a dial; the admin page works for admins only.
 ```
@@ -546,7 +550,8 @@ Build:
 - GET /rec/:callId?t= streams with Range/206;
 - a 30-day deletion cron for recordings;
 - recordings of opted-out dealers are deleted at once;
-- callLog is kept for 1 year with HMAC hashes only.
+- callLog is kept for 1 year with HMAC hashes only;
+- a cron that deletes anonymous users who never onboarded (no contractor row) after 7 days, with their auth sessions (S4, review of 1A).
 
 Done when: the recording of a live test call plays with seeking in CallDetail on a phone, an expired token is refused, and the crons are verified with a test.
 ```
@@ -577,7 +582,8 @@ Phase 9 of Molbhav. Read docs/ARCHITECTURE.md §13–§15, docs/DEMO.md, DECISIO
    - a call stuck in ringing (the watchdog closes it);
    - the phone network drops mid-sweep (state recovers);
    - the venue Wi-Fi dies (phone hotspot);
-   - STT fails on the demo line (canned parse).
+   - STT fails on the demo line (canned parse);
+   - the presenter browser is quit and reopened: /present still shows the same admin and demo contractor (persistent cookies, review of 1A).
 3. Rate limits on voice, startSweep and place per contractor; daily spend caps; the kill switches documented.
 4. DPDP: erasure on request (an admin action that deletes a contractor's orders, calls, quotes and recordings), retention crons verified, privacy page accurate.
 5. docs/RUNBOOK.md:
@@ -586,6 +592,8 @@ Phase 9 of Molbhav. Read docs/ARCHITECTURE.md §13–§15, docs/DEMO.md, DECISIO
    - what to do when each service fails;
    - where the backup video is.
 6. Run the full test suite, both evals, Playwright and size-limit, and report the results.
+
+7. Before any public hackathon submission or a public repo: scrub docs/DEPLOYMENTS.md (deployment names, team slugs) and check the repo for anything internal.
 
 Done when: the production URL runs the full sim flow on my phone, the demo deployment is seeded and isolated, RUNBOOK.md and DEPLOYMENTS.md exist, and every drill passed or has a documented workaround.
 ```

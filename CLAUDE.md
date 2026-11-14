@@ -108,6 +108,9 @@ Still off-limits without the human's explicit go-ahead in that moment: placing o
   - `evals/`, `e2e/`, `scripts/`, `docs/`, `design/reference/`.
 - Pure functions in `lib/` get unit tests next to them (`*.test.ts`).
 - **Convex:**
+  - public functions use only the guarded builders in `convex/lib/functions.ts` (`userQuery`, `contractorQuery`, `adminQuery`, their mutation twins, `optionalUserQuery`); ESLint bans the raw `query`/`mutation`/`action` elsewhere, and `convex/accessProbe.test.ts` probes every public function automatically;
+  - load documents named in arguments through an ownership check (`requireOwnedOrder`); never return a raw doc: dealers and calls go through `convex/lib/projections.ts`;
+  - phones are normalised with `lib/phone.ts` before hashing (`hashPhone`, domain-tagged);
   - validate every argument with `v.*`;
   - queries are pure;
   - side effects run in actions or workpool jobs;
