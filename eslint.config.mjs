@@ -26,6 +26,36 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // DESIGN §7, D8: shadcn's default shadows and radii fight the painted-paper look, and colours come only
+    // from tokens (lib/tokens.ts → globals.css utilities). Our own shadow-paint-* tokens stay allowed.
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "features/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Literal[value=/(^|\\s|:)(shadow-(sm|md|lg|xl|2xl)|rounded-md|ring-offset-[\\w-]+)(\\s|$)/]",
+          message: "shadcn default classes are banned (DESIGN §7): use shadow-paint-*, rounded-card/parchi/sheet and outline focus rings.",
+        },
+        {
+          selector: "TemplateElement[value.raw=/(^|\\s|:)(shadow-(sm|md|lg|xl|2xl)|rounded-md|ring-offset-[\\w-]+)(\\s|$)/]",
+          message: "shadcn default classes are banned (DESIGN §7): use shadow-paint-*, rounded-card/parchi/sheet and outline focus rings.",
+        },
+        {
+          selector: "Literal[value=/#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?([0-9a-fA-F]{2})?\\b/]",
+          message: "No hard-coded colours (CLAUDE.md hard rule 11): use token utilities (bg-paper, text-ink…) or lib/tokens.ts.",
+        },
+      ],
+    },
+  },
+  {
+    // CLAUDE.md hard rule 10: every user-facing string comes from the dictionary (lib/i18n).
+    files: ["app/**/*.tsx", "components/**/*.tsx", "features/**/*.tsx"],
+    ignores: ["app/(product)/styleguide/**"],
+    rules: {
+      "react/jsx-no-literals": ["error", { noStrings: false, ignoreProps: true, allowedStrings: ["·", "₹", "—", "–", "/", ":", "%", "×", "+", "−", "(", ")", "•"] }],
+    },
+  },
   globalIgnores([
     ".next/**",
     "out/**",

@@ -35,3 +35,6 @@ npm-debug.log*
 
 # the original build-pack download (an exact copy of docs/, design/ and the root docs)
 molbhav-build-pack.zip
+
+# font sources downloaded by scripts/fonts.py
+scripts/.font-cache/

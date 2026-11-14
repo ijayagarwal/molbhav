@@ -1,10 +1,126 @@
 import type { DictKey } from "./hi";
 
+// English dictionary. Same keys as hi.ts (the type makes a missing key a compile error).
 export const en: Record<DictKey, string> = {
   "brand.name": "Molbhav",
   "brand.tagline": "You say it. We bargain.",
+
+  "home.title": "What do you need today?",
+  "home.micHint": "Press and speak",
+  "home.typeInstead": "Type instead",
+
+  "listen.listening": "Listening…",
+  "listen.holdRelease": "Release to send",
+  "listen.lockedSend": "Tap to send",
+  "listen.cancel": "Cancel",
+  "listen.cancelHint": "Slide to cancel",
+  "listen.processing": "Understanding…",
+
+  "confirm.title": "Is this right?",
+  "confirm.fix": "Fix",
+  "confirm.tierSteel": "Which steel?",
+  "confirm.readbackEnd": "If that's right, start.",
+  "confirm.start": "Yes, start bargaining",
+
+  "tier.branded": "Branded",
+  "tier.localIsi": "Local ISI",
+  "tier.both": "Both",
+  "tier.cementBranded": "Big brand",
+  "tier.any": "Any",
+
+  "dealers.footer": "We'll call {n} dealers · every call says it's an AI",
+  "dealers.matchLater": "Gets a chance to match at the end",
+  "dealers.askFirst": "Ask him first too",
+
+  "sweep.title": "Bargaining in progress",
+  "sweep.progress": "{done}/{total} quotes in",
+  "sweep.best": "Cheapest so far",
+  "sweep.stopAll": "Stop all calls",
+  "sweep.notify": "We'll tell you when it's ready · you can put the phone down",
+
+  "slot.rate": "Rate",
+  "slot.gst": "GST",
+  "slot.delivery": "Delivery",
+  "slot.credit": "Credit",
+
+  "status.queued": "Waiting",
+  "status.ringing": "Ringing",
+  "status.talking": "Talking",
+  "status.haggling": "Bargaining",
+  "status.matchCall": "Match call",
+  "status.quoted": "Quoted",
+  "status.final": "Final price",
+  "status.noAnswer": "No answer",
+  "status.busy": "Line busy",
+  "status.callback": "Call back later",
+  "status.declined": "Can't supply",
+  "status.noQuote": "No quote",
+  "status.failed": "Call failed",
+  "status.notComparable": "Needs checking",
+  "status.cancelled": "Stopped",
+  "status.optedOut": "No more calls",
+  "status.disclosureFailed": "Quote not counted",
+
+  "haggle.title": "Bargaining round",
+  "haggle.honest": "Only real quotes shared, never names",
+  "haggle.skipped": "Bargaining needs 2 confirmed quotes",
+
+  "match.title": "Your dealer's chance",
+
+  "result.title": "Cheapest",
+  "result.savedVsFirst": "₹{x} less than your dealer's first rate (₹{y})",
+  "result.savedVsMedian": "₹{x} less than the middle quote",
+  "result.regularDropped": "{dealer} (your dealer) also came down ₹{z}",
+  "result.chooseRegular": "Buy from him",
+  "result.regularCheapest": "Your dealer is the cheapest",
+  "result.onlyOne": "Only one quote came in",
+  "result.notComparable": "Needs checking; can't win",
+  "result.confirm": "Confirm {dealer}",
+  "result.share": "Send on WhatsApp",
+  "result.listen": "Play recording",
+
+  "share.full": "Full parchi",
+  "share.savings": "Savings only",
+  "share.munshi": "For the munshi",
+
+  "placed.confirming": "Confirming with the dealer",
+  "placed.undo": "Cancel?",
+  "placed.title": "Order confirmed",
+  "placed.termsChanged": "The dealer changed terms · see the next cheapest",
+  "placed.notReached": "Couldn't reach the dealer",
+
+  "badge.regular": "Your dealer",
+  "badge.demo": "DEMO",
+  "demo.watermark": "DEMO · fictional dealers",
+
+  "flag.checkGst": "Check GST",
+  "flag.check": "Check this",
+
+  "try.end": "Want rates from your real dealers?",
+  "landing.cta": "Try it with your voice",
+  "landing.pilot": "Jaipur pilot: our team calls dealers for you",
+
+  "error.noInput": "No sound from the mic. Try again or type it.",
+  "error.noise": "It's noisy here. Hold the phone closer.",
+  "error.partial": "We didn't catch all of it. Here's what we got; fix anything that's off.",
+  "error.second": "No problem, pick from below.",
+  "error.network": "Weak network. Your order is saved; retrying.",
+  "error.micBlocked": "Mic permission is off. Turn it on in settings, or type instead.",
+
   "placeholder.soon": "This part is coming soon.",
   "session.connecting": "Connecting…",
   "session.ready": "Ready.",
   "session.error": "Couldn't connect. Please reopen the page.",
+
+  "styleguide.title": "Styleguide",
+  "styleguide.colours": "Colours",
+  "styleguide.contrast": "Contrast",
+  "styleguide.type": "Type scale",
+  "styleguide.shape": "Corners and shadows",
+  "styleguide.wordmark": "Wordmark",
+  "styleguide.money": "Money never wraps",
+  "styleguide.sampleHi": "दो टन बारह mm लोकल ISI सरिया, और डेढ़ सौ बोरी PPC",
+  "styleguide.sampleEn": "Two ton 12 mm local ISI steel, and 150 bags of PPC",
+  "styleguide.pass": "Pass",
+  "styleguide.minimum": "At least {min}:1 · {use}",
 };
