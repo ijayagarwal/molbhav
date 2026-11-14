@@ -339,7 +339,8 @@ export default defineSchema({
 
 ## 5. Identity, auth and access
 - **Anonymous Convex Auth session** at first open; the onboarding consent creates `contractors`.
-- **Every public query and mutation** loads the contractor from `ctx.auth` and checks ownership of every order, call and quote it touches. Clients never receive `dealers.phoneE164`.
+- **Every public query and mutation** is built with a guarded builder (`convex/lib/functions.ts`), loads the contractor from `ctx.auth` and checks ownership of every order, call and quote it touches. Results go through allowlist projections (`publicDealer`, `publicCall`). Clients never receive `dealers.phoneE164`, phone hashes, provider ids, storage ids or costs.
+- **Sessions** last up to a year (90 days inactive) with persistent cookies, because the anonymous identity is the browser session. New anonymous accounts are rate-limited deployment-wide (`anonSignUp`).
 - **Internal only:** `sim.*`, `llm.*`, `bolna.*`, `media.copyRecording`, `seed.*`, `calls.claimDial`, the watchdog.
 - **Live mode** requires `contractors.verified` (S1): set by `admin.verifyContractor`, behind an admin role checked against `ADMIN_USER_IDS`, and logged in `auditLog`. Name and phone are locked at verification.
 - **Dealers for live mode** are added only through `admin.addDealer` or the `/dealer` opt-in (S2).

@@ -1,10 +1,10 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
 import { requireOwnedOrder } from "./lib/access";
-import { publicDealer } from "./lib/dealers";
+import { userQuery } from "./lib/functions";
+import { publicCall, publicDealer } from "./lib/projections";
 
-/** The calls of one of the caller's orders, each with the dealer's public fields only (never the phone). */
-export const listForOrder = query({
+/** The calls of one of the caller's orders, through the publicCall/publicDealer allowlists only. */
+export const listForOrder = userQuery({
   args: { orderId: v.id("orders") },
   handler: async (ctx, { orderId }) => {
     const order = await requireOwnedOrder(ctx, orderId);
@@ -15,7 +15,7 @@ export const listForOrder = query({
     return await Promise.all(
       calls.map(async (call) => {
         const dealer = await ctx.db.get(call.dealerId);
-        return { ...call, dealer: dealer === null ? null : publicDealer(dealer) };
+        return { ...publicCall(call), dealer: dealer === null ? null : publicDealer(dealer) };
       }),
     );
   },

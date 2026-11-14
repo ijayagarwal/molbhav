@@ -1,9 +1,9 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
 import { requireOwnedOrder } from "./lib/access";
+import { userQuery } from "./lib/functions";
 
-/** The quotes of one of the caller's orders. */
-export const listForOrder = query({
+/** The quotes of one of the caller's orders. Quotes hold no phone numbers or provider ids. */
+export const listForOrder = userQuery({
   args: { orderId: v.id("orders") },
   handler: async (ctx, { orderId }) => {
     const order = await requireOwnedOrder(ctx, orderId);
