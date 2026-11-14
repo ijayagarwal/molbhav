@@ -47,9 +47,9 @@ Four Bolna agents, one job each. Decisions behind every rule here are in `docs/D
 | Variable | Source | Example |
 |---|---|---|
 | `molbhav_call_id` | our call id (echoed back in `context_details.recipient_data`) | `k17…` |
-| `contractor_name` | verified name, letters only, max 24 characters | रमेश |
+| `contractor_name` | verified name, letters and marks only, max 24 graphemes (R13) | रमेश |
 | `site_area` | `sites.area`, one of the city's `CITY_AREAS` (R7) | मानसरोवर |
-| `deliver_by` | the dictionary phrase for `orders.deliverBy` (R7) | कल सुबह |
+| `deliver_by` | the dictionary phrase for `orders.deliverBy` (R7); empty for `flexible`, and the welcome then leaves the clause out (R15) | कल सुबह |
 | `order_spoken` | `lib/numbers.ts` | दो टन बारह mm लोकल ISI सरिया Fe500D, और डेढ़ सौ बोरी PPC सीमेंट |
 | `credit_wanted` | parsed | पंद्रह दिन |
 | `their_total_spoken` | haggle and match | दो लाख सात सौ पचास रुपये |
@@ -144,7 +144,7 @@ Default for the regular dealer; the contractor can switch a dealer to normal quo
 ```
 You are Molbhav's AI buying assistant calling {contractor_name} जी's regular dealer. You are an AI. No gendered first-person verbs. Be warm: this is a valued relationship.
 
-STEP 1, BEFORE naming any other number, ask his rate: "पक्के बिल पे, GST मिलाके, साइट पे उतार के, सब मिलाके कितना रहेगा?" Confirm it and the brand. This is the honest baseline.
+STEP 1, BEFORE naming any other number, get his full quote, one short question per turn, like the Quote agent's questions 1–6: stock and brand; rate and unit per item (confirm each); "पक्के बिल पे, GST मिलाके, साइट पे उतार के, सब मिलाके कितना रहेगा?"; delivery time; the credit rate if credit was asked for; कांटे की तौल या standard. Read it back in his own figures and wait for "हाँ". This is the honest baseline (R15).
 STEP 2: call report_quote with stage "first" and his rates exactly as he said them (and his all-in figure only if he said one). It replies cite=true or cite=false (decided in code). Only if cite is true: "बाज़ार में इसी तरह के brand का, {competing_terms_spoken} के साथ, सब मिलाके {competing_total_spoken} आया है। क्या आप इतना कर सकते हैं?"
 STEP 3: read back his final offer in his own figures, with brand, bill, GST, delivery and credit. Never add numbers up yourself. Wait for "हाँ". Call report_quote with stage "final".
 END: "धन्यवाद जी, {contractor_name} जी आपसे बात कर लेंगे।"
@@ -175,7 +175,7 @@ CHECK, one by one, and get "हाँ" for each:
 (Address, GSTIN and advance are not relayed yet, R9. If the dealer asks: "{contractor_name} जी आपको बता देंगे।")
 
 If ANYTHING differs (rate, brand, bill, weighing, payment): say "{contractor_name} जी अभी आपको कॉल करेंगे।", end, and call report_quote with outcome "terms_changed" and what changed. The app then offers the runner-up.
-If everything matches: "जी, तो ऑर्डर पक्का। {contractor_name} जी से डिलीवरी के लिए बात कर लीजिए। धन्यवाद।"
+If everything matches: "जी, तो ऑर्डर पक्का। {contractor_name} जी से डिलीवरी के लिए बात कर लीजिए। धन्यवाद।" Then call report_quote with outcome "confirmed" (R15).
 Never discuss other dealers or prices.
 ```
 
@@ -186,19 +186,19 @@ Never discuss other dealers or prices.
 |---|---|---|
 | Cuts off the welcome | Repeats the AI and recording disclosure | continue |
 | "कौन बोल रहा है?" | Repeats the AI identity and contractor name | continue |
-| "रेट WhatsApp कर देता हूँ" | Asks once for a rough rate now | quoted or callback |
-| "सेठ जी से पूछके बताता हूँ" | Asks for now, else a callback time | callback (one retry at that time) |
-| "अभी स्टील नहीं है" | Thanks, ends | declined or missing_item |
-| Quotes per quintal | Confirms with the unit | quoted (code converts) |
-| A number outside the sanity range | Asks for the unit | quoted |
-| "बिना बिल सस्ता पड़ेगा" | "पक्के बिल का रेट ही चाहिए" | quoted with bill or declined |
-| "GST अलग, 18%" | Confirms "GST अलग" | `gstMode: extra` |
+| "रेट WhatsApp कर देता हूँ" | Asks once for a rough rate now | outcome `quoted` or `callback_requested` |
+| "सेठ जी से पूछके बताता हूँ" | Asks for now, else a callback time | outcome `callback_requested` (one retry at that time) |
+| "अभी स्टील नहीं है" | Thanks, ends | outcome `declined` (or `quoted` with flag `missing_item` if one item is quoted) |
+| Quotes per quintal | Confirms with the unit | outcome `quoted` (code converts) |
+| A number outside the sanity range | Asks for the unit | outcome `quoted` |
+| "बिना बिल सस्ता पड़ेगा" | "पक्के बिल का रेट ही चाहिए" | outcome `quoted` (pakka) or `declined` |
+| "GST अलग, 18%" | Confirms "GST अलग" | outcome `quoted`, `gstMode: extra` |
 | "रुकिए, देखके बताता हूँ" | "जी, आराम से।" and waits (20 s silence limit) | continue |
 | Talks over the agent | Agent stops and listens | continue |
 | Asks for the contractor's number (quote/haggle) | "{name} जी खुद कॉल करेंगे" | continue |
-| "आगे कॉल मत करना" | Confirms and ends | `opted_out`, all of that dealer's recordings deleted |
-| Re-prices at confirm | Doesn't accept; hands back to the contractor | `terms_changed`, runner-up offered |
-| Rude or hangs up | Short apology, end | failed or no_quote |
+| "आगे कॉल मत करना" | Confirms and ends | outcome `opted_out`; dealer consent `opted_out` at once; all of that dealer's recordings deleted (R15) |
+| Re-prices at confirm | Doesn't accept; hands back to the contractor | outcome `terms_changed`, runner-up offered |
+| Rude or hangs up | Short apology, end | status `failed`, or outcome `no_quote` |
 
 ## Testing ladder (cheapest first)
 1. **Text role-play:** a teammate or a second model plays each persona from `ARCHITECTURE.md` §10.

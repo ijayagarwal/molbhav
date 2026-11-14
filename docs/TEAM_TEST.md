@@ -92,7 +92,7 @@ On Confirm, choose **लोकल ISI** for steel; cement is already **कोई
 **With only 2 phones (P1, P2):**
 - Runs 1, 5 and 6 work as written.
 - **Run 3:** P1 = A gives the callback line, and P2 doesn't pick up.
-- **Run 2:** use P1 = A and P2 = D, with P2 linked as your regular dealer. There's no haggle ("सिर्फ 1 रेट मिला"). The match call cites ₹2,00,610, and D comes down to ₹2,00,100 with 15 days credit. Expected: **"आपके dealer ही सबसे सस्ते"**.
+- **Run 2:** use P1 = A and P2 = D, with P2 linked as your regular dealer. There's no haggle (only one citable quote, `haggle.skipped`). The match call cites ₹2,00,610, and D comes down to ₹2,00,100 with 15 days credit. Expected: **"आपके dealer ही सबसे सस्ते"**.
 - Skip Run 4.
 
 ## Checks for every run

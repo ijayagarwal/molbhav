@@ -10,7 +10,7 @@ Molbhav is a voice-first buying agent for small building contractors (thekedars)
 6. The contractor confirms by voice.
 
 ## Read before any substantial work, in this order
-1. `docs/DECISIONS.md`: the expert panel's decisions (codes like P1, V1, B2) and §R, the Phase 0 review changes (R1–R14), which override older rows. **If any doc disagrees with it, DECISIONS.md wins.**
+1. `docs/DECISIONS.md`: the expert panel's decisions (codes like P1, V1, B2) and §R, the Phase 0 review changes (R1–R15), which override older rows. **If any doc disagrees with it, DECISIONS.md wins.**
 2. `docs/PRODUCT.md`: users, scope, flows, edge cases, domain, metrics.
 3. `docs/DESIGN.md`: design system, screens, voice UX, copy deck. **Design decisions live here; do not invent new ones.**
 4. `design/reference/*.html`: the approved mockups (open them in a browser). Match their look, spacing and copy.
@@ -29,7 +29,7 @@ Molbhav is a voice-first buying agent for small building contractors (thekedars)
   - Motion (`LazyMotion` + `m`) and React `<ViewTransition>`.
   - Phosphor icons, Bold weight (`/ssr` in server components).
   - Fonts via `next/font/local` from `scripts/fonts.py`.
-- **Voice:** Sarvam Saaras STT (`mode: codemix`) and Bulbul v4 Flash TTS. The voice route (`/api/voice/order`) and the read-back route (`/api/tts?draftId=`, text built on the server) run on Vercel, pinned to `bom1`.
+- **Voice:** Sarvam Saaras STT (`mode: codemix`) and Bulbul v4 Flash TTS. The voice route (`/api/voice/order`) and the read-back route (`POST /api/tts` with `{ draftId }`, text built on the server) run on Vercel, pinned to `bom1`.
 - **LLM:** Gemini Flash via `@google/genai`, JSON-schema output, lowest thinking level.
   - Free-tier key: fixtures and demo data only.
   - Billed key: anything real.

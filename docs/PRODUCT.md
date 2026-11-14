@@ -64,7 +64,7 @@ Molbhav is a voice-first buying agent for small building contractors. Speak one 
 | 11 | Presenter view | The real app in an iframe (demo account) plus pipeline, event log and stats. |
 | 12 | Hindi and English UI | Language picked at onboarding, switchable anytime. (cookie, server-rendered). |
 | 13 | Desktop Munshi desk | Icon rail, ledger sweep table, docked call panel, voice dock. |
-| 14 | Landing, waitlist, sandbox, shared parchi, dealer opt-in | `/`, `/try`, `/p/[id]`, `/dealer`. The landing page and waitlist ship first. |
+| 14 | Landing, waitlist, sandbox, shared parchi, dealer opt-in | `/`, `/try`, `/p/[id]`, `/dealer`. The landing page and waitlist ship after the Team test (R11). |
 | 15 | Auth and safety | Anonymous Convex Auth, ownership checks, admin verification for live, consent notices, retention crons. |
 
 ### P1: next
@@ -111,7 +111,7 @@ Molbhav is a voice-first buying agent for small building contractors. Speak one 
 | Dealer lacks stock or spec | Mark declined with the reason; exclude from ranking |
 | GST inclusion unclear | Assume GST extra for display and flag "GST चेक कीजिए"; the quote can't win or be cited |
 | Quote far from others (over 15% from median) | Flag "जाँच कीजिए" with the recording; it can't win (shown separately) |
-| Fewer than 2 citable quotes | Skip the haggle; show what we have honestly ("सिर्फ 1 रेट मिला") |
+| Fewer than 2 citable quotes | Skip the haggle (`haggle.skipped`); show what we have honestly. "सिर्फ 1 रेट मिला" only when a single comparable quote came in (R15) |
 | Delivery not stated | Unknown, never assumed free; the quote can't win |
 | Unloading not stated | Unknown, never assumed free; the quote can't win or be cited (B7, R6), and the agent asks for it |
 | No-bill (kachcha) rate offered | The agent asks for the pakka-bill rate; a no-bill rate never wins |
