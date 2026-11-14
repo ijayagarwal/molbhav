@@ -6,6 +6,7 @@ import {
   formatINR,
   formatPaise,
   HI_WORDS_0_99,
+  hiKey,
   hindiNumberWords,
   hindiQuantity,
   hindiRupees,
@@ -161,5 +162,77 @@ describe("quantities and the spoken order line", () => {
     expect(spokenOrder(items)).toBe(
       "डेढ़ टन आठ mm ब्रांडेड सरिया, ढाई सौ बोरी UltraTech OPC 53 सीमेंट, और पचास बोरी PPC सीमेंट, नामी कंपनी का",
     );
+  });
+});
+
+describe("review fixes (Phase 3 panel)", () => {
+  test("the folded 0–99 keys never collide", () => {
+    const seen = new Map<string, number>();
+    HI_WORDS_0_99.forEach((w, n) => {
+      const k = hiKey(w);
+      expect(seen.has(k), `${w} collides with ${seen.get(k)}`).toBe(false);
+      seen.set(k, n);
+    });
+  });
+
+  test("STT spellings and folding", () => {
+    expect(values("चार सौ पैतीस")).toEqual([435]);
+    expect(values("चार सौ पैतालीस")).toEqual([445]);
+    expect(values("सरसठ हज़ार")).toEqual([67000]);
+    expect(values("अरसठ हज़ार")).toEqual([68000]);
+    expect(values("छियालिस बाइस पचीस")).toEqual([46, 22, 25]);
+    expect(values("ग्यारा सौ, पंद्रा सौ")).toEqual([1100, 1500]);
+  });
+
+  test("sava/paune before a scale, paav and pauna", () => {
+    expect(values("सवा सौ")).toEqual([125]);
+    expect(values("सवा लाख")).toEqual([125000]);
+    expect(values("पौने सौ")).toEqual([75]);
+    expect(values("पाव किलो")).toEqual([0.25]);
+    expect(values("पौना टन")).toEqual([0.75]);
+  });
+
+  test("a repeated amount stays two numbers", () => {
+    expect(values("सत्तावन सौ, सत्तावन सौ")).toEqual([5700, 5700]);
+    expect(values("छियासठ हज़ार, छियासठ हज़ार")).toEqual([66000, 66000]);
+    expect(values("दो लाख छह सौ दस")).toEqual([200610]);
+  });
+
+  test("trade shorthand candidates", () => {
+    expect(candidateAmounts("छियासठ सात सौ टन")).toContain(66700);
+    expect(candidateAmounts("सत्तावन पचास क्विंटल")).toContain(5750);
+    expect(candidateAmounts("सत्तावन पचास लगेगा")).toContain(57.5);
+  });
+
+  test("numbers that are not rates are never 'said' (C4)", () => {
+    expect(values("पचास पैसे कम कर देंगे")).toEqual([0.5]);
+    expect(amountSaid(50, ["पचास पैसे कम कर देंगे"])).toBe(false);
+    expect(amountSaid(53, ["OPC 53 है"])).toBe(false);
+    expect(amountSaid(53, ["53 ग्रेड वाला"])).toBe(false);
+    expect(amountSaid(500, ["Fe 500 है"])).toBe(false);
+    expect(amountSaid(12, ["12 mm"])).toBe(false);
+    expect(amountSaid(60, ["GST ke saath"])).toBe(false);
+    expect(amountSaid(1000, ["sixty seven thousand"])).toBe(false);
+    expect(candidateAmounts("so 370 lagega")).toEqual([370]);
+    expect(amountSaid(370, ["370 नहीं, 375"])).toBe(false);
+    expect(amountSaid(375, ["370 नहीं, 375"])).toBe(true);
+    expect(amountSaid(57, ["मेरा नंबर 98290 57 370"])).toBe(false);
+    expect(amountSaid(370, ["मेरा नंबर 98290 57 370"])).toBe(false);
+  });
+
+  test("Rs. and rs-suffixed digits", () => {
+    expect(values("Rs.57")).toEqual([57]);
+    expect(values("57rs किलो")).toEqual([57]);
+  });
+
+  test("natural speech for small amounts and quantities", () => {
+    expect(hindiRupees(0.5)).toBe("पचास पैसे");
+    expect(hindiRupees(1.01)).toBe("एक रुपया एक पैसा");
+    expect(hindiRupees(1500)).toBe("पंद्रह सौ रुपये");
+    expect(hindiNumberWords(1270)).toBe("बारह सौ सत्तर");
+    expect(hindiNumberWords(2000)).toBe("दो हज़ार");
+    expect(hindiQuantity(1.25)).toBe("सवा");
+    expect(hindiQuantity(0.75)).toBe("पौन");
+    expect(hindiQuantity(0.25)).toBe("पाव");
   });
 });

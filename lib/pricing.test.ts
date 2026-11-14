@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import type { OrderItem, QuoteLine } from "./domain";
 import {
   bandsFresh,
+  rankStanding,
   computeSavings,
   lowerMedian,
   pickWinner,
@@ -114,13 +115,13 @@ describe("rank, winner and savings (§9)", () => {
 
   test("savings vs the regular dealer's first rate 2,04,300: A saves ₹3,690", () => {
     const winner = pickWinner(rankQuotes(all))!;
-    const s = computeSavings({ winner, quoteRoundComparableTotals: [], regular: { dealerId: "REG", firstTotal: 20430000 } });
+    const s = computeSavings({ winner, cheapestTotal: winner.total, quoteRoundComparableTotals: [], regular: { dealerId: "REG", firstTotal: 20430000, firstComparable: true } });
     expect(s).toMatchObject({ basis: "first_rate", saved: 369000, regularIsCheapest: false });
   });
 
   test("median fallback with no regular dealer: median of A, B, D = 2,00,750, A saves ₹140", () => {
     const ranked = rankQuotes(all);
-    const s = computeSavings({ winner: pickWinner(ranked)!, quoteRoundComparableTotals: ranked.map((q) => q.total) });
+    const s = computeSavings({ winner: pickWinner(ranked)!, cheapestTotal: ranked[0].total, quoteRoundComparableTotals: ranked.map((q) => q.total) });
     expect(s).toMatchObject({ basis: "median", basisTotal: 20075000, saved: 14000 });
   });
 
@@ -149,19 +150,64 @@ describe("rank, winner and savings (§9)", () => {
   test("median, even count: A 2,00,610 and B 2,00,750, winner A's haggle 1,98,830 → ₹1,780 (TEAM_TEST Run 1)", () => {
     expect(lowerMedian([20061000, 20075000])).toBe(20061000);
     const winner: Contender = { quoteId: "Ah", dealerId: "A", round: "haggle", total: 19883000, creditDays: 7, comparable: true, citable: true };
-    const s = computeSavings({ winner, quoteRoundComparableTotals: [20061000, 20075000] });
+    const s = computeSavings({ winner, cheapestTotal: winner.total, quoteRoundComparableTotals: [20061000, 20075000] });
     expect(s).toMatchObject({ basis: "median", basisTotal: 20061000, saved: 178000 });
   });
 
   test("fewer than 2 comparable quotes and no regular dealer: no saving shown", () => {
-    const s = computeSavings({ winner: contender("A", A), quoteRoundComparableTotals: [20061000] });
+    const s = computeSavings({ winner: contender("A", A), cheapestTotal: 20061000, quoteRoundComparableTotals: [20061000] });
     expect(s).toMatchObject({ basis: "none", saved: 0 });
   });
 
   test("the regular dealer is the cheapest: no tally, his own drop still reported", () => {
     const winner: Contender = { quoteId: "R", dealerId: "REG", round: "match", total: 20010000, comparable: true, citable: true };
-    const s = computeSavings({ winner, quoteRoundComparableTotals: [20061000], regular: { dealerId: "REG", firstTotal: 20430000, finalTotal: 20010000 } });
+    const s = computeSavings({ winner, cheapestTotal: 20010000, quoteRoundComparableTotals: [20061000], regular: { dealerId: "REG", firstTotal: 20430000, firstComparable: true, finalTotal: 20010000 } });
     expect(s).toMatchObject({ regularIsCheapest: true, regularDrop: 420000, regularGap: null });
+  });
+
+  test("a first rate that wasn't comparable is never the savings basis (R17)", () => {
+    const winner: Contender = { quoteId: "Ah", dealerId: "A", round: "haggle", total: 19883000, comparable: true, citable: true };
+    const s = computeSavings({ winner, cheapestTotal: winner.total, quoteRoundComparableTotals: [20061000, 20075000], regular: { dealerId: "REG", firstTotal: 24097500, firstComparable: false } });
+    expect(s).toMatchObject({ basis: "median", saved: 178000 });
+  });
+
+  test("the regular dealer winning on credit isn't \"the cheapest\", and the gap is never negative", () => {
+    const reg: Contender = { quoteId: "R", dealerId: "REG", round: "match", total: 19950000, creditDays: 15, comparable: true, citable: true };
+    const a: Contender = { quoteId: "A", dealerId: "A", round: "haggle", total: 19883000, creditDays: 7, comparable: true, citable: true };
+    const ranked = rankQuotes([a, reg]);
+    const winner = pickWinner(ranked)!;
+    expect(winner.dealerId).toBe("REG");
+    const s = computeSavings({ winner, cheapestTotal: ranked[0].total, quoteRoundComparableTotals: [], regular: { dealerId: "REG", firstTotal: 20430000, firstComparable: true, finalTotal: 19950000 } });
+    expect(s.regularIsCheapest).toBe(false);
+    const w: Contender = { quoteId: "W", dealerId: "W", round: "quote", total: 20000000, creditDays: 30, comparable: true, citable: true };
+    const s2 = computeSavings({ winner: w, cheapestTotal: 19950000, quoteRoundComparableTotals: [], regular: { dealerId: "REG", firstTotal: 20430000, firstComparable: true, finalTotal: 19950000 } });
+    expect(s2.regularGap).toBe(0);
+  });
+
+  test("credit days break ties only when the contractor asked for credit (R17)", () => {
+    const cash: Contender = { quoteId: "cash", dealerId: "1", round: "quote", total: 20000000, creditDays: 0, comparable: true, citable: true };
+    const credit: Contender = { quoteId: "credit", dealerId: "2", round: "quote", total: 20050000, creditDays: 15, comparable: true, citable: true };
+    expect(pickWinner(rankQuotes([cash, credit]), { wantsCredit: true })?.quoteId).toBe("credit");
+    expect(pickWinner(rankQuotes([cash, credit]), { wantsCredit: false })?.quoteId).toBe("cash");
+  });
+
+  test("an out-of-band quote can't win, even when it's the cheapest (R17)", () => {
+    const slip = facts({ ...A, lines: [steel(27, "kg", "extra"), cement(370, "extra")], readBackConfirmed: false, confidence: 0.7 });
+    const priced = priceQuote(slip, CTX);
+    expect(priced.flags).toContain("out_of_band");
+    expect(priced.comparable).toBe(false);
+    const ranked = rankQuotes([contender("slip", slip), contender("A", A)]);
+    expect(pickWinner(ranked)?.quoteId).toBe("A");
+  });
+
+  test("outliers are checked across all standing offers, not one round at a time (R17)", () => {
+    const base = { round: "quote" as const, comparable: true, citable: true };
+    const offers: Contender[] = [
+      { ...base, quoteId: "a", dealerId: "a", total: 20000000 },
+      { ...base, quoteId: "b", dealerId: "b", total: 20100000, round: "haggle" },
+      { ...base, quoteId: "c", dealerId: "c", total: 15000000, round: "match" },
+    ];
+    expect(rankStanding(offers).map((q) => q.quoteId)).toEqual(["a", "b"]);
   });
 });
 
@@ -180,33 +226,63 @@ describe("haggle and match quotes (§6.6 2a, R1)", () => {
 
   test("haggle all-in only: B says just \"सब मिलाके एक लाख निन्यानवे हज़ार चार सौ\" → stated ₹1,99,400, citable", () => {
     const Bh = facts({
-      ...B, round: "haggle", ratesSaidThisCall: [], lumpSumTotal: 199400, lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumSaidThisCall: true,
+      ...B, round: "haggle", ratesSaidThisCall: [], lumpSumTotal: 199400, lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumScope: "order", lumpSumSaidThisCall: true,
     });
     const q = priceQuote(Bh, CTX);
     expect(rupees(q.landed.total)).toBe(199400);
     expect(q).toMatchObject({ totalSource: "stated", comparable: true, citable: true });
   });
 
-  test("an all-in figure that doesn't cover GST, delivery and unloading isn't a landed total", () => {
-    const Bh = facts({ ...B, round: "haggle", ratesSaidThisCall: [], lumpSumTotal: 190000, lumpSumIncludes: ["gst"], lumpSumSaidThisCall: true });
-    expect(priceQuote(Bh, CTX)).toMatchObject({ totalSource: "computed" });
-    expect(rupees(priceQuote(Bh, CTX).landed.total)).toBe(200750);
+  test("an all-in figure that doesn't cover GST, delivery and unloading isn't a landed total, and needs checking", () => {
+    const Bh = facts({ ...B, round: "haggle", ratesSaidThisCall: [], lumpSumTotal: 190000, lumpSumIncludes: ["gst"], lumpSumScope: "order", lumpSumSaidThisCall: true });
+    const q = priceQuote(Bh, CTX);
+    expect(q).toMatchObject({ totalSource: "computed", comparable: false, citable: false });
+    expect(q.flags).toContain("lump_sum_mismatch");
+  });
+
+  test("a steel-only all-in (\"सरिया का सब मिलाके\") is never a whole-order total (R17)", () => {
+    const Bh = facts({ ...B, round: "haggle", ratesSaidThisCall: [], lumpSumTotal: 140000, lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumScope: "partial", lumpSumSaidThisCall: true });
+    const q = priceQuote(Bh, CTX);
+    expect(q.totalSource).toBe("computed");
+    expect(q).toMatchObject({ comparable: false, citable: false });
+    const noScope = facts({ ...Bh, lumpSumScope: undefined });
+    expect(priceQuote(noScope, CTX).citable).toBe(false);
+  });
+
+  test("a stated total below the GST-inclusive band floor is out of band (R17)", () => {
+    // Floor: (2,000 kg × ₹45 + 150 × ₹300) × 1.18 = ₹1,59,300
+    const Bh = facts({ ...B, round: "haggle", ratesSaidThisCall: [], lumpSumTotal: 140000, lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumScope: "order", lumpSumSaidThisCall: true });
+    expect(priceQuote(Bh, CTX)).toMatchObject({ comparable: false, citable: false });
+    expect(priceQuote(Bh, CTX).flags).toContain("out_of_band");
+  });
+
+  test("a stated drop of more than 5% from his own earlier total needs checking (R17)", () => {
+    const big = facts({ ...B, round: "haggle", ratesSaidThisCall: [], lumpSumTotal: 180000, lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumScope: "order", lumpSumSaidThisCall: true, previousTotal: 20075000 });
+    expect(priceQuote(big, CTX).flags).toContain("outlier");
+    expect(priceQuote(big, CTX).comparable).toBe(false);
+    const small = facts({ ...big, lumpSumTotal: 199400 });
+    expect(priceQuote(small, CTX)).toMatchObject({ comparable: true, citable: true });
+  });
+
+  test("a cash all-in is compared with the cash total, not the credit-rate total (C2)", () => {
+    const withCredit = facts({ ...A, lines: [steel(57, "kg", "extra", { creditRate: 58 }), cement(370, "extra")], lumpSumTotal: 200610, lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumScope: "order", lumpSumSaidThisCall: true });
+    expect(priceQuote(withCredit, { ...CTX, wantsCredit: true }).flags).not.toContain("lump_sum_mismatch");
   });
 
   test("all-in agrees: A plus \"सब मिलाके दो लाख\" (0.30% off) → computed ₹2,00,610, no flag", () => {
-    const q = priceQuote(facts({ ...A, lumpSumTotal: 200000, lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumSaidThisCall: true }), CTX);
+    const q = priceQuote(facts({ ...A, lumpSumTotal: 200000, lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumScope: "order", lumpSumSaidThisCall: true }), CTX);
     expect(rupees(q.landed.total)).toBe(200610);
     expect(q.flags).toEqual([]);
   });
 
   test("all-in disagrees: A plus \"सब मिलाके दो लाख पाँच हज़ार\" (2.19% off) → lump_sum_mismatch, not comparable", () => {
-    const q = priceQuote(facts({ ...A, lumpSumTotal: 205000, lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumSaidThisCall: true }), CTX);
+    const q = priceQuote(facts({ ...A, lumpSumTotal: 205000, lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumScope: "order", lumpSumSaidThisCall: true }), CTX);
     expect(q.flags).toEqual(["lump_sum_mismatch"]);
     expect(q).toMatchObject({ comparable: false, citable: false });
   });
 
   test("a stated total far outside the bands is out of band, not citable", () => {
-    const q = priceQuote(facts({ ...B, round: "haggle", ratesSaidThisCall: [], lumpSumTotal: 1, lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumSaidThisCall: true }), CTX);
+    const q = priceQuote(facts({ ...B, round: "haggle", ratesSaidThisCall: [], lumpSumTotal: 1, lumpSumIncludes: ["gst", "delivery", "unloading"], lumpSumScope: "order", lumpSumSaidThisCall: true }), CTX);
     expect(q.flags).toContain("out_of_band");
     expect(q.citable).toBe(false);
   });
@@ -268,6 +344,28 @@ describe("flags and rules", () => {
     const ctx = { ...CTX, items };
     expect(priceQuote(facts({ ...A, lines: [steel(57, "kg", "extra"), cement(410, "extra", { brandOffered: "ACC" })] }), ctx).flags).toContain("tier_mismatch");
     expect(priceQuote(facts({ ...A, lines: [steel(57, "kg", "extra"), cement(410, "extra", { brandOffered: "ultratech" })] }), ctx).flags).not.toContain("tier_mismatch");
+  });
+
+  test("the city's brand list decides the tier, whatever the LLM tagged (R17)", () => {
+    const items: OrderItem[] = [{ ...ITEMS[0], tier: "branded" }, ITEMS[1]];
+    const shaktiTaggedBranded = facts({ ...A, lines: [steel(57, "kg", "extra", { brandOffered: "Shakti TMT", tierOffered: "branded" }), cement(370, "extra")] });
+    expect(priceQuote(shaktiTaggedBranded, { ...CTX, items }).flags).toContain("tier_mismatch");
+    const tata = facts({ ...A, lines: [steel(66, "kg", "extra", { brandOffered: "Tata", tierOffered: undefined }), cement(370, "extra")] });
+    expect(priceQuote(tata, { ...CTX, items }).flags).not.toContain("tier_mismatch"); // "Tata" = "Tata Tiscon"
+  });
+
+  test("a steel item without one tier fails closed; a missing quantity is a missing item (R17)", () => {
+    for (const tier of [undefined, "both", "any"] as const) {
+      expect(priceQuote(A, { ...CTX, items: [{ ...ITEMS[0], tier }, ITEMS[1]] }).flags, String(tier)).toContain("tier_mismatch");
+    }
+    expect(priceQuote(A, { ...CTX, items: [{ ...ITEMS[0], quantity: undefined }, ITEMS[1]] }).flags).toContain("missing_item");
+  });
+
+  test("the band check takes GST out of a GST-included rate (R17)", () => {
+    // ₹80/kg GST included = ₹67.8 before GST, inside a ₹45–₹70 band.
+    const ctx = { ...CTX, bands: [{ ...BANDS[0], maxPaise: 7000 }, BANDS[1]] };
+    const incl = facts({ ...B, lines: [steel(80, "kg", "included"), cement(435, "included")] });
+    expect(priceQuote(incl, ctx).flags).not.toContain("out_of_band");
   });
 
   test("unit mismatch: cement per kg, steel per bag", () => {

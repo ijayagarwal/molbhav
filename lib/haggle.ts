@@ -37,29 +37,38 @@ export function bestCitable(state: HaggleState): Contender | null {
   return citableRanked(standingQuotes(heard))[0] ?? null;
 }
 
+/** A haggle cites another dealer's strictly lower, citable total, never the dealer's own (C3). */
+function haggle(target: Contender, cite: Contender): NextCall | null {
+  if (cite.dealerId === target.dealerId || !cite.citable || !cite.comparable || cite.total >= target.total) return null;
+  return { kind: "haggle", dealerId: target.dealerId, cite };
+}
+
 export function nextCall(state: HaggleState): NextCall {
   // Calls run one at a time in this plan; wait for the one in progress.
   if (state.haggles.some((h) => h.result === undefined)) return { kind: "wait" };
 
-  const ranked = citableRanked(state.quoteRound);
-  const skippedHaggle = ranked.length < 2;
+  // One standing offer per dealer (a retry can leave a dealer with two quote-round rows).
+  const ranked = citableRanked(standingQuotes(state.quoteRound));
 
-  if (!skippedHaggle && state.haggles.length < CALLS.maxHaggleCalls) {
+  if (ranked.length >= 2 && state.haggles.length < CALLS.maxHaggleCalls) {
     const [first, second] = ranked;
     const firstHaggle = state.haggles[0];
     if (firstHaggle === undefined) {
-      // #2 hears #1's exact total, which is strictly lower (equal totals give nothing to cite).
-      if (first.total < second.total) return { kind: "haggle", dealerId: second.dealerId, cite: first };
+      // #2 hears #1's exact total (equal totals give nothing lower to cite).
+      const step = haggle(second, first);
+      if (step) return step;
     } else if (state.haggles.length === 1 && firstHaggle.dealerId === second.dealerId) {
-      const r = firstHaggle.result;
       // If #2 now beats #1 with a citable quote, #1 hears #2's new total.
-      if (r && r.comparable && r.citable && r.total < first.total) return { kind: "haggle", dealerId: first.dealerId, cite: r };
+      const r = firstHaggle.result;
+      const step = r ? haggle(first, r) : null;
+      if (step) return step;
     }
   }
 
   if (state.heldRegularDealerId !== undefined && !state.matchPlaced) {
     // The match call cites the best citable total; without one it is a normal quote call (cite null).
-    return { kind: "match", dealerId: state.heldRegularDealerId, cite: bestCitable(state) };
+    const best = bestCitable(state);
+    return { kind: "match", dealerId: state.heldRegularDealerId, cite: best && best.dealerId !== state.heldRegularDealerId ? best : null };
   }
-  return { kind: "done", skippedHaggle };
+  return { kind: "done", skippedHaggle: state.haggles.length === 0 };
 }

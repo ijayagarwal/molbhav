@@ -371,6 +371,7 @@ Build:
    - earcons and haptics on stamp.
 
    It keeps running if I leave and recovers on return. On desktop it is the ledger table with the docked call panel (D5).
+   Notes from the Phase 3 review: mark an order as the demo order from the isDemo contractor (not only isDemoOrder's item match) and show a warning on /present if they disagree; sim citing uses each persona's own always-fresh band (§9), not the database bands.
 8. evals/extract.golden.json with 10 transcripts (8 generated from personas, plus one per-quintal quote with GST unclear, and a dealer who corrects his own number), and `pnpm eval:extract` (always uses Gemini, i.e. SIM_EXTRACT=llm).
 
 Done when:
@@ -401,6 +402,7 @@ Build:
    - the winner's Parchi;
    - Tally "₹X कम · आपके dealer के पहले रेट से", or "बीच वाले रेट से" (labelled);
    - the card "आपके dealer ने ₹Y कम किया" with an "उन्हीं से लीजिए" option;
+   - from the Phase 3 review: the match call's first-stage figures must appear in dealer turns BEFORE the first citation; numbers that only echo the cited total don't count as said; the agent's cite payload is the total and the same quote's terms only (no per-item lines when totalSource is stated, no dealer identity); extraction fills lumpSumScope and previousTotal (R17);
    - "आपके dealer ही सबसे सस्ते" when true (no tally);
    - ComparisonTable for comparable quotes, and a separate list for non-comparable ones;
    - CallDetail per call;
@@ -468,6 +470,7 @@ Build:
    - "Reset demo" (admin.resetDemo).
 4. A canned parse for the exact demo line, used only when STT or Gemini fails during a demo (clearly logged).
 5. The presenter opens the landing hero at `/?home` (proxy.ts never redirects it to /app).
+6. Voice confirm on Result passes only comparable quotes' dealers to lib/commands.ts parseCommand (Phase 3 review).
 
 Done when: the docs/DEMO.md script runs start to finish in /present in under 3 minutes in sim mode, and the sandbox works on a phone with all its limits enforced on the server (show me the tests).
 ```

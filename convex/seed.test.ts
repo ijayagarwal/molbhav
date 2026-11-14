@@ -77,3 +77,35 @@ describe("admin.resetDemo", () => {
     expect((await dump(t)).bands).toHaveLength(2);
   });
 });
+
+describe("review fixes", () => {
+  test("demo dealer ids stay the same across resets, so real orders never point at a deleted dealer", async () => {
+    const t = convexTest(schema, modules);
+    await t.mutation(internal.seed.reset, {});
+    const before = (await dump(t)).dealers.map((d) => d._id).sort();
+    const orderId = await t.run(async (ctx) => {
+      const user = await ctx.db.insert("users", {});
+      const agarwal = (await ctx.db.query("dealers").collect()).find((d) => d.simPersona === "perkg_gst_extra")!;
+      return await ctx.db.insert("orders", {
+        ownerUserId: user, kind: "app", mode: "sim", roundSeq: 1, transcript: "x", items: [], missing: [], status: "ready", selectedDealerIds: [agarwal._id],
+      });
+    });
+    await t.mutation(internal.seed.reset, {});
+    const after = (await dump(t)).dealers.map((d) => d._id).sort();
+    expect(after).toEqual(before);
+    const order = await t.run((ctx) => ctx.db.get(orderId));
+    const dealer = await t.run((ctx) => ctx.db.get(order!.selectedDealerIds[0]));
+    expect(dealer?.name).toBe("Agarwal Steels");
+  });
+
+  test("seed:reset never overwrites price bands set from field data", async () => {
+    const t = convexTest(schema, modules);
+    await t.run((ctx) =>
+      ctx.db.insert("priceBands", { city: "Jaipur", material: "tmt_steel", unit: "kg", minPaise: 5000, maxPaise: 7000, updatedAt: 1, updatedBy: "admin:founder" }),
+    );
+    await t.mutation(internal.seed.reset, {});
+    const bands = (await dump(t)).bands;
+    expect(bands.find((b) => b.material === "tmt_steel")).toMatchObject({ minPaise: 5000, updatedBy: "admin:founder" });
+    expect(bands.find((b) => b.material === "cement")?.updatedBy).toBe("seed");
+  });
+});

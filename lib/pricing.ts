@@ -31,6 +31,10 @@ export interface QuoteFacts {
   lumpSumIncludes?: LumpSumPart[];
   /** True when `lumpSumTotal` was said in this call (not inherited). */
   lumpSumSaidThisCall: boolean;
+  /** What the all-in figure is for: the whole order, or only part of it ("सरिया का सब मिलाके"). Only "order" can be a landed total (R17). */
+  lumpSumScope?: "order" | "partial";
+  /** Haggle and match-final quotes: the same dealer's earlier landed total (paise), to sanity-check a stated drop (R17). */
+  previousTotal?: number;
   /** Rupees; undefined means not said (unknown, never free, B7). */
   deliveryCharge?: number;
   unloadingCharge?: number;
@@ -99,31 +103,58 @@ const NOT_COMPARABLE: ReadonlySet<Flag> = new Set<Flag>([
   "unit_mismatch",
   "rate_not_in_transcript",
   "lump_sum_mismatch",
+  "out_of_band", // R17: a rate outside the dated band can't win either
 ]);
 
 const ALL_IN: readonly LumpSumPart[] = ["gst", "delivery", "unloading"];
 
 // ── Tiers ──────────────────────────────────────────────────────────────────────────────
 
-function sameBrand(a: string, b: string): boolean {
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
+const brandWords = (b: string) => b.trim().toLowerCase().split(/\s+/);
+
+/** Same brand: equal, or the same first word ("Tata" and "Tata Tiscon", "JSW" and "JSW Neosteel"). */
+export function sameBrand(a: string, b: string): boolean {
+  const [wa, wb] = [brandWords(a), brandWords(b)];
+  return wa.join(" ") === wb.join(" ") || wa[0] === wb[0];
 }
 
-/** The tier a quoted line is in: what the dealer said, else derived from the brand (city config). */
+function listedTier(brand: string, material: Material, tiers: BrandTiers): Tier | undefined {
+  if (material === "tmt_steel") {
+    if (tiers.steelBranded.some((b) => sameBrand(b, brand))) return "branded";
+    if (tiers.steelLocalIsi.some((b) => sameBrand(b, brand))) return "local_isi";
+    return undefined;
+  }
+  return tiers.cementBranded.some((b) => sameBrand(b, brand)) ? "branded" : undefined;
+}
+
+/**
+ * The tier a quoted line is in. A brand on the city's lists decides it, whatever the LLM tagged (C4: code
+ * decides, R17); an unlisted brand uses what the dealer said, else local ISI for steel and "any" for cement.
+ */
 export function offeredTier(line: QuoteLine, material: Material, tiers: BrandTiers): Tier | undefined {
-  if (line.tierOffered !== undefined) return line.tierOffered;
   const brand = line.brandOffered;
-  if (brand === undefined) return undefined;
-  if (material === "tmt_steel") return tiers.steelBranded.some((b) => sameBrand(b, brand)) ? "branded" : "local_isi";
-  return tiers.cementBranded.some((b) => sameBrand(b, brand)) ? "branded" : "any";
+  if (brand === undefined) return line.tierOffered;
+  return listedTier(brand, material, tiers) ?? line.tierOffered ?? (material === "tmt_steel" ? "local_isi" : "any");
 }
 
 function tierMatches(item: OrderItem, line: QuoteLine, tiers: BrandTiers): boolean {
   if (item.brand !== undefined) return line.brandOffered !== undefined && sameBrand(item.brand, line.brandOffered);
+  // The LLM's tag disagreeing with the city list is itself a mismatch (a local brand tagged "branded").
+  const brand = line.brandOffered;
+  const listed = brand === undefined ? undefined : listedTier(brand, item.material, tiers);
+  if (listed !== undefined && line.tierOffered !== undefined && line.tierOffered !== listed && !(item.material === "cement" && line.tierOffered === "any")) {
+    return false;
+  }
   const offered = offeredTier(line, item.material, tiers);
+  if (item.material === "cement") {
+    const wanted = item.tier ?? "any";
+    if (wanted === "any") return true;
+    return wanted === "branded" ? offered === "branded" : false;
+  }
+  // Steel must be ordered in one tier; anything else fails closed (R10, R17).
+  if (item.tier !== "branded" && item.tier !== "local_isi") return false;
   if (offered === undefined) return true; // unknown brand is flagged brand_unknown instead
-  if (item.material === "cement") return item.tier === "any" || item.tier === undefined ? true : offered === "branded";
-  return item.tier === undefined || item.tier === offered;
+  return item.tier === offered;
 }
 
 // ── One quote ──────────────────────────────────────────────────────────────────────────
@@ -131,13 +162,13 @@ function tierMatches(item: OrderItem, line: QuoteLine, tiers: BrandTiers): boole
 interface LineMath {
   subtotal: number;
   gst: number;
-  /** Paise per kg (steel) or per bag (cement), for the band check. */
+  /** Paise per kg (steel) or per bag (cement) before GST, for the band check. */
   perUnitPaise: number | null;
   unitMismatch: boolean;
 }
 
-function lineMath(item: OrderItem, line: QuoteLine, wantsCredit: boolean): LineMath {
-  const rate = wantsCredit && line.creditRate !== undefined ? line.creditRate : line.rate;
+function lineMath(item: OrderItem, line: QuoteLine, useCreditRate: boolean): LineMath {
+  const rate = useCreditRate && line.creditRate !== undefined ? line.creditRate : line.rate;
   const ratePaise = toPaise(rate);
   const qty = item.quantity ?? 0;
   const orderUnit = item.unit;
@@ -159,6 +190,8 @@ function lineMath(item: OrderItem, line: QuoteLine, wantsCredit: boolean): LineM
     }
   }
   const gst = line.gstMode === "included" ? 0 : roundPaise((subtotal * GST_BPS[item.material]) / 10000);
+  // Bands are before GST: take GST out of a GST-included rate before comparing (R17).
+  if (perUnitPaise !== null && line.gstMode === "included") perUnitPaise = perUnitPaise / (1 + GST_BPS[item.material] / 10000);
   return { subtotal, gst, perUnitPaise, unitMismatch };
 }
 
@@ -184,10 +217,11 @@ export function priceQuote(facts: QuoteFacts, ctx: PricingContext): PricedQuote 
 
   let subtotal = 0;
   let gst = 0;
+  let cashSubtotalAndGst = 0;
   let outOfBand = false;
   for (const item of ctx.items) {
     const line = facts.lines.find((l) => l.orderItemId === item.id);
-    if (line === undefined || line.inStock === "no") {
+    if (item.quantity === undefined || item.unit === undefined || line === undefined || line.inStock === "no") {
       flags.add("missing_item");
       continue;
     }
@@ -200,6 +234,8 @@ export function priceQuote(facts: QuoteFacts, ctx: PricingContext): PricedQuote 
     if (m.unitMismatch) flags.add("unit_mismatch");
     subtotal += m.subtotal;
     gst += m.gst;
+    const cash = lineMath(item, line, false);
+    cashSubtotalAndGst += cash.subtotal + cash.gst;
     const band = bandFor(ctx.bands, item.material);
     if (m.perUnitPaise !== null && (band === undefined || m.perUnitPaise < band.minPaise || m.perUnitPaise > band.maxPaise)) {
       outOfBand = true;
@@ -214,15 +250,21 @@ export function priceQuote(facts: QuoteFacts, ctx: PricingContext): PricedQuote 
 
   // R1: the dealer's own all-in figure.
   const coversAll = facts.lumpSumIncludes !== undefined && ALL_IN.every((p) => facts.lumpSumIncludes?.includes(p));
-  const statedAllIn = facts.lumpSumTotal !== undefined && coversAll ? toPaise(facts.lumpSumTotal) : undefined;
+  const wholeOrder = coversAll && facts.lumpSumScope === "order";
+  const statedAllIn = facts.lumpSumTotal !== undefined && wholeOrder ? toPaise(facts.lumpSumTotal) : undefined;
   const everyRateSaid = ctx.items.every((i) => facts.ratesSaidThisCall.includes(i.id));
+  // An all-in said in this call that we can't use (part of the order, or not covering GST, delivery and
+  // unloading) means the quote's total is stale: needs checking (R17).
+  if (facts.lumpSumSaidThisCall && facts.lumpSumTotal !== undefined && statedAllIn === undefined) flags.add("lump_sum_mismatch");
 
   let totalSource: PricedQuote["totalSource"] = "computed";
   let landed: Landed;
   if (everyRateSaid || statedAllIn === undefined || !facts.lumpSumSaidThisCall) {
     if (everyRateSaid && statedAllIn !== undefined && facts.lumpSumSaidThisCall && computed > 0) {
-      const gapBps = (Math.abs(statedAllIn - computed) * 10000) / computed;
-      if (gapBps > PRICING.lumpSumToleranceBps) flags.add("lump_sum_mismatch");
+      // The all-in is asked before the credit rate (C2), so it may match the cash total or the credit one.
+      const cashComputed = cashSubtotalAndGst + delivery + unloading;
+      const gap = (total: number) => (Math.abs(statedAllIn - total) * 10000) / total;
+      if (Math.min(gap(computed), gap(cashComputed)) > PRICING.lumpSumToleranceBps) flags.add("lump_sum_mismatch");
     }
     landed = { subtotal, gst, delivery, unloading, total: roundToRupee(computed) };
   } else {
@@ -235,6 +277,8 @@ export function priceQuote(facts: QuoteFacts, ctx: PricingContext): PricedQuote 
     const total = roundToRupee(statedAllIn);
     landed = { subtotal: total, gst: 0, delivery: 0, unloading: 0, total };
     outOfBand = statedOutOfBand(total, ctx);
+    // A stated drop of more than 5% from his own earlier total is more likely a mishearing than a haggle (R17).
+    if (facts.previousTotal !== undefined && total < facts.previousTotal * (1 - PRICING.maxStatedDropBps / 10000)) flags.add("outlier");
   }
 
   if (ctx.items.some((i) => i.material === "tmt_steel") && facts.weightBasis === "unknown") flags.add("weight_unknown");
@@ -247,7 +291,7 @@ export function priceQuote(facts: QuoteFacts, ctx: PricingContext): PricedQuote 
   return finish(landed, [...flags], facts, ctx, totalSource);
 }
 
-/** A stated all-in total must sit between the bands' minimum (before GST) and maximum (with GST, plus 5% for charges). */
+/** A stated all-in total must sit between the bands' minimum and maximum, both with GST (the maximum plus 5% for charges). */
 function statedOutOfBand(totalPaise: number, ctx: PricingContext): boolean {
   let min = 0;
   let max = 0;
@@ -255,7 +299,8 @@ function statedOutOfBand(totalPaise: number, ctx: PricingContext): boolean {
     const band = bandFor(ctx.bands, item.material);
     if (band === undefined || item.quantity === undefined || item.unit === undefined) return true;
     const units = item.material === "tmt_steel" && item.unit !== "bag" ? item.quantity * KG_PER[item.unit] : item.quantity;
-    min += units * band.minPaise;
+    // An all-in figure always includes GST, so both bounds do (R17).
+    min += units * band.minPaise * (1 + GST_BPS[item.material] / 10000);
     max += units * band.maxPaise * (1 + GST_BPS[item.material] / 10000);
   }
   return totalPaise < min || totalPaise > max * 1.05;
@@ -344,16 +389,34 @@ export function rankQuotes(quotes: Contender[]): Contender[] {
     .map(({ q }) => q);
 }
 
-/** Among comparable quotes within 0.5% of the cheapest: the most credit days, then earlier delivery, then lower total. */
-export function pickWinner(ranked: Contender[]): Contender | null {
+/**
+ * Standing offers ranked for the result, after the outlier rule over ALL of them (not one round at a time,
+ * R17): with 3+ comparable offers, one more than 15% from their median can't win.
+ */
+export function rankStanding(standing: Contender[]): Contender[] {
+  const comparable = standing.filter((q) => q.comparable);
+  if (comparable.length < 3) return rankQuotes(standing);
+  const median = lowerMedian(comparable.map((q) => q.total));
+  const checked = standing.map((q) =>
+    q.comparable && median > 0 && (Math.abs(q.total - median) * 10000) / median > PRICING.outlierBps ? { ...q, comparable: false, citable: false } : q,
+  );
+  return rankQuotes(checked);
+}
+
+/**
+ * Among comparable quotes within 0.5% of the cheapest: the most credit days (only when the contractor asked
+ * for credit, R17), then earlier delivery, then lower total.
+ */
+export function pickWinner(ranked: Contender[], opts: { wantsCredit: boolean } = { wantsCredit: true }): Contender | null {
   if (ranked.length === 0) return null;
   const cheapest = ranked[0].total;
   const limit = cheapest + (cheapest * PRICING.winnerToleranceBps) / 10000;
   const near = ranked.filter((q) => q.total <= limit);
   const deliveryOrder = (q: Contender) => (q.deliveryBy === undefined ? Number.MAX_SAFE_INTEGER : DELIVER_BY[q.deliveryBy].order);
+  const credit = (q: Contender) => (opts.wantsCredit ? (q.creditDays ?? 0) : 0);
   return [...near].sort(
     (a, b) =>
-      (b.creditDays ?? 0) - (a.creditDays ?? 0) ||
+      credit(b) - credit(a) ||
       deliveryOrder(a) - deliveryOrder(b) ||
       a.total - b.total ||
       ranked.indexOf(a) - ranked.indexOf(b),
@@ -368,12 +431,16 @@ export function lowerMedian(values: number[]): number {
 
 export interface SavingsInput {
   winner: Contender;
+  /** The cheapest comparable standing total (ranked[0]); the winner can be dearer when it wins on credit. */
+  cheapestTotal: number;
   /** Totals (paise) of the comparable QUOTE-ROUND quotes, for the median basis (R5). */
   quoteRoundComparableTotals: number[];
   regular?: {
     dealerId: string;
     /** His first rate from the match call (computed in code from what he said first, R1). */
     firstTotal?: number;
+    /** Whether that first-rate quote was comparable; only then is it the savings basis (R17). */
+    firstComparable?: boolean;
     /** His quote-round total when he was asked first ("पहले भी पूछिए"), only if comparable. */
     askFirstComparableTotal?: number;
     /** His standing comparable total after the match call. */
@@ -397,11 +464,15 @@ export interface Savings {
 /** Savings vs the regular dealer's first rate, else vs the median of comparable quote-round totals, never vs the max (P2). */
 export function computeSavings(input: SavingsInput): Savings {
   const { winner, regular } = input;
-  const regularFirst = regular?.firstTotal ?? regular?.askFirstComparableTotal;
-  const regularIsCheapest = regular !== undefined && winner.dealerId === regular.dealerId;
+  // His first rate counts only if it was a comparable quote (a GST-unclear first rate would inflate the saving, R17).
+  const comparableFirst = regular?.firstComparable === true ? regular.firstTotal : undefined;
+  const regularFirst = comparableFirst ?? regular?.askFirstComparableTotal;
+  const regularWon = regular !== undefined && winner.dealerId === regular.dealerId;
+  // "आपके dealer ही सबसे सस्ते" only when he really is the cheapest, not merely the winner on credit days.
+  const regularIsCheapest = regular?.finalTotal !== undefined && regular.finalTotal <= input.cheapestTotal;
   const regularDrop =
     regularFirst !== undefined && regular?.finalTotal !== undefined ? Math.max(0, regularFirst - regular.finalTotal) : null;
-  const regularGap = regular?.finalTotal !== undefined && !regularIsCheapest ? regular.finalTotal - winner.total : null;
+  const regularGap = regular?.finalTotal !== undefined && !regularWon ? Math.max(0, regular.finalTotal - winner.total) : null;
 
   let basis: Savings["basis"] = "none";
   let basisTotal: number | null = null;
