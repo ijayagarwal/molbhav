@@ -3,10 +3,12 @@
 import { m } from "motion/react";
 import { formatPaise } from "@/lib/numbers";
 import { Stamp } from "./Stamp";
+import { WinnerSwipe } from "./WinnerSwipe";
 
 // Signature motion 4, "Strike" (DESIGN §9, D6): a hand-drawn lal line draws across the old number left to
 // right over 300 ms (one of 3 seeded path variants), then the new number stamps in below, with "₹X कम हुआ"
-// in hara. With reduced motion the strike is a static line.
+// in hara. With reduced motion the strike is a static line. The new number is plain ink; only the winner's
+// gets the haldi marker swipe behind it (yellow means the winner, DESIGN §5).
 const PATHS = [
   "M2 12 C 22 8, 44 14, 66 10 S 90 9, 98 11",
   "M1 9 C 18 12, 38 7, 60 11 S 84 13, 99 9",
@@ -20,10 +22,12 @@ interface Props {
   droppedLabel: string;
   /** Seeds the path variant, e.g. the dealer's index. */
   variant: number;
+  /** The best row: the new number gets the winner swipe (signature motion 7). */
+  winner?: boolean;
   className?: string;
 }
 
-export function PriceStrike({ fromPaise, toPaise, droppedLabel, variant, className }: Props) {
+export function PriceStrike({ fromPaise, toPaise, droppedLabel, variant, winner, className }: Props) {
   const d = PATHS[((variant % PATHS.length) + PATHS.length) % PATHS.length];
   return (
     <span className={`flex flex-col items-end gap-0.5 ${className ?? ""}`}>
@@ -43,9 +47,12 @@ export function PriceStrike({ fromPaise, toPaise, droppedLabel, variant, classNa
           />
         </svg>
       </span>
-      <Stamp stampKey={toPaise} className="rounded-parchi bg-haldi px-1">
-        <span className="font-mono text-ledger font-semibold">{formatPaise(toPaise)}</span>
-      </Stamp>
+      <span className="relative isolate inline-flex">
+        {winner ? <WinnerSwipe /> : null}
+        <Stamp stampKey={toPaise}>
+          <span className="font-mono text-ledger font-semibold">{formatPaise(toPaise)}</span>
+        </Stamp>
+      </span>
       <m.span className="text-meta text-hara" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35, duration: 0.24 }}>
         {droppedLabel}
       </m.span>

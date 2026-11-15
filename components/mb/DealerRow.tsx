@@ -6,6 +6,7 @@ import { PhoneBold, XBold } from "./icons";
 import { PriceStrike } from "./PriceStrike";
 import { SlotChecklist, type Slots } from "./SlotChecklist";
 import { Stamp } from "./Stamp";
+import { WinnerSwipe } from "./WinnerSwipe";
 
 // DealerRow (DESIGN §11, §12.5, D5–D7). Presentational: every word comes in through props. 72 px rows.
 // Phone: avatar, name, area, state body, total on the right. Desk: the ledger row (Dealer 1fr · Status 144 ·
@@ -58,35 +59,17 @@ function Avatar({ initials, ringing }: { initials: string; ringing: boolean }) {
   );
 }
 
-/** Signature motion 7, "Winner" (DESIGN §9): a haldi highlighter swipe behind the winning total, once. */
-function WinnerSwipe() {
-  return (
-    <m.span
-      aria-hidden="true"
-      className="absolute inset-x-[-6px] top-1/2 -z-10 h-9 origin-left -translate-y-1/2 rounded-parchi bg-haldi/70"
-      initial={{ scaleX: 0 }}
-      animate={{ scaleX: 1 }}
-      transition={{ duration: 0.35, ease: "easeOut" }}
-    />
-  );
-}
-
 function TotalCell({ p }: { p: DealerRowProps }) {
-  if (p.strike) {
-    return (
-      <span className="relative isolate">
-        {p.winner ? <WinnerSwipe /> : null}
-        <PriceStrike {...p.strike} />
-      </span>
-    );
-  }
+  if (p.strike) return <PriceStrike {...p.strike} winner={p.winner} />;
   if (p.totalPaise === undefined) return null;
   return (
-    <span className="relative isolate flex flex-col items-end">
-      {p.winner ? <WinnerSwipe /> : null}
-      <Stamp stampKey={p.totalPaise}>
-        <span className={`font-mono text-ledger font-semibold ${p.state === "notComparable" ? "text-ink-2" : "text-ink"}`}>{formatPaise(p.totalPaise)}</span>
-      </Stamp>
+    <span className="flex flex-col items-end">
+      <span className="relative isolate inline-flex">
+        {p.winner ? <WinnerSwipe /> : null}
+        <Stamp stampKey={p.totalPaise}>
+          <span className={`font-mono text-ledger font-semibold ${p.state === "notComparable" ? "text-ink-2" : "text-ink"}`}>{formatPaise(p.totalPaise)}</span>
+        </Stamp>
+      </span>
       {p.totalNote ? <span className="text-meta text-ink-2">{p.totalNote}</span> : null}
     </span>
   );
@@ -123,11 +106,13 @@ function Body({ p }: { p: DealerRowProps }) {
           {p.caption}
         </m.p>
       ) : null}
-      {p.note ? (
-        <span className={`w-fit text-label ${p.noteTone === "lal" ? "rounded-card border border-lal px-2 text-lal" : "text-ink-2"}`}>{p.note}</span>
-      ) : null}
     </div>
   );
+}
+
+function Note({ p }: { p: DealerRowProps }) {
+  if (!p.note) return null;
+  return <span className={`w-fit text-label ${p.noteTone === "lal" ? "rounded-card border border-lal px-2 text-lal" : "text-ink-2"}`}>{p.note}</span>;
 }
 
 export function DealerRow(p: DealerRowProps) {
@@ -154,15 +139,22 @@ export function DealerRow(p: DealerRowProps) {
   }
 
   return (
-    <div className="relative flex min-h-[72px] items-start gap-3 border-b border-rule px-4 py-3">
-      <Avatar initials={p.initials} ringing={p.state === "ringing"} />
-      <div className="relative flex min-w-0 flex-1 flex-col gap-1">
-        <span className="truncate font-display text-title-2">{p.name}</span>
-        <Body p={p} />
+    <div className="relative flex min-h-[72px] flex-col gap-1.5 border-b border-rule px-4 py-3">
+      <div className="flex items-start gap-3">
+        <Avatar initials={p.initials} ringing={p.state === "ringing"} />
+        <div className="relative flex min-w-0 flex-1 flex-col gap-1">
+          <span className="truncate font-display text-title-2">{p.name}</span>
+          <Body p={p} />
+        </div>
+        <div className="relative shrink-0 pt-1">
+          <TotalCell p={p} />
+        </div>
       </div>
-      <div className="relative shrink-0 pt-1">
-        <TotalCell p={p} />
-      </div>
+      {p.note ? (
+        <div className="pl-[52px]">
+          <Note p={p} />
+        </div>
+      ) : null}
     </div>
   );
 }
