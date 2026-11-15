@@ -1,18 +1,35 @@
 "use client";
 
 import { m } from "motion/react";
+import type { KeyboardEvent } from "react";
 import { formatPaise } from "@/lib/numbers";
-import { PhoneBold, XBold } from "./icons";
+import { BusyBold, ClockBold, DeclinedBold, PhoneBold, StopBold, XBold } from "./icons";
 import { PriceStrike } from "./PriceStrike";
 import { SlotChecklist, type Slots } from "./SlotChecklist";
 import { Stamp } from "./Stamp";
+import { StatusPill, type PillKind } from "./StatusPill";
 import { WinnerSwipe } from "./WinnerSwipe";
 
-// DealerRow (DESIGN §11, §12.5, D5–D7). Presentational: every word comes in through props. 72 px rows.
-// Phone: avatar, name, area, state body, total on the right. Desk: the ledger row (Dealer 1fr · Status 144 ·
-// Landed 140 · Credit 80 · Delivery 104) with the latest line as the row's second line.
+// DealerRow (DESIGN §11, §12.5, §19, D5–D7). Presentational: every word comes in through props. 72 px rows.
+// Phone: avatar, name, area, state body, total on the right; a flag or held note on its own line below.
+// Desk: the ledger row (Dealer 1fr · Status 144 · Landed 140 · Credit 80 · Delivery 104) with the latest
+// line as the row's second line; the row selects its call for the side panel.
 
-export type RowState = "queued" | "ringing" | "talking" | "quoted" | "noAnswer" | "held" | "notComparable";
+export type RowState =
+  | "queued"
+  | "ringing"
+  | "talking"
+  | "haggling"
+  | "matchCall"
+  | "quoted"
+  | "final"
+  | "noAnswer"
+  | "busy"
+  | "callback"
+  | "declined"
+  | "cancelled"
+  | "held"
+  | "notComparable";
 
 export interface DealerRowProps {
   layout: "phone" | "desk";
@@ -22,24 +39,40 @@ export interface DealerRowProps {
   state: RowState;
   /** The status word for the state (from the dictionary). */
   statusLabel: string;
-  /** Talking: elapsed seconds, the slot checklist and, in sim only, the DEMO caption (D7). */
+  /** In a call: elapsed seconds, the slot checklist and, in sim only, the DEMO caption (D7). */
   elapsedS?: number;
   slots?: Slots;
   slotLabels: Record<keyof Slots, string>;
   caption?: string;
   demoLabel: string;
+  /** Sim or live: live never shows captions or a waveform (D7). */
+  sim?: boolean;
   /** Quoted: landed total (paise); a haggle drop shows as a strike from → to. */
   totalPaise?: number;
   strike?: { fromPaise: number; toPaise: number; droppedLabel: string; variant: number };
   totalNote?: string;
-  /** Badges such as "आपके dealer", and a held/flag line under the name. */
+  /** Badges such as "आपके dealer", and a held/flag note. */
   badge?: string;
   note?: string;
   noteTone?: "lal" | "ink";
+  /** Desk: the latest line, shown as the row's second line. */
+  line?: string;
   /** Desk ledger columns. */
   credit?: string;
   delivery?: string;
   winner?: boolean;
+  /** Desk: the row whose call is open in the panel. */
+  selected?: boolean;
+  onSelect?: () => void;
+}
+
+const IN_CALL: ReadonlySet<RowState> = new Set(["ringing", "talking", "haggling", "matchCall"]);
+const TALKING: ReadonlySet<RowState> = new Set(["talking", "haggling", "matchCall"]);
+
+function pillKind(p: DealerRowProps): PillKind {
+  if (p.winner && (p.state === "quoted" || p.state === "final")) return "best";
+  if (p.state === "held") return "queued";
+  return p.state;
 }
 
 function Avatar({ initials, ringing }: { initials: string; ringing: boolean }) {
@@ -59,13 +92,13 @@ function Avatar({ initials, ringing }: { initials: string; ringing: boolean }) {
   );
 }
 
-function TotalCell({ p }: { p: DealerRowProps }) {
-  if (p.strike) return <PriceStrike {...p.strike} winner={p.winner} />;
+function TotalCell({ p, swipe }: { p: DealerRowProps; swipe: boolean }) {
+  if (p.strike) return <PriceStrike {...p.strike} winner={swipe && p.winner} compact={p.layout === "desk"} />;
   if (p.totalPaise === undefined) return null;
   return (
     <span className="flex flex-col items-end">
       <span className="relative isolate inline-flex">
-        {p.winner ? <WinnerSwipe /> : null}
+        {swipe && p.winner ? <WinnerSwipe /> : null}
         <Stamp stampKey={p.totalPaise}>
           <span className={`font-mono text-ledger font-semibold ${p.state === "notComparable" ? "text-ink-2" : "text-ink"}`}>{formatPaise(p.totalPaise)}</span>
         </Stamp>
@@ -75,26 +108,29 @@ function TotalCell({ p }: { p: DealerRowProps }) {
   );
 }
 
+const ENDED_ICON: Partial<Record<RowState, typeof XBold>> = { noAnswer: XBold, busy: BusyBold, callback: ClockBold, declined: DeclinedBold, cancelled: StopBold };
+
 function Body({ p }: { p: DealerRowProps }) {
   const timer = p.elapsedS !== undefined ? `${Math.floor(p.elapsedS / 60)}:${String(p.elapsedS % 60).padStart(2, "0")}` : null;
+  const Ended = ENDED_ICON[p.state];
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       {p.badge ? <span className="w-fit rounded-card border border-ink px-2 text-label">{p.badge}</span> : null}
-      {p.state === "talking" || p.state === "ringing" ? (
+      {IN_CALL.has(p.state) ? (
         <span className="flex items-center gap-2 text-label text-neel">
           {p.statusLabel}
-          {timer && p.state === "talking" ? <span className="font-mono text-meta">{timer}</span> : null}
+          {timer && TALKING.has(p.state) ? <span className="font-mono text-meta">{timer}</span> : null}
         </span>
-      ) : p.state === "noAnswer" ? (
-        <span className="flex items-center gap-1 text-label text-ink-2">
-          <XBold className="size-4" />
+      ) : Ended ? (
+        <span className={`flex items-center gap-1 text-label ${p.state === "declined" ? "text-lal" : "text-ink-2"}`}>
+          <Ended className="size-4" />
           {p.statusLabel}
         </span>
-      ) : p.layout === "phone" && p.state !== "held" ? (
+      ) : p.state !== "held" ? (
         <span className="text-meta text-ink-2">{p.area}</span>
       ) : null}
-      {p.state === "talking" && p.slots ? <SlotChecklist slots={p.slots} labels={p.slotLabels} /> : null}
-      {p.state === "talking" && p.caption ? (
+      {TALKING.has(p.state) && p.slots ? <SlotChecklist slots={p.slots} labels={p.slotLabels} /> : null}
+      {TALKING.has(p.state) && p.caption && p.sim !== false ? (
         <m.p
           key={p.caption}
           className="max-w-[260px] rounded-card bg-cement px-2.5 py-1.5 text-meta text-ink"
@@ -117,23 +153,61 @@ function Note({ p }: { p: DealerRowProps }) {
 
 export function DealerRow(p: DealerRowProps) {
   if (p.layout === "desk") {
+    const flagInline = Boolean(p.note) && p.noteTone === "lal";
+    const second = p.line ?? (p.caption && TALKING.has(p.state) && p.sim !== false ? `${p.demoLabel} ${p.caption}` : !flagInline && p.note ? p.note : p.area);
+    const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+      if (p.onSelect && (e.key === "Enter" || e.key === " ")) {
+        e.preventDefault();
+        p.onSelect();
+      }
+    };
     return (
-      <div role="row" className="relative grid min-h-[72px] grid-cols-[minmax(0,1fr)_144px_140px_80px_104px] items-center gap-3 border-b border-rule px-4 py-2">
-        <div role="cell" className="relative flex min-w-0 items-center gap-3">
-          <Avatar initials={p.initials} ringing={p.state === "ringing"} />
-          <div className="flex min-w-0 flex-col">
+      <div
+        role="row"
+        aria-selected={p.onSelect ? (p.selected ?? false) : undefined}
+        tabIndex={p.onSelect ? 0 : undefined}
+        onClick={p.onSelect}
+        onKeyDown={onKeyDown}
+        className={`relative isolate grid min-h-[72px] grid-cols-[minmax(0,1fr)_144px_140px_80px_104px] items-center gap-3 border-b border-rule px-4 py-2 last:border-b-0 ${p.onSelect ? "cursor-pointer hover:bg-paper" : ""} ${p.selected ? "bg-paper" : ""}`}
+      >
+        {/* Signature motion 7 on desk: the marker swipes across the best row once (Desk.html). */}
+        {p.winner ? (
+          <m.span
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 origin-left border-2 border-ink bg-haldi/30"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+          />
+        ) : null}
+        {/* Desk.html: no avatar; the name keeps the line, badges and flags lead the second line. */}
+        <div role="cell" className="flex min-w-0 flex-col">
+          <span className="flex min-w-0 items-center gap-1.5">
+            {p.state === "ringing" ? (
+              <m.span className="shrink-0 text-neel" animate={{ rotate: [0, -14, 14, -14, 0] }} transition={{ duration: 0.5, repeat: Infinity, ease: "easeInOut" }}>
+                <PhoneBold className="size-4" />
+              </m.span>
+            ) : null}
             <span className="truncate font-display text-label">{p.name}</span>
-            <span className="truncate text-meta text-ink-2">{p.caption && p.state === "talking" ? `${p.demoLabel} ${p.caption}` : p.note ?? p.area}</span>
-          </div>
+          </span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            {p.badge ? <span className="shrink-0 rounded-parchi border border-ink px-1.5 text-meta">{p.badge}</span> : null}
+            {flagInline ? <span className="shrink-0 rounded-parchi border border-lal px-1.5 text-meta text-lal">{p.note}</span> : null}
+            <span className="truncate text-meta text-ink-2">{second}</span>
+          </span>
         </div>
-        <div role="cell" className={`relative text-label ${p.state === "talking" || p.state === "ringing" ? "text-neel" : p.state === "notComparable" ? "text-lal" : "text-ink-2"}`}>
-          {p.statusLabel}
+        <div role="cell" className="min-w-0">
+          <StatusPill kind={pillKind(p)} label={p.statusLabel} sim={p.sim !== false} size="sm" />
         </div>
-        <div role="cell" className="relative flex justify-end">
-          <TotalCell p={p} />
+        <div role="cell" className="flex justify-end">
+          <TotalCell p={p} swipe={false} />
         </div>
-        <div role="cell" className="relative text-meta text-ink-2">{p.credit ?? ""}</div>
-        <div role="cell" className="relative text-meta text-ink-2">{p.delivery ?? ""}</div>
+        <div role="cell" className="text-meta text-ink-2">
+          {p.credit ?? ""}
+        </div>
+        <div role="cell" className="text-meta text-ink-2">
+          {p.delivery ?? ""}
+        </div>
       </div>
     );
   }
@@ -147,7 +221,7 @@ export function DealerRow(p: DealerRowProps) {
           <Body p={p} />
         </div>
         <div className="relative shrink-0 pt-1">
-          <TotalCell p={p} />
+          <TotalCell p={p} swipe />
         </div>
       </div>
       {p.note ? (

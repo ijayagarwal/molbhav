@@ -1,11 +1,14 @@
+import Link from "next/link";
+import { MotionRoot } from "@/components/mb/MotionRoot";
 import { Wordmark } from "@/components/mb/Wordmark";
+import { ComponentGallery, DeskRowsGallery } from "@/features/styleguide/ComponentGallery";
 import { getDict } from "@/lib/i18n/getDict";
 import { getServerDict } from "@/lib/i18n/server";
 import { formatINR } from "@/lib/numbers";
 import { CONTRAST_PAIRS, contrast, LIGHT, type ColorToken } from "@/lib/tokens";
 
-// Styleguide v0 (PROMPTS Phase 1B item 6): tokens, contrast, type scale in hi and en, wordmark, shape.
-// Phase 2A adds the money shot; Phase 2B adds every component and state.
+// The styleguide (PROMPTS 1B item 6, 2B): tokens, contrast, type scale, wordmark and shape, then every
+// component in DESIGN §11 in every state, in hi and en side by side. The full shells are at /styleguide/shell.
 
 const SWATCH_BG: Record<ColorToken, string> = {
   paper: "bg-paper", card: "bg-card", cement: "bg-cement", rule: "bg-rule", ink: "bg-ink", "ink-2": "bg-ink-2",
@@ -107,6 +110,32 @@ export default async function StyleguidePage() {
             paint-lg
           </button>
         </div>
+      </Section>
+
+      <Section title={t["styleguide.layouts"]}>
+        <div className="flex flex-wrap gap-3">
+          <Link href="/styleguide/shell" className="inline-flex min-h-14 items-center rounded-card border-[1.5px] border-ink bg-card px-4 text-label">
+            {t["styleguide.openShell"]}
+          </Link>
+          <Link href="/styleguide/money-shot" className="inline-flex min-h-14 items-center rounded-card border-[1.5px] border-ink bg-card px-4 text-label">
+            {t["moneyShot.title"]}
+          </Link>
+        </div>
+      </Section>
+
+      <Section title={t["styleguide.components"]}>
+        <MotionRoot>
+          <ComponentGallery hi={hi} en={en} />
+          <section className="flex flex-col gap-3 border-t border-rule pt-6">
+            <h3 className="font-mono text-label text-ink-2">{"DealerRow · desk"}</h3>
+            <div lang="hi">
+              <DeskRowsGallery dict={hi} lang="hi" />
+            </div>
+            <div lang="en">
+              <DeskRowsGallery dict={en} lang="en" />
+            </div>
+          </section>
+        </MotionRoot>
       </Section>
 
       <Section title={t["styleguide.wordmark"]}>
