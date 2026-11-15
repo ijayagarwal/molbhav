@@ -13,6 +13,10 @@ HTTP actions (webhooks) are served from `https://<name>.convex.site` (dev) and `
 
 Convex Auth (`@convex-dev/auth` 0.0.98, Anonymous provider) is set up on dev (`SITE_URL=http://localhost:3000`) and prod (`SITE_URL=https://molbhav-weld.vercel.app`): `JWT_PRIVATE_KEY`, `JWKS` and `SITE_URL` are set on each.
 
+Other Convex env (names only):
+- dev: `HASH_SECRET`; `ADMIN_USER_IDS` (a headless test browser's anonymous user, used to check `/app/admin` in Phase 8A; replace it with a founder's session id when one is needed). No live-call settings, so `claimDial` refuses everything (`live_off`).
+- prod: no live-call settings either. `HASH_SECRET` and `ADMIN_USER_IDS` get set before the first prod admin or live step.
+
 ## Vercel (team `ganges1`, Hobby; project `molbhav`)
 - Production URL: **https://molbhav-weld.vercel.app**
 - Build: `vercel.json` (`npx convex deploy --cmd 'pnpm build'`, pnpm via Corepack).

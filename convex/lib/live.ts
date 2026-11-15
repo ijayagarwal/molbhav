@@ -4,7 +4,7 @@
 // touched the same index ranges (R2: two claims for the last slot let exactly one through).
 import { HOUR } from "@convex-dev/rate-limiter";
 import { istMidnight } from "../../lib/ist";
-import { opensOrderSlot, readLiveEnv, type DealerFacts, type LiveEnv } from "../../lib/liveGuards";
+import { readLiveEnv, type DealerFacts, type LiveEnv } from "../../lib/liveGuards";
 import { isIndianMobileE164 } from "../../lib/phone";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
@@ -39,7 +39,7 @@ export async function contractorOrdersToday(ctx: Ctx, contractorId: Id<"contract
     .query("callLog")
     .withIndex("by_contractor_at", (q) => q.eq("contractorId", contractorId).gte("at", istMidnight(now)))
     .collect();
-  return new Set(rows.filter((r) => opensOrderSlot(r.round)).map((r) => r.orderId as string));
+  return new Set(rows.filter((r) => r.opensSlot).map((r) => r.orderId as string));
 }
 
 /** The dealer's number, re-hashed from the stored E.164 so a stale `phoneHash` can't unlock a dial. */
@@ -54,7 +54,7 @@ export async function dealerFacts(dealer: Doc<"dealers">): Promise<DealerFacts> 
   };
 }
 
-/** callLog counts for one number and one order (guards 4 and 6, R3). */
+/** callLog counts for one number and one order (guards 2, 4 and 6; R3, R18). The order's rows are all-time. */
 export async function dialCounts(ctx: Ctx, phoneHash: string | null, orderId: Id<"orders">, now: number) {
   const orderRows = await ctx.db
     .query("callLog")
@@ -67,17 +67,23 @@ export async function dialCounts(ctx: Ctx, phoneHash: string | null, orderId: Id
           .query("callLog")
           .withIndex("by_phoneHash_at", (q) => q.eq("phoneHash", phoneHash).gte("at", istMidnight(now)))
           .collect();
+  const dealerRows = orderRows.filter((r) => r.phoneHash === phoneHash);
   return {
-    orderDials: orderRows.length,
-    dealerCallsThisOrder: orderRows.filter((r) => r.phoneHash === phoneHash).length,
-    dealerOrdersToday: new Set(todayRows.filter((r) => opensOrderSlot(r.round)).map((r) => r.orderId as string)),
+    orderSweepDials: orderRows.filter((r) => r.round !== "confirm").length,
+    dealerSweepCallsThisOrder: dealerRows.filter((r) => r.round !== "confirm").length,
+    dealerConfirmCallsThisOrder: dealerRows.filter((r) => r.round === "confirm").length,
+    dealerOpenedThisOrder: dealerRows.some((r) => r.opensSlot),
+    orderOpened: orderRows.some((r) => r.opensSlot),
+    dealerOrdersToday: new Set(todayRows.filter((r) => r.opensSlot).map((r) => r.orderId as string)),
     dealerCallsToday: todayRows.length,
   };
 }
 
 /**
  * MAX_LIVE_SWEEPS_PER_HOUR, deployment-wide (R2): `orders.startSweep` calls this once per live sweep.
- * It runs in the caller's transaction, so a sweep that later fails rolls the count back too.
+ * It runs in the caller's transaction, so a sweep that later fails rolls the count back too. It is a
+ * fixed window (the rate limiter's), so two bursts either side of a window edge can reach 2× the limit
+ * within an hour; claimDial's slots and caps still bound the calls themselves.
  */
 export async function consumeLiveSweep(ctx: MutationCtx, env: LiveEnv): Promise<boolean> {
   if (env.maxLiveSweepsPerHour <= 0) return false;

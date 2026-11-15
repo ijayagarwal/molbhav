@@ -1,3 +1,4 @@
+import { PUBLIC_CANCEL_REASON } from "../../lib/cancelReasons";
 import type { Doc } from "../_generated/dataModel";
 
 // The only shapes of a dealer and a call that may leave the server (CLAUDE.md hard rule 6).
@@ -33,7 +34,8 @@ export function publicCall(c: Doc<"calls">) {
     attempt: c.attempt,
     status: c.status,
     outcome: c.outcome,
-    cancelReason: c.cancelReason,
+    // Only the group (R18): the exact code can name a missing setting or reveal other contractors' calls.
+    cancelReason: c.cancelReason === undefined ? undefined : PUBLIC_CANCEL_REASON[c.cancelReason],
     startedAt: c.startedAt,
     endedAt: c.endedAt,
     durationSec: c.durationSec,

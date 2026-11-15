@@ -414,7 +414,7 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `dial.dailyCap` | आज की असली कॉल पूरी हो गईं | Today's live calls are used up |
 | `dial.dealerUnavailable` | इस dealer को अभी असली कॉल नहीं जा सकती | Live calls can't go to this dealer yet |
 | `dial.dealerRested` | इस dealer को आज और कॉल नहीं करेंगे | No more calls to this dealer today |
-| `dial.callHours` | कॉल के समय के बाहर | Outside calling hours |
+| `dial.callHours` | अभी कॉल का समय नहीं है | Not calling hours right now |
 | `dial.orderCap` | इस ऑर्डर की कॉल पूरी हो गईं | This order has used all its calls |
 | `dial.queueTimeout` | समय पर लाइन नहीं मिली | No free line in time |
 | `dial.roundClosed` | ज़रूरत नहीं पड़ी | Not needed any more |

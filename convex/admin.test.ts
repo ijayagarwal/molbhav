@@ -80,6 +80,18 @@ describe("admin.verifyContractor (S1)", () => {
     expect(await auditRows(t)).toHaveLength(0);
   });
 
+  test("one verified contractor per phone, so caps can't be multiplied across devices", async () => {
+    const { t, contractorId } = await setup();
+    const second = await t.run(async (ctx) => {
+      const u = await ctx.db.insert("users", {});
+      return await ctx.db.insert("contractors", { userId: u, name: "Ramesh", language: "hi", verified: false, liveDailyCap: 0, consentAt: 1 });
+    });
+    await t.mutation(internal.admin.verifyContractor, { contractorId, phone: "9812300001", note: "Met at site, called back", actor: "jay" });
+    await expect(
+      t.mutation(internal.admin.verifyContractor, { contractorId: second, phone: "+91 98123 00001", note: "New phone, same person", actor: "jay" }),
+    ).rejects.toThrow(/phone_in_use/);
+  });
+
   test("unverify clears the cap; setContractorCap is logged", async () => {
     const { t, contractorId } = await setup();
     await t.mutation(internal.admin.verifyContractor, { contractorId, phone: "9812300001", note: "Met at site, called back", actor: "jay" });
@@ -112,33 +124,55 @@ describe("admin.addDealer and optOutDealer (S2, R15)", () => {
     await expect(t.mutation(internal.admin.addDealer, { ...DEALER, phone: "+910000000001" })).rejects.toThrow(/invalid_phone/);
   });
 
-  test("opt-out cancels queued calls and deletes recordings at once; re-adding needs a fresh consent", async () => {
+  test("opt-out cancels queued calls and deletes recordings at once, for every row with that number", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(MON_11);
     const { t, contractorId, user } = await setup();
-    const { dealerId } = await t.mutation(internal.admin.addDealer, DEALER);
-    const { queued, done } = await t.run(async (ctx) => {
+    const { dealerId, phoneHash } = await t.mutation(internal.admin.addDealer, DEALER);
+    const { queued, done, twin } = await t.run(async (ctx) => {
+      // A second row for the same number (e.g. a future /dealer opt-in) must be opted out too.
+      const twin = await ctx.db.insert("dealers", {
+        name: "Agarwal Steels Two", area: "mansarovar", city: "Jaipur", phoneE164: "+919812345678", phoneHash,
+        materials: ["cement"], source: "optin", consent: "opted_in", isDemo: false,
+      });
       const orderId = await ctx.db.insert("orders", {
         ownerUserId: user, contractorId, kind: "app", mode: "live", roundSeq: 1, transcript: "", items: [], missing: [], status: "sweeping", selectedDealerIds: [],
       });
-      const base = { orderId, dealerId, round: "quote" as const, mode: "live" as const, attempt: 1, roundSeq: 1, deadlineAt: Date.now() + 600_000, extract: "pending" as const, extractAttempts: 0 };
+      const base = { orderId, round: "quote" as const, mode: "live" as const, attempt: 1, roundSeq: 1, deadlineAt: Date.now() + 600_000, extract: "pending" as const, extractAttempts: 0 };
       const recordingStorageId = await ctx.storage.store(new Blob(["audio"]));
       return {
-        queued: await ctx.db.insert("calls", { ...base, status: "queued", statusRank: 0 }),
-        done: await ctx.db.insert("calls", { ...base, status: "completed", statusRank: 10, recordingStorageId }),
+        twin,
+        queued: await ctx.db.insert("calls", { ...base, dealerId: twin, status: "queued", statusRank: 0 }),
+        done: await ctx.db.insert("calls", { ...base, dealerId, status: "completed", statusRank: 10, recordingStorageId }),
       };
     });
 
     const r = await t.mutation(internal.admin.optOutDealer, { phone: "9812345678", note: "Said STOP on WhatsApp", actor: "jay" });
-    expect(r).toEqual({ cancelled: 1, recordingsDeleted: 1 });
+    expect(r).toEqual({ dealers: 2, cancelled: 1 });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
     await t.run(async (ctx) => {
       expect((await ctx.db.get(dealerId))!.consent).toBe("opted_out");
+      expect((await ctx.db.get(twin))!.consent).toBe("opted_out");
       expect(await ctx.db.get(queued)).toMatchObject({ status: "cancelled", cancelReason: "opted_out" });
       expect((await ctx.db.get(done))!.recordingStorageId).toBeUndefined();
       expect(await ctx.db.system.query("_storage").collect()).toHaveLength(0);
     });
+  });
 
+  test("re-adding an opted-out number needs the flag and a new consent note; unnamed fields are kept", async () => {
+    const { t } = await setup();
+    const { dealerId } = await t.mutation(internal.admin.addDealer, DEALER);
+    await t.mutation(internal.admin.optOutDealer, { dealerId, note: "Said STOP on WhatsApp", actor: "jay" });
     await expect(t.mutation(internal.admin.addDealer, DEALER)).rejects.toThrow(/opted_out/);
-    const again = await t.mutation(internal.admin.addDealer, { ...DEALER, readdAfterOptOut: true, consentNote: "Called us back on 20 Nov, wants quote calls again" });
+    await expect(t.mutation(internal.admin.addDealer, { ...DEALER, readdAfterOptOut: true })).rejects.toThrow(/stale_consent_note/);
+    const again = await t.mutation(internal.admin.addDealer, {
+      ...DEALER,
+      nameHi: undefined,
+      readdAfterOptOut: true,
+      consentNote: "Called us back on 20 Nov, wants quote calls again",
+    });
     expect(again).toMatchObject({ dealerId, readded: true });
+    expect((await t.run(async (ctx) => (await ctx.db.get(dealerId))!)).nameHi).toBe(DEALER.nameHi);
     expect((await auditRows(t)).map((a) => a.action)).toEqual(["dealer.add", "dealer.opt_out", "dealer.readd_after_opt_out"]);
   });
 });
@@ -186,16 +220,6 @@ describe("admin reads", () => {
     const text = JSON.stringify(o);
     for (const secret of ["+919812345678", "9812345678", phoneHash, "+919999900000", "gem-secret-value"]) expect(text).not.toContain(secret);
   });
-
-  test("phoneHashForTest: admins get the HMAC of what they typed", async () => {
-    const { t, asAdmin, asUser } = await setup();
-    await expect(asUser.query(api.admin.phoneHashForTest, { phone: "9812345678" })).rejects.toThrow(/forbidden/);
-    expect(await asAdmin.query(api.admin.phoneHashForTest, { phone: "9812345678" })).toEqual({
-      ok: true,
-      phoneHash: await t.run(() => hashPhone("+919812345678")),
-    });
-    expect(await asAdmin.query(api.admin.phoneHashForTest, { phone: "12345" })).toEqual({ ok: false });
-  });
 });
 
 describe("settings.liveAvailable", () => {
@@ -208,7 +232,8 @@ describe("settings.liveAvailable", () => {
     expect(await asUser.query(api.settings.liveAvailable, {})).toEqual({ available: false, reason: "not_verified" });
     await t.mutation(internal.admin.verifyContractor, { contractorId, phone: "9812300001", note: "Met at site, called back", actor: "jay" });
     expect(await asUser.query(api.settings.liveAvailable, {})).toEqual({ available: true, reason: null });
-    vi.setSystemTime(MON_11 + 9 * 3600_000); // 20:00 IST
-    expect(await asUser.query(api.settings.liveAvailable, {})).toEqual({ available: false, reason: "call_hours" });
+    vi.setSystemTime(MON_11 + 9 * 3600_000); // 20:00 IST; the client's minute argument makes it recompute
+    const at = Math.floor(Date.now() / 60_000);
+    expect(await asUser.query(api.settings.liveAvailable, { at })).toEqual({ available: false, reason: "call_hours" });
   });
 });

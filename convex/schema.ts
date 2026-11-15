@@ -40,7 +40,7 @@ const cancelReason = v.union(
   v.literal("config"), v.literal("live_off"), v.literal("not_verified"), v.literal("contractor_daily_cap"),
   v.literal("no_consent"), v.literal("dealer_daily_orders"), v.literal("dealer_order_calls"),
   v.literal("test_daily_calls"), v.literal("call_hours"), v.literal("order_call_cap"), v.literal("no_from_number"),
-  v.literal("trial_test_phones_only"), v.literal("no_billed_key"), v.literal("invalid_number"),
+  v.literal("trial_test_phones_only"), v.literal("test_phone_unlisted"), v.literal("no_billed_key"), v.literal("invalid_number"),
   v.literal("demo_dealer"), v.literal("phone_hash_mismatch"), v.literal("a2p_not_declared"), v.literal("live_stage"),
   v.literal("queue_timeout"), v.literal("round_closed"), v.literal("opted_out"), v.literal("stopped"),
   v.literal("bolna_rescheduled"),
@@ -82,7 +82,7 @@ export default defineSchema({
     consentAt: v.number(),               // privacy notice accepted
     tierPrefs: v.optional(v.object({ tmt_steel: v.optional(tier), cement: v.optional(tier) })),
     isDemo: v.optional(v.boolean()),     // the seeded demo contractor (B8); admin.claimDemoContractor touches only these
-  }).index("by_user", ["userId"]),
+  }).index("by_user", ["userId"]).index("by_phone", ["phoneE164"]),   // one verified contractor per phone (R18)
 
   sites: defineTable({
     contractorId: v.id("contractors"),
@@ -164,7 +164,7 @@ export default defineSchema({
     cancelReason: v.optional(cancelReason),      // set with status "cancelled" (R18); safe to show
   }).index("by_order", ["orderId"]).index("by_execution", ["providerExecutionId"]).index("by_deadline", ["deadlineAt"])
     .index("by_mode_status", ["mode", "status"])    // claimDial counts active live calls (R2)
-    .index("by_dealer", ["dealerId"]),             // opt-outs cancel a dealer's queued calls and recordings (R15)
+    .index("by_dealer_status", ["dealerId", "status"]),   // opt-outs cancel a dealer's queued calls and recordings (R15)
 
   callEvents: defineTable({
     callId: v.id("calls"), orderId: v.id("orders"),
@@ -232,10 +232,11 @@ export default defineSchema({
     outcome: v.optional(v.string()),     // filled in when the call ends
     orderId: v.id("orders"), callId: v.id("calls"),   // written by claimDial at reservation (R3)
     contractorId: v.id("contractors"),                // per-contractor daily cap (guard 2, R18)
+    opensSlot: v.boolean(),                           // this call used a daily order slot (opening, or no earlier opening, R18)
   }).index("by_phoneHash_at", ["phoneHash", "at"]).index("by_order", ["orderId"])
     .index("by_contractor_at", ["contractorId", "at"]),
 
-  priceBands: defineTable({              // dated sanity bands for citing (C4); seeded from lib/config.ts, edited in /app/admin (R13)
+  priceBands: defineTable({              // dated sanity bands for citing (C4); seeded from lib/config.ts, set with admin:setPriceBand (R13, R18)
     city: v.string(), material,
     unit,                                // kg for steel, bag for cement
     minPaise: v.number(), maxPaise: v.number(),

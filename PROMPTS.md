@@ -421,7 +421,7 @@ Phase 6B of Molbhav. Read docs/ARCHITECTURE.md §6.7, §6.10; docs/CALL_SCRIPT.m
 
 Build:
 1. Place (§6.7):
-   - orders.place with expectedQuoteId;
+   - orders.place with expectedQuoteId; in live mode it warns when the confirm call would land after CALL_HOURS_END (the call-hours guard still applies to confirm calls, R18);
    - an undo window (UNDO_WINDOW_SEC; 5 s at demo pace) with "रद्द";
    - a confirm call (sim) that relays approved terms only; outcome confirmed → Placed; a confirm call that doesn't connect → `placed.notReached` with a retry (R15);
    - reprice_at_confirm → terms_changed → back to Result with the runner-up highlighted;
@@ -516,7 +516,7 @@ Phase 8B of Molbhav. Read docs/DECISIONS.md B2, B3, B5, B7, C1–C8, R1, R2, R4,
 
 Build:
 1. convex/bolna.ts (internal):
-   - dial: POST /call with the agent for the round, the from number (omitted in trial mode), and user_data built in code (molbhav_call_id, no free text, S3);
+   - dial: POST /call with the agent for the round, the from number (omitted in trial mode), and user_data built in code (molbhav_call_id, no free text, S3). Right before POST /call it re-reads the dealer's consent and the call's status (an opt-out may have landed after claimDial's ok, R18); an opt-out also stops that dealer's live calls with stopCall;
    - fetchExecution and stopCall;
    - a lookup in GET /v2/agent/{id}/executions before ANY retry;
    - the watchdog per call deadline (B5).
@@ -529,7 +529,7 @@ Build:
    - Retries (no_answer after 3 minutes; callback_requested at the time the dealer gave, if within 30 minutes and the round is open, P8) are new call rows through claimDial, within the per-order limit (R3).
 3. POST /bolna/report-quote (C8): verify the secret, update calls.slots and calls.provisionalTotal, reply in under 100 ms. For the Match agent's "first" stage, compute his first total from the rates he said in lib/pricing.ts and reply cite: true|false (his first total vs the best citable total; false if it can't be computed, R1).
 4. `pnpm bolna:check`: verifies the key, prints the wallet and concurrency from GET /user/me, lists the four agents and their webhook URLs and headers. Read-only.
-5. `pnpm bolna:sync` (R12): bolna/agents/{quote,haggle,match,confirm}.json built from CALL_SCRIPT.md (welcomes, prompts, settings, report_quote pointing at https://<deployment>.convex.site/bolna/report-quote, the webhook https://<deployment>.convex.site/bolna/webhook with the x-molbhav-secret header, retries off, no other tools). It creates or updates the four agents through Bolna's agent API, prints their ids, and never dials. Then set the four agent-id env vars yourself. Also write docs/BOLNA_SETUP.md: what bolna:sync does, how to check the agents in the dashboard, and the manual fallback if the API refuses something.
+5. `pnpm bolna:sync` (R12): bolna/agents/{quote,haggle,match,confirm}.json built from CALL_SCRIPT.md (welcomes, prompts, settings, report_quote pointing at https://<deployment>.convex.site/bolna/report-quote, the webhook https://<deployment>.convex.site/bolna/webhook with the x-molbhav-secret header, retries off, no other tools). It creates or updates the four agents through Bolna's agent API, prints their ids, and never dials. Then set the four agent-id env vars yourself. Point the welcome-disclosure test in lib/transcript.test.ts at these synced configs too (R18). Also write docs/BOLNA_SETUP.md: what bolna:sync does, how to check the agents in the dashboard, and the manual fallback if the API refuses something.
 6. Set the dev Convex env yourself: BOLNA_API_KEY, BOLNA_WEBHOOK_SECRET (generate it), BOLNA_TRIAL=true, TEST_PHONE_HASHES (returned by admin:addDealer, or admin:phoneHash), GEMINI_API_KEY_BILLED, REC_TOKEN_SECRET (generate it). Show me the names you set, never the values.
 
 Do not place any real call yourself. When the code is ready, ask me before setting LIVE_CALLS_ENABLED=true on dev, then tell me exactly how to start the first test sweep to two verified teammate phones from the app, watch the Convex logs while it runs, and know how to roll back (LIVE_CALLS_ENABLED=false).

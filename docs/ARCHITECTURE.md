@@ -157,7 +157,7 @@ const cancelReason = v.union(
   v.literal("config"), v.literal("live_off"), v.literal("not_verified"), v.literal("contractor_daily_cap"),
   v.literal("no_consent"), v.literal("dealer_daily_orders"), v.literal("dealer_order_calls"),
   v.literal("test_daily_calls"), v.literal("call_hours"), v.literal("order_call_cap"), v.literal("no_from_number"),
-  v.literal("trial_test_phones_only"), v.literal("no_billed_key"), v.literal("invalid_number"),
+  v.literal("trial_test_phones_only"), v.literal("test_phone_unlisted"), v.literal("no_billed_key"), v.literal("invalid_number"),
   v.literal("demo_dealer"), v.literal("phone_hash_mismatch"), v.literal("a2p_not_declared"), v.literal("live_stage"),
   v.literal("queue_timeout"), v.literal("round_closed"), v.literal("opted_out"), v.literal("stopped"),
   v.literal("bolna_rescheduled"),
@@ -199,7 +199,7 @@ export default defineSchema({
     consentAt: v.number(),               // privacy notice accepted
     tierPrefs: v.optional(v.object({ tmt_steel: v.optional(tier), cement: v.optional(tier) })),
     isDemo: v.optional(v.boolean()),     // the seeded demo contractor (B8); admin.claimDemoContractor touches only these
-  }).index("by_user", ["userId"]),
+  }).index("by_user", ["userId"]).index("by_phone", ["phoneE164"]),   // one verified contractor per phone (R18)
 
   sites: defineTable({
     contractorId: v.id("contractors"),
@@ -281,7 +281,7 @@ export default defineSchema({
     cancelReason: v.optional(cancelReason),      // set with status "cancelled" (R18); safe to show
   }).index("by_order", ["orderId"]).index("by_execution", ["providerExecutionId"]).index("by_deadline", ["deadlineAt"])
     .index("by_mode_status", ["mode", "status"])    // claimDial counts active live calls (R2)
-    .index("by_dealer", ["dealerId"]),             // opt-outs cancel a dealer's queued calls and recordings (R15)
+    .index("by_dealer_status", ["dealerId", "status"]),   // opt-outs cancel a dealer's queued calls and recordings (R15)
 
   callEvents: defineTable({
     callId: v.id("calls"), orderId: v.id("orders"),
@@ -349,10 +349,11 @@ export default defineSchema({
     outcome: v.optional(v.string()),     // filled in when the call ends
     orderId: v.id("orders"), callId: v.id("calls"),   // written by claimDial at reservation (R3)
     contractorId: v.id("contractors"),                // per-contractor daily cap (guard 2, R18)
+    opensSlot: v.boolean(),                           // this call used a daily order slot (opening, or no earlier opening, R18)
   }).index("by_phoneHash_at", ["phoneHash", "at"]).index("by_order", ["orderId"])
     .index("by_contractor_at", ["contractorId", "at"]),
 
-  priceBands: defineTable({              // dated sanity bands for citing (C4); seeded from lib/config.ts, edited in /app/admin (R13)
+  priceBands: defineTable({              // dated sanity bands for citing (C4); seeded from lib/config.ts, set with admin:setPriceBand (R13, R18)
     city: v.string(), material,
     unit,                                // kg for steel, bag for cement
     minPaise: v.number(), maxPaise: v.number(),
@@ -663,17 +664,19 @@ A live dial happens only if **all** pass, checked atomically in one mutation. Ev
 1. `LIVE_CALLS_ENABLED === "true"`.
 2. The contractor is `verified`; per-contractor daily cap not exceeded: `liveDailyCap` live **orders** a day (IST), where an order counts when its first quote or match call dials and its haggle and confirm calls ride on it (R18).
 3. Consent is `test_ok` or `opted_in`, and not `opted_out`.
-4. Dealer limits (S2, R3), counted from `callLog` rows for this `phoneHash` since midnight IST: AI calls come from at most **2 distinct orders** across all contractors (a quote or match call opens an order's slot; that order's haggle and confirm calls ride on it), and at most **4 AI calls per order** to this number (one opening call, one retry if it didn't connect, one haggle, one confirm). `claimDial` writes the `callLog` row (with `orderId` and `callId`) when it reserves the dial. Trial mode (B9): instead, `TEST_DAILY_CALLS` (default 10) per day for `test_ok` dealers listed in `TEST_PHONE_HASHES`.
-5. The current time in `Asia/Kolkata` is within `CALL_HOURS_START`–`CALL_HOURS_END` (default 10–19), and not Sunday unless `ALLOW_SUNDAY`. Skipped in trial mode for listed `test_ok` dealers (teammates).
-6. Under `MAX_LIVE_CALLS_PER_ORDER` (12, refuse), and a live slot is free: fewer than `LIVE_CONCURRENCY` live calls in `dialing`, `ringing`, `in_progress` or `disconnected` (`calls.by_mode_status`, counted in this transaction). A full slot returns **wait** (R2). `MAX_LIVE_SWEEPS_PER_HOUR` is checked in `orders.startSweep`, not per dial.
-7. `BOLNA_FROM_NUMBER` is set (a number registered to our business, from Bolna or our own Plivo/Exotel account, declared for A2P use under TRAI's 2026 rules). In trial mode (`BOLNA_TRIAL=true`) Bolna's trial caller ID is accepted, but only `test_ok` dealers whose phone hash is in `TEST_PHONE_HASHES` can be dialled; `opted_in` dealers always need trial mode off and a registered number.
+4. Dealer limits (S2, R3), counted from `callLog` rows for this `phoneHash` since midnight IST: AI calls come from at most **2 distinct orders** across all contractors (a quote or match call opens an order's slot; that order's haggle and confirm calls ride on it), and per order to this number at most **3 calls before placing** (one opening call, one retry if it didn't connect, one haggle) plus **the confirm call and one retry** (R18). A haggle or confirm call rides only if this order already opened a slot with this number (`callLog.opensSlot`); otherwise it opens one. `claimDial` writes the `callLog` row (with `orderId`, `callId`, `contractorId` and `opensSlot`) when it reserves the dial. Trial mode (B9): instead, `TEST_DAILY_CALLS` (default 10) per day for `test_ok` dealers listed in `TEST_PHONE_HASHES`.
+5. The current time in `Asia/Kolkata` is within `CALL_HOURS_START`–`CALL_HOURS_END` (default 10–19; both must stay within 9–21, R18), and not Sunday unless `ALLOW_SUNDAY`. Skipped in trial mode for listed `test_ok` dealers (teammates).
+6. Under `MAX_LIVE_CALLS_PER_ORDER` (12, refuse; it counts the calls before placing, so confirm calls are never stopped by it, R18), and a live slot is free: fewer than `LIVE_CONCURRENCY` live calls in `dialing`, `ringing`, `in_progress` or `disconnected` (`calls.by_mode_status`, counted in this transaction). A full slot returns **wait** (R2). `MAX_LIVE_SWEEPS_PER_HOUR` is checked in `orders.startSweep`, not per dial.
+7. `BOLNA_FROM_NUMBER` is set (a number registered to our business, from Bolna or our own Plivo/Exotel account, declared for A2P use under TRAI's 2026 rules). In trial mode (`BOLNA_TRIAL=true`) Bolna's trial caller ID is accepted, but only `test_ok` dealers whose phone hash is in `TEST_PHONE_HASHES` can be dialled; `opted_in` dealers always need trial mode off and a registered number. A `test_ok` dealer must be listed in `TEST_PHONE_HASHES` in every mode (R18).
 8. `GEMINI_API_KEY_BILLED` is set (real transcripts never go to the free tier).
 9. The number matches `^\+91[6-9]\d{9}$` and the dealer is not `isDemo` (B10).
 10. For `opted_in` dealers (built in 8A, failing closed; extended in Phase 10): `A2P_DECLARED=true`, and the live stage allows it (`LIVE_STAGE=1`: admins only, at most `STAGE1_MAX_DEALERS` dealers marked `stage1`, which Phase 10 builds, so until then stage 1 refuses every opted-in dealer; `LIVE_STAGE=2`: verified contractors).
 
-Also, failing closed (R18): any malformed guard env value refuses every dial (`config`); the dealer's stored hash must equal the HMAC of its stored number; refusals are checked before the slot, so only a call that could dial ever waits. The decisions are pure functions in `lib/liveGuards.ts`; `claimDial` gathers the counts inside its transaction and applies the result.
+Also, failing closed (R18): any malformed guard env value refuses every dial (`config`), and a switch is only `true`, `false` or unset; the dealer's stored hash must equal the HMAC of its stored number; refusals are checked before the slot, so only a call that could dial ever waits. The decisions are pure functions in `lib/liveGuards.ts`; `claimDial` gathers the counts inside its transaction and applies the result.
 
-The client learns whether live mode is available only through `settings.liveAvailable` (a boolean plus a reason code). Not legal advice: confirm TRAI obligations with the telephony provider in writing.
+Before the guards, `claimDial` checks that the call's round fits the order's status (quote: sweeping or matching; haggle: haggling; match: matching; confirm: placing) and that the order's contractor is its owner; otherwise the call is cancelled with `round_closed` or refused (R18). Clients see a cancelled call's reason only as its group (`lib/cancelReasons.ts`).
+
+The client learns whether live mode is available only through `settings.liveAvailable` (a boolean plus a reason code; the client passes its current minute as `at` so the answer is recomputed each minute). Not legal advice: confirm TRAI obligations with the telephony provider in writing.
 
 ## 12. Environment variables
 See `.env.example`.

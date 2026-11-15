@@ -2,7 +2,7 @@
 //
 // FIXTURE DATA: every price band and brand list below is test data for the simulator and
 // the Team test, NOT market prices. Replace the bands with field data (spread test) before
-// real dealers; the live bands are the Convex `priceBands` table, edited in /app/admin (R13).
+// real dealers; the live bands are the Convex `priceBands` table, set with `admin:setPriceBand` (R13, R18).
 import type { DeliverBy, Material, Unit } from "./domain";
 
 /** GST in basis points (18% = 1800) per material (cement fell from 28% to 18% on 22 Sep 2025). */
@@ -10,6 +10,8 @@ export const GST_BPS: Record<Material, number> = { tmt_steel: 1800, cement: 1800
 
 /** Defaults; each is overridable by the Convex env var of the same idea (ARCHITECTURE §11, .env.example). */
 export const CALL_HOURS_DEFAULT = { startHourIst: 10, endHourIst: 19, allowSunday: false } as const;
+/** CALL_HOURS_START/END must stay inside this window (R18); confirm the exact rule with the telephony provider. */
+export const CALL_HOURS_BOUNDS = { earliest: 9, latest: 21 } as const;
 
 export const PRICING = {
   /** Quotes within this fraction of the cheapest compete on credit, then delivery (§9). */
@@ -29,8 +31,10 @@ export const CALLS = {
   maxHaggleCalls: 2,
   /** Per dealer number per day, across all contractors (S2, R3). */
   maxOrdersPerDealerPerDay: 2,
-  /** Per order, per dealer number: opening call, one retry, one haggle, one confirm (R3). */
-  maxCallsPerOrderPerDealer: 4,
+  /** Per order, per dealer number, before placing: the opening call, one retry, one haggle (R3, R18). */
+  maxSweepCallsPerOrderPerDealer: 3,
+  /** Per order, per dealer number: the confirm call and its one retry (R15, R18). */
+  maxConfirmCallsPerOrderPerDealer: 2,
   queueDeadlineMs: 10 * 60 * 1000, // R2
   dialingDeadlineMs: 30 * 1000, // R15
   ringingDeadlineMs: 45 * 1000, // B5

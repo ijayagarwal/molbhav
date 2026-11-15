@@ -2,13 +2,16 @@
 
 // /app/admin (Phase 8A, R18): what the founders need to see before and during live calls. Read-only:
 // every write is an internal Convex function run from the CLI, so this page can't change who gets called.
+// Phone hashes for TEST_PHONE_HASHES come from the CLI too (admin:addDealer, admin:phoneHash).
 import { useConvexAuth, useQuery } from "convex/react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { api } from "@/convex/_generated/api";
 import { CITY_AREAS, type City } from "@/lib/config";
 import type { DictKey } from "@/lib/i18n/hi";
 import { formatPaise } from "@/lib/numbers";
 import { useT } from "@/lib/i18n/useT";
+
+const SOURCE_KEY: Record<string, DictKey> = { seed: "admin.sourceSeed", admin: "admin.sourceAdmin", optin: "admin.sourceOptin" };
 
 const CONSENT_KEY: Record<string, DictKey> = {
   test_ok: "admin.consentTestOk",
@@ -42,42 +45,6 @@ function Row({ label, value, tone }: { label: string; value: ReactNode; tone?: "
   );
 }
 
-function HashTool() {
-  const { t } = useT();
-  const [draft, setDraft] = useState("");
-  const [phone, setPhone] = useState<string | null>(null);
-  const result = useQuery(api.admin.phoneHashForTest, phone === null ? "skip" : { phone });
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    setPhone(draft.trim());
-  };
-  return (
-    <Section title={t("admin.hashTitle")}>
-      <form onSubmit={submit} className="flex flex-wrap gap-2">
-        <input
-          inputMode="tel"
-          autoComplete="off"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder={t("admin.hashPlaceholder")}
-          aria-label={t("admin.hashPlaceholder")}
-          className="h-14 min-w-0 flex-1 rounded-card border-[1.5px] border-ink bg-paper px-3 text-body"
-        />
-        <button type="submit" className="h-14 rounded-card border-[1.5px] border-ink bg-haldi px-4 text-label shadow-paint-sm press-paint">
-          {t("admin.hashButton")}
-        </button>
-      </form>
-      {result === undefined ? null : result.ok ? (
-        <output className="break-all font-mono text-meta">{result.phoneHash}</output>
-      ) : (
-        <p role="alert" className="text-meta text-lal">
-          {t("admin.hashInvalid")}
-        </p>
-      )}
-    </Section>
-  );
-}
-
 function Panel() {
   const { t, lang } = useT();
   const o = useQuery(api.admin.overview, {});
@@ -104,8 +71,6 @@ function Panel() {
           {live.errors.length > 0 ? <Row label={t("admin.configErrors")} value={live.errors.join(", ")} tone="lal" /> : null}
         </div>
       </Section>
-
-      <HashTool />
 
       <Section title={t("admin.contractors")}>
         {o.contractors.length === 0 ? <p className="text-meta text-ink-2">{t("admin.empty")}</p> : null}
@@ -139,7 +104,7 @@ function Panel() {
                 <span className={`text-meta ${d.consent === "opted_out" ? "text-lal" : "text-ink-2"}`}>{t(CONSENT_KEY[d.consent])}</span>
               </span>
               <span className="text-meta text-ink-2">
-                {areaName(d.city, d.area, lang)} · {d.source}
+                {areaName(d.city, d.area, lang)} · {t(SOURCE_KEY[d.source])}
               </span>
               <code className="break-all font-mono text-meta text-ink-3">{d._id}</code>
             </li>
