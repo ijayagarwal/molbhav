@@ -37,6 +37,9 @@ export const CALLS = {
   disconnectedDeadlineMs: 90 * 1000, // B5
   noAnswerRetryAfterMs: 3 * 60 * 1000,
   callbackWindowMs: 30 * 60 * 1000, // P8
+  /** Live orders a day for a contractor, set at verification (guard 2, S1); admins can change it. */
+  defaultContractorDailyOrders: 3,
+  maxContractorDailyOrders: 20,
 } as const;
 
 export type City = "Jaipur";

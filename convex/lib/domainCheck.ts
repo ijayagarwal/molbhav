@@ -18,4 +18,6 @@ export type DomainChecks = [
   Assert<Equal<Doc<"quotes">["weightBasis"], Lib.WeightBasis>>,
   Assert<Equal<Doc<"quotes">["landed"], Lib.Landed>>,
   Assert<Equal<NonNullable<Doc<"quotes">["lumpSumIncludes"]>[number], string>>,
+  Assert<Equal<Doc<"dealers">["consent"], Lib.Consent>>,
+  Assert<Equal<NonNullable<Doc<"calls">["cancelReason"]>, Lib.CancelReason>>,
 ];

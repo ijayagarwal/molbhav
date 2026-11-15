@@ -359,7 +359,7 @@ Left: the real app in an iframe (`/app?embed=1`, demo contractor, sim) inside a 
 
 ## 14. Copy deck (key strings)
 
-Always the respectful "aap" form; no gendered first-person verbs; the app speaks as "हम". The `status.*` keys cover both `calls.status` and `calls.outcome` (R4): a row shows its outcome when set, else its status. The keys added for R15 need the native speaker's review. English material words (TMT, PPC, GST, ISI, mm, ton) stay in Latin script inside Hindi text.
+Always the respectful "aap" form; no gendered first-person verbs; the app speaks as "हम". The `status.*` keys cover both `calls.status` and `calls.outcome` (R4): a row shows its outcome when set, else its status. The keys added for R15 and R18 need the native speaker's review. A cancelled call shows its `dial.*` reason under the status (`lib/i18n/reasons.ts` maps each `cancelReason` code to one of these; setup and consent reasons share one message, R18). The founders-only `admin.*` keys are not listed here. English material words (TMT, PPC, GST, ISI, mm, ton) stay in Latin script inside Hindi text.
 
 | Key | हिंदी | English |
 |---|---|---|
@@ -409,6 +409,15 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `status.cancelled` | रोक दी | Stopped |
 | `status.optedOut` | आगे कॉल नहीं | No more calls |
 | `status.disclosureFailed` | रेट नहीं गिना गया | Quote not counted |
+| `dial.liveOff` | अभी असली कॉल बंद हैं | Live calls are off right now |
+| `dial.notVerified` | असली कॉल के लिए टीम से मिलकर पहचान ज़रूरी है | Live calls need an in-person check by our team |
+| `dial.dailyCap` | आज की असली कॉल पूरी हो गईं | Today's live calls are used up |
+| `dial.dealerUnavailable` | इस dealer को अभी असली कॉल नहीं जा सकती | Live calls can't go to this dealer yet |
+| `dial.dealerRested` | इस dealer को आज और कॉल नहीं करेंगे | No more calls to this dealer today |
+| `dial.callHours` | कॉल के समय के बाहर | Outside calling hours |
+| `dial.orderCap` | इस ऑर्डर की कॉल पूरी हो गईं | This order has used all its calls |
+| `dial.queueTimeout` | समय पर लाइन नहीं मिली | No free line in time |
+| `dial.roundClosed` | ज़रूरत नहीं पड़ी | Not needed any more |
 | `haggle.skipped` | मोलभाव के लिए 2 पक्के रेट चाहिए | Bargaining needs 2 confirmed quotes |
 | `placed.notReached` | dealer से बात नहीं हो पाई | Couldn't reach the dealer |
 | `haggle.title` | मोलभाव राउंड | Bargaining round |
