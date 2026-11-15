@@ -3,7 +3,8 @@ import { PriceHero } from "./PriceHero";
 
 // Parchi (DESIGN §11, D2): the result receipt. White card, 2 px ink border, radius 4, perforated bottom,
 // painted ink shadow. Dealer name, landed total (price hero), item lines, GST, delivery and unloading,
-// chips for delivery time, credit, bill and weighing. In sim or sandbox: a "DEMO · काल्पनिक dealers" watermark.
+// chips for delivery time, credit, bill and weighing. In sim or sandbox: a "DEMO · काल्पनिक dealers" watermark,
+// drawn as in design/reference/SharedParchi.html: a small lal rubber stamp in the top-right corner, never over money.
 export interface ParchiLine {
   label: string;
   /** paise, or a word such as "मुफ़्त" */
@@ -26,12 +27,15 @@ export function Parchi({ heading, status, dealerName, totalPaise, allInLabel, li
   return (
     <article className="relative overflow-hidden rounded-parchi border-2 border-ink bg-card shadow-paint-lg">
       {watermark ? (
-        <span aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="-rotate-12 whitespace-nowrap font-display text-title-1 text-cement opacity-60">{watermark}</span>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute right-3 top-3.5 z-10 -rotate-6 whitespace-nowrap rounded-parchi border-[1.5px] border-lal bg-card px-2 py-0.5 font-mono text-[13px] font-semibold leading-5 tracking-[0.04em] text-lal opacity-90"
+        >
+          {watermark}
         </span>
       ) : null}
       <div className="relative flex flex-col gap-3 px-4 pb-6 pt-4">
-        <header className="flex items-center justify-between text-meta">
+        <header className="mb-1 flex items-center gap-2 text-meta">
           <span className="text-ink-2">{heading}</span>
           <span className="font-ui-semibold text-hara">{status}</span>
         </header>
@@ -40,6 +44,7 @@ export function Parchi({ heading, status, dealerName, totalPaise, allInLabel, li
           <PriceHero paise={totalPaise} />
         </div>
         <p className="text-meta text-ink-2">{allInLabel}</p>
+        {lines.length > 0 ? (
         <dl className="flex flex-col gap-1.5 border-t border-dashed border-rule pt-3">
           {lines.map((l) => (
             <div key={l.label} className="flex items-baseline justify-between gap-3">
@@ -50,6 +55,8 @@ export function Parchi({ heading, status, dealerName, totalPaise, allInLabel, li
             </div>
           ))}
         </dl>
+        ) : null}
+        {chips.length > 0 ? (
         <ul className="flex flex-wrap gap-2 pt-1">
           {chips.map((c) => (
             <li key={c} className="rounded-card bg-cement px-2.5 py-1 text-label">
@@ -57,6 +64,7 @@ export function Parchi({ heading, status, dealerName, totalPaise, allInLabel, li
             </li>
           ))}
         </ul>
+        ) : null}
       </div>
       {/* Perforated bottom edge (D2): paper-coloured teeth cut into the receipt. */}
       <div

@@ -7,7 +7,6 @@ import { DealerRow, type DealerRowProps } from "@/components/mb/DealerRow";
 import { DeskLayoutBold, PhoneLayoutBold, ReplayBold, SoundOffBold, SoundOnBold } from "@/components/mb/icons";
 import { ModeBadge } from "@/components/mb/ModeBadge";
 import { Parchi, type ParchiLine } from "@/components/mb/Parchi";
-import { PriceHero } from "@/components/mb/PriceHero";
 import { Tally } from "@/components/mb/Tally";
 import { earcons, resumeAudio, setSoundEnabled } from "@/lib/client/earcons";
 import { haptics } from "@/lib/client/haptics";
@@ -24,6 +23,8 @@ const ORDER: DealerKey[] = ["agarwal", "omsai", "balaji", "rathore", "gupta"];
 /** The fixtures are priced as of this date (bands fresh on it); the totals don't depend on it. */
 const FIXTURE_DATE = Date.UTC(2026, 10, 15);
 const DATA = buildMoneyShot(FIXTURE_DATE);
+/** ₹12,40,500: the widest common total, D4's "money never wraps" test case at 360 px. */
+const BIG_ORDER_PAISE = 124_050_000;
 const STRIKE_VARIANT: Record<DealerKey, number> = { agarwal: 0, omsai: 1, balaji: 2, rathore: 0, gupta: 1 };
 
 const STATUS_KEY: Record<RowSnap["status"], DictKey> = {
@@ -265,17 +266,21 @@ export function MoneyShot() {
         </div>
       )}
 
-      <section className="flex flex-col gap-3 border-t border-rule pt-6">
-        <h3 className="font-display text-title-2">{t("moneyShot.bigOrder")}</h3>
-        <div className="flex flex-wrap gap-6">
-          {[328, 280, 240].map((width) => (
-            <div key={width} className="flex flex-col gap-1">
-              <div className="overflow-hidden rounded-card border border-dashed border-ink-3 bg-card p-3" style={{ width }}>
-                <PriceHero paise={124050000} />
-              </div>
-              <span className="font-mono text-meta text-ink-3">{`${width}px`}</span>
-            </div>
-          ))}
+      {/* D4's test case: the widest common total, in the same 360 px phone frame as the parchi above.
+          The price hero steps its digit width down to fit; it never wraps or clips. */}
+      <section className="flex flex-col gap-4 border-t border-rule pt-6">
+        <div className="mx-auto flex w-full max-w-[360px] flex-col gap-4 rounded-sheet border border-rule bg-paper p-4">
+          <h3 className="font-display text-title-2">{t("moneyShot.bigOrder")}</h3>
+          <Parchi
+            heading={t("parchi.title")}
+            status={t("status.final")}
+            dealerName={name("agarwal")}
+            totalPaise={BIG_ORDER_PAISE}
+            allInLabel={t("parchi.allIn")}
+            lines={[]}
+            chips={[]}
+            watermark={t("demo.watermark")}
+          />
         </div>
       </section>
     </div>
