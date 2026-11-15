@@ -24,10 +24,12 @@ interface Props {
   variant: number;
   /** The best row: the new number gets the winner swipe (signature motion 7). */
   winner?: boolean;
+  /** Desk ledger: the drop is said on the row's second line, so only the strike and the new number show. */
+  compact?: boolean;
   className?: string;
 }
 
-export function PriceStrike({ fromPaise, toPaise, droppedLabel, variant, winner, className }: Props) {
+export function PriceStrike({ fromPaise, toPaise, droppedLabel, variant, winner, compact, className }: Props) {
   const d = PATHS[((variant % PATHS.length) + PATHS.length) % PATHS.length];
   return (
     <span className={`flex flex-col items-end gap-0.5 ${className ?? ""}`}>
@@ -53,9 +55,13 @@ export function PriceStrike({ fromPaise, toPaise, droppedLabel, variant, winner,
           <span className="font-mono text-ledger font-semibold">{formatPaise(toPaise)}</span>
         </Stamp>
       </span>
-      <m.span className="text-meta text-hara" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35, duration: 0.24 }}>
-        {droppedLabel}
-      </m.span>
+      {compact ? (
+        <span className="sr-only">{droppedLabel}</span>
+      ) : (
+        <m.span className="text-meta text-hara" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35, duration: 0.24 }}>
+          {droppedLabel}
+        </m.span>
+      )}
     </span>
   );
 }

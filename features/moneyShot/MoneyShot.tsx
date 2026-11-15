@@ -120,6 +120,8 @@ export function MoneyShot() {
       demoLabel: t("badge.demo"),
       totalPaise: strike ? undefined : after,
       strike,
+      // Desk shows a drop on the row's second line (the strike there is compact).
+      line: strike && layout === "desk" ? strike.droppedLabel : undefined,
       totalNote: r.kind === "notComparable" ? t("sweep.allIn") : undefined,
       badge: k === "balaji" ? t("badge.regular") : undefined,
       note: r.kind === "held" ? t("dealers.matchLater") : r.kind === "notComparable" ? `${t("flag.checkGst")} · ${t("sweep.notInHaggle")}` : undefined,
