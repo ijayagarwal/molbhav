@@ -18,11 +18,14 @@ import type * as lib_access from "../lib/access.js";
 import type * as lib_domainCheck from "../lib/domainCheck.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_hash from "../lib/hash.js";
+import type * as lib_live from "../lib/live.js";
+import type * as lib_optOut from "../lib/optOut.js";
 import type * as lib_projections from "../lib/projections.js";
 import type * as limits from "../limits.js";
 import type * as orders from "../orders.js";
 import type * as quotes from "../quotes.js";
 import type * as seed from "../seed.js";
+import type * as settings from "../settings.js";
 import type * as sim_personas from "../sim/personas.js";
 
 import type {
@@ -42,11 +45,14 @@ declare const fullApi: ApiFromModules<{
   "lib/domainCheck": typeof lib_domainCheck;
   "lib/functions": typeof lib_functions;
   "lib/hash": typeof lib_hash;
+  "lib/live": typeof lib_live;
+  "lib/optOut": typeof lib_optOut;
   "lib/projections": typeof lib_projections;
   limits: typeof limits;
   orders: typeof orders;
   quotes: typeof quotes;
   seed: typeof seed;
+  settings: typeof settings;
   "sim/personas": typeof sim_personas;
 }>;
 

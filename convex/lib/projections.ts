@@ -33,6 +33,7 @@ export function publicCall(c: Doc<"calls">) {
     attempt: c.attempt,
     status: c.status,
     outcome: c.outcome,
+    cancelReason: c.cancelReason,
     startedAt: c.startedAt,
     endedAt: c.endedAt,
     durationSec: c.durationSec,

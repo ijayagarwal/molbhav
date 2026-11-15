@@ -66,7 +66,7 @@ app/
     app/page.tsx               home (/app)
     app/onboarding/page.tsx
     app/order/[id]/{confirm,dealers,sweep,result,placed}/page.tsx
-    app/admin/page.tsx         founders only (requireAdmin)
+    app/admin/page.tsx         founders only (requireAdmin); read-only, writes run from the Convex CLI (R18)
     try/page.tsx               sandbox (/try); anonymous session, sim only
     present/page.tsx           presenter: <iframe src="/app?embed=1" allow="microphone; autoplay">
     styleguide/page.tsx
@@ -82,6 +82,9 @@ components/mb/                 presentational components (props only)
 features/                      hooks and containers that call useQuery/useMutation
 lib/
   pricing.ts haggle.ts numbers.ts commands.ts (+ .test.ts)
+  liveGuards.ts ist.ts         the §11 guards as pure functions; IST day and call hours
+  transcript.ts                transcript turns and the S5 disclosure check
+  i18n/reasons.ts              cancelReason → dictionary key
   i18n/{hi,en}.ts getDict.ts useT.ts
   config.ts                    GST, call hours, limits, price-band seeds, brand tiers and CITY_AREAS per city, DELIVER_BY
   client/{recorder,ptt,earcons,haptics}.ts
@@ -89,7 +92,10 @@ convex/
   schema.ts auth.ts auth.config.ts http.ts crons.ts
   contractors.ts sites.ts dealers.ts orders.ts calls.ts quotes.ts share.ts waitlist.ts events.ts admin.ts
   sandbox.ts settings.ts limits.ts tts.ts
-  lib/access.ts                requireContractor, requireOwner, requireAdmin; HMAC hash helper
+  lib/access.ts                requireContractor, requireOwner, requireAdmin
+  lib/functions.ts             the guarded builders for every public function
+  lib/projections.ts lib/hash.ts  publicDealer/publicCall; HMAC phone and IP hashes
+  lib/live.ts lib/optOut.ts    callLog counts for claimDial; the opt-out that acts at once
   pools.ts                     workpool definitions (dial, llm, media)
   bolna.ts                     internal: dial, fetchExecution, stopCall, ingest, process, watchdog
   llm.ts                       internal: extractQuote (and parse helpers shared with the route)
@@ -145,6 +151,18 @@ const callOutcome = v.union(
   v.literal("quoted"), v.literal("declined"), v.literal("callback_requested"), v.literal("no_quote"),
   v.literal("opted_out"), v.literal("disclosure_failed"), v.literal("terms_changed"), v.literal("confirmed"),
 );
+// why a call ended "cancelled" (R18): a refused dial (the claimDial guard codes, §11) or the queue,
+// round, opt-out or stop button ending it; the app shows each code in hi and en (dial.*)
+const cancelReason = v.union(
+  v.literal("config"), v.literal("live_off"), v.literal("not_verified"), v.literal("contractor_daily_cap"),
+  v.literal("no_consent"), v.literal("dealer_daily_orders"), v.literal("dealer_order_calls"),
+  v.literal("test_daily_calls"), v.literal("call_hours"), v.literal("order_call_cap"), v.literal("no_from_number"),
+  v.literal("trial_test_phones_only"), v.literal("no_billed_key"), v.literal("invalid_number"),
+  v.literal("demo_dealer"), v.literal("phone_hash_mismatch"), v.literal("a2p_not_declared"), v.literal("live_stage"),
+  v.literal("queue_timeout"), v.literal("round_closed"), v.literal("opted_out"), v.literal("stopped"),
+  v.literal("bolna_rescheduled"),
+);
+export const consent = v.union(v.literal("test_ok"), v.literal("opted_in"), v.literal("unknown"), v.literal("opted_out"));
 
 export const orderItem = v.object({
   id: v.string(),
@@ -198,7 +216,7 @@ export default defineSchema({
     phoneHash: v.string(),
     materials: v.array(material),
     source: v.union(v.literal("seed"), v.literal("admin"), v.literal("optin")),
-    consent: v.union(v.literal("test_ok"), v.literal("opted_in"), v.literal("unknown"), v.literal("opted_out")),
+    consent,
     language: v.optional(v.string()),
     isDemo: v.boolean(),
     simPersona: v.optional(v.string()),
@@ -259,9 +277,11 @@ export default defineSchema({
     callbackWhenText: v.optional(v.string()),
     extract: v.union(v.literal("pending"), v.literal("running"), v.literal("done"), v.literal("failed")),
     extractAttempts: v.number(),
-    terminationReason: v.optional(v.string()),
+    terminationReason: v.optional(v.string()),   // Bolna's, kept server-side
+    cancelReason: v.optional(cancelReason),      // set with status "cancelled" (R18); safe to show
   }).index("by_order", ["orderId"]).index("by_execution", ["providerExecutionId"]).index("by_deadline", ["deadlineAt"])
-    .index("by_mode_status", ["mode", "status"]),   // claimDial counts active live calls (R2)
+    .index("by_mode_status", ["mode", "status"])    // claimDial counts active live calls (R2)
+    .index("by_dealer", ["dealerId"]),             // opt-outs cancel a dealer's queued calls and recordings (R15)
 
   callEvents: defineTable({
     callId: v.id("calls"), orderId: v.id("orders"),
@@ -328,7 +348,9 @@ export default defineSchema({
     phoneHash: v.string(), at: v.number(), consent: v.string(), round,
     outcome: v.optional(v.string()),     // filled in when the call ends
     orderId: v.id("orders"), callId: v.id("calls"),   // written by claimDial at reservation (R3)
-  }).index("by_phoneHash_at", ["phoneHash", "at"]),
+    contractorId: v.id("contractors"),                // per-contractor daily cap (guard 2, R18)
+  }).index("by_phoneHash_at", ["phoneHash", "at"]).index("by_order", ["orderId"])
+    .index("by_contractor_at", ["contractorId", "at"]),
 
   priceBands: defineTable({              // dated sanity bands for citing (C4); seeded from lib/config.ts, edited in /app/admin (R13)
     city: v.string(), material,
@@ -344,8 +366,8 @@ export default defineSchema({
 - **Every public query and mutation** is built with a guarded builder (`convex/lib/functions.ts`), loads the contractor from `ctx.auth` and checks ownership of every order, call and quote it touches. Results go through allowlist projections (`publicDealer`, `publicCall`). Clients never receive `dealers.phoneE164`, phone hashes, provider ids, storage ids or costs.
 - **Sessions** last up to a year (90 days inactive) with persistent cookies, because the anonymous identity is the browser session. New anonymous accounts are rate-limited deployment-wide (`anonSignUp`).
 - **Internal only:** `sim.*`, `llm.*`, `bolna.*`, `media.copyRecording`, `seed.*`, `calls.claimDial`, the watchdog.
-- **Live mode** requires `contractors.verified` (S1): set by `admin.verifyContractor`, behind an admin role checked against `ADMIN_USER_IDS`, and logged in `auditLog`. Name and phone are locked at verification.
-- **Dealers for live mode** are added only through `admin.addDealer` or the `/dealer` opt-in (S2).
+- **Live mode** requires `contractors.verified` (S1): set by `admin.verifyContractor`, an **internal** mutation run from the Convex CLI by someone with deploy access (R18), and logged in `auditLog`. Name and phone are locked at verification.
+- **Dealers for live mode** are added only through `admin.addDealer` (internal, CLI) or the `/dealer` opt-in (S2). Every admin write is internal; the `ADMIN_USER_IDS` role only opens the read-only `/app/admin`, "Reset demo" and the presenter tools.
 - **Server-to-Convex calls** from Vercel routes run as the user (their auth token is forwarded). The sandbox route uses `sandbox.createDraft({ serverSecret })`, which checks `CONVEX_SERVER_SECRET`.
 - **Prompt-injection hygiene** (S3, R7): names are letters and marks only (max 24 graphemes); site area from the city's area list; delivery time from `deliverBy`; brand from the config enum; free text never reaches agent prompts.
 
@@ -364,7 +386,7 @@ export default defineSchema({
 ### 6.2 Sweep start and dispatch
 1. `orders.startSweep({ orderId, mode })` checks ownership and confirmation (every item has quantity, unit and a single tier: branded, local_isi or any). In live mode it also checks `MAX_LIVE_SWEEPS_PER_HOUR` (R2). It increments `roundSeq` and creates `calls` rows (`round: "quote"`) for the selected dealers, **except the regular dealer unless `askFirst`**; he is held for the match call (P1).
 2. Sim: schedule `sim.runCall` per call with staggered starts.
-3. Live: enqueue a `dial` workpool job per call. Each job runs `internal.calls.claimDial(callId)` (§11), which checks every guard, reserves a live slot and moves `queued → dialing` atomically. Only then does it call Bolna `POST /call`. `claimDial` returns `ok`, `refuse` (reason code; the call is `cancelled` with that reason) or `wait` (no free slot, R2): on `wait` the call stays `queued` and the job is enqueued again when any live call reaches a final status (plus a 15 s backstop), until its 10-minute queue deadline, then it is `cancelled` with `queue_timeout`. The live slot count, not the pool's parallelism, limits concurrent calls (dial pool parallelism 1). An unknown dial outcome is **not retried**: check `GET /v2/agent/{id}/executions` first.
+3. Live: enqueue a `dial` workpool job per call. Each job runs `internal.calls.claimDial(callId)` (§11), which checks every guard, reserves a live slot and moves `queued → dialing` atomically. Only then does it call Bolna `POST /call`. `claimDial` returns `ok`, `refuse` (reason code; the call is `cancelled` with that `cancelReason`, R18) or `wait` (no free slot, R2): on `wait` the call stays `queued` and the job is enqueued again when any live call reaches a final status (plus a 15 s backstop), until its 10-minute queue deadline, then it is `cancelled` with `queue_timeout`. The live slot count, not the pool's parallelism, limits concurrent calls (dial pool parallelism 1). An unknown dial outcome is **not retried**: check `GET /v2/agent/{id}/executions` first.
 4. Each call gets a **deadline** (`deadlineAt`), and a watchdog (`internal.bolna.watchdog`) runs at each deadline: queued 10 min; dialing 30 s (check `GET /v2/agent/{id}/executions` first, R15); ringing 45 s; in progress = `call_terminate` + 30 s; disconnected 90 s. It polls Bolna, then stops the call (`POST /call/{id}/stop`) or marks it failed. Every live call therefore reaches a final status, which frees its slot.
 5. The round advances to haggle when **3 citable quotes are in** or **every call has finished**. Still-queued calls are stopped. Retries are new call rows (attempt + 1) through `claimDial`, within the per-order limit (R3): one live retry for `no_answer`, 3 minutes later, if the round is still open; or one for `callback_requested` at `callbackWhenText`, if that is within 30 minutes and the round is still open (P8). A retry row is created at its scheduled time, so its 10-minute queue deadline starts then (R15). A call with a retry scheduled counts as unfinished, so the round waits for it (at most 30 minutes).
 6. "सब कॉल रोकिए" (stop all): cancels queued jobs, stops in-progress calls, and moves the order to `ready` with what we have.
@@ -639,7 +661,7 @@ All demo dealers are fictional, shown with a DEMO badge, and use made-up prices 
 ## 11. Live-call guards and compliance (`internal.calls.claimDial`)
 A live dial happens only if **all** pass, checked atomically in one mutation. Every failure is a **refusal** (no dial, a reason code), except a full live slot in guard 6, which is a **wait** (R2):
 1. `LIVE_CALLS_ENABLED === "true"`.
-2. The contractor is `verified`; per-contractor daily cap not exceeded.
+2. The contractor is `verified`; per-contractor daily cap not exceeded: `liveDailyCap` live **orders** a day (IST), where an order counts when its first quote or match call dials and its haggle and confirm calls ride on it (R18).
 3. Consent is `test_ok` or `opted_in`, and not `opted_out`.
 4. Dealer limits (S2, R3), counted from `callLog` rows for this `phoneHash` since midnight IST: AI calls come from at most **2 distinct orders** across all contractors (a quote or match call opens an order's slot; that order's haggle and confirm calls ride on it), and at most **4 AI calls per order** to this number (one opening call, one retry if it didn't connect, one haggle, one confirm). `claimDial` writes the `callLog` row (with `orderId` and `callId`) when it reserves the dial. Trial mode (B9): instead, `TEST_DAILY_CALLS` (default 10) per day for `test_ok` dealers listed in `TEST_PHONE_HASHES`.
 5. The current time in `Asia/Kolkata` is within `CALL_HOURS_START`–`CALL_HOURS_END` (default 10–19), and not Sunday unless `ALLOW_SUNDAY`. Skipped in trial mode for listed `test_ok` dealers (teammates).
@@ -647,7 +669,9 @@ A live dial happens only if **all** pass, checked atomically in one mutation. Ev
 7. `BOLNA_FROM_NUMBER` is set (a number registered to our business, from Bolna or our own Plivo/Exotel account, declared for A2P use under TRAI's 2026 rules). In trial mode (`BOLNA_TRIAL=true`) Bolna's trial caller ID is accepted, but only `test_ok` dealers whose phone hash is in `TEST_PHONE_HASHES` can be dialled; `opted_in` dealers always need trial mode off and a registered number.
 8. `GEMINI_API_KEY_BILLED` is set (real transcripts never go to the free tier).
 9. The number matches `^\+91[6-9]\d{9}$` and the dealer is not `isDemo` (B10).
-10. For `opted_in` dealers (built in 8A, failing closed; extended in Phase 10): `A2P_DECLARED=true`, and the live stage allows it (`LIVE_STAGE=1`: admins only, at most `STAGE1_MAX_DEALERS` dealers marked `stage1`; `LIVE_STAGE=2`: verified contractors).
+10. For `opted_in` dealers (built in 8A, failing closed; extended in Phase 10): `A2P_DECLARED=true`, and the live stage allows it (`LIVE_STAGE=1`: admins only, at most `STAGE1_MAX_DEALERS` dealers marked `stage1`, which Phase 10 builds, so until then stage 1 refuses every opted-in dealer; `LIVE_STAGE=2`: verified contractors).
+
+Also, failing closed (R18): any malformed guard env value refuses every dial (`config`); the dealer's stored hash must equal the HMAC of its stored number; refusals are checked before the slot, so only a call that could dial ever waits. The decisions are pure functions in `lib/liveGuards.ts`; `claimDial` gathers the counts inside its transaction and applies the result.
 
 The client learns whether live mode is available only through `settings.liveAvailable` (a boolean plus a reason code). Not legal advice: confirm TRAI obligations with the telephony provider in writing.
 

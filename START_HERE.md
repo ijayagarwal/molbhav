@@ -245,10 +245,11 @@ Claude Code does this with the Vercel and Convex CLIs after you approve the two 
 
 ### C5. Trial-mode setup for Phase 8B (no company needed)
 1. **You:** in Bolna, verify each teammate's phone (A4), and give Claude Code the Bolna API key.
-2. **Claude Code**, in `/app/admin` (built in 8A) or with internal admin functions:
+2. **Claude Code**, with the internal admin functions from the Convex CLI (`npx convex run admin:…`, R18; `/app/admin` only shows the result):
    - verifies you as a contractor;
    - adds each teammate's phone as a dealer with consent `test_ok`, named as in `docs/TEAM_TEST.md` Setup;
-   - copies each phone's hash.
+   - copies each phone's hash (`addDealer` returns it);
+   - sets the Jaipur price bands (`admin:setPriceBand`) to the Team test card ranges.
 3. **Claude Code** sets the Convex dev env: `BOLNA_API_KEY`, `BOLNA_WEBHOOK_SECRET` (generated), `BOLNA_TRIAL=true`, `TEST_PHONE_HASHES`, `GEMINI_API_KEY_BILLED`, `REC_TOKEN_SECRET` (generated).
 4. **Claude Code** runs `pnpm bolna:sync` (written in 8B): it creates the four agents from `bolna/agents/` with the webhook `https://<your-dev>.convex.site/bolna/webhook`, the `x-molbhav-secret` header and `report_quote` pointing at `https://<your-dev>.convex.site/bolna/report-quote`. It then sets the four agent ids, and sets `LIVE_CALLS_ENABLED=true` (dev only) once you say go.
 5. Trial mode skips the call-hours guard for listed test phones only, so you can test at any time. Real dealers are only ever called 10:00–19:00 IST.
@@ -367,7 +368,7 @@ Do these in order. Steps 1–5 can start during the hackathon.
 7. **M2.7 Recruit dealers:**
    1. Ask the spread-test dealers who said yes (Part D1) to fill in `/dealer`.
    2. Call each one back to confirm.
-   3. Add them in `/app/admin` as `opted_in`, with the consent reference.
+   3. Claude Code adds them as `opted_in` with the consent reference (`admin:addDealer`); `/app/admin` lists them.
 8. **M2.8 Stage 1:** set these with `--prod`: `BOLNA_TRIAL=false`, `BOLNA_FROM_NUMBER`, `A2P_DECLARED=true`, `LIVE_STAGE=1`, `LIVE_CALLS_ENABLED=true`. Run `pnpm golive:check`. Use at most 5 opted-in dealers; admins start every live sweep. Measure against the Part E bars.
 9. **M2.9 Stage 2:** once the bars hold over at least 10 haggle calls, set `LIVE_STAGE=2`. Verified contractors can then run live sweeps to every opted-in dealer.
 10. **M2.10 Customers:**

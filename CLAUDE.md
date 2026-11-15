@@ -10,7 +10,7 @@ Molbhav is a voice-first buying agent for small building contractors (thekedars)
 6. The contractor confirms by voice.
 
 ## Read before any substantial work, in this order
-1. `docs/DECISIONS.md`: the expert panel's decisions (codes like P1, V1, B2) and §R, the Phase 0 review changes (R1–R15), which override older rows. **If any doc disagrees with it, DECISIONS.md wins.**
+1. `docs/DECISIONS.md`: the expert panel's decisions (codes like P1, V1, B2) and §R, the review changes (R1–R18), which override older rows. **If any doc disagrees with it, DECISIONS.md wins.**
 2. `docs/PRODUCT.md`: users, scope, flows, edge cases, domain, metrics.
 3. `docs/DESIGN.md`: design system, screens, voice UX, copy deck. **Design decisions live here; do not invent new ones.**
 4. `design/reference/*.html`: the approved mockups (open them in a browser). Match their look, spacing and copy.
@@ -109,6 +109,7 @@ Still off-limits without the human's explicit go-ahead in that moment: placing o
 - Pure functions in `lib/` get unit tests next to them (`*.test.ts`).
 - **Convex:**
   - public functions use only the guarded builders in `convex/lib/functions.ts` (`userQuery`, `contractorQuery`, `adminQuery`, their mutation twins, `optionalUserQuery`); ESLint bans the raw `query`/`mutation`/`action` elsewhere, and `convex/accessProbe.test.ts` probes every public function automatically;
+  - admin writes (verify, dealers, caps, bands) are `internal` and run with `npx convex run admin:<name>`; `/app/admin` only reads (R18);
   - load documents named in arguments through an ownership check (`requireOwnedOrder`); never return a raw doc: dealers and calls go through `convex/lib/projections.ts`;
   - phones are normalised with `lib/phone.ts` before hashing (`hashPhone`, domain-tagged);
   - validate every argument with `v.*`;

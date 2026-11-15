@@ -29,7 +29,7 @@ Run the phases in this order (DECISIONS R11: the negotiation agent first; phase 
 | 8 | 5 | Dealer pick and sim sweep | 1 | The demo order: 4 calls (2 stamps, 1 "जाँच बाकी", 1 no answer) and the held match |
 | 9 | 6A | Haggle, match call, result | 1 | Result screen correct for every persona |
 | 10 | 6B | Place, confirm, share | 1 | Full sim flow plus Playwright |
-| 11 | 8A | Live-call guards and admin (no Bolna API yet) | 1 | Guard tests pass |
+| 11 | 8A | Live-call guards and admin (no Bolna API yet) | 1 | Guard tests pass. **Built early (R18) except item 3, the LIVE toggle, which comes with Phase 5's Choose screen** |
 | 12 | 8B | Bolna dial, webhooks, report_quote, agent sync | 1 | One AI sweep to teammates' verified phones |
 | 13 | 8C | Recordings and retention | 1 | Recording plays with seeking; crons verified |
 | 14 | **Team test** | `docs/TEAM_TEST.md` Runs 1–6 (you and your teammates on the phones; Claude sets up and watches the logs) | 1 | Every check passes; the run log and clips are saved |
@@ -372,6 +372,7 @@ Build:
 
    It keeps running if I leave and recovers on return. On desktop it is the ledger table with the docked call panel (D5).
    Notes from the Phase 3 review: mark an order as the demo order from the isDemo contractor (not only isDemoOrder's item match) and show a warning on /present if they disagree; sim citing uses each persona's own always-fresh band (§9), not the database bands.
+Already built in 8A (R18), to use here: `lib/transcript.ts` (`parseTurns`, `disclosureMade` for S5), `lib/i18n/reasons.ts` (a cancelled call's `dial.*` reason on its row), `dealerRefusal` in `lib/liveGuards.ts` (the Choose screen's callable dealers), `consumeLiveSweep` and `settings.liveAvailable` (live startSweep and the LIVE toggle, 8A item 3).
 8. evals/extract.golden.json with 10 transcripts (8 generated from personas, plus one per-quintal quote with GST unclear, and a dealer who corrects his own number), and `pnpm eval:extract` (always uses Gemini, i.e. SIM_EXTRACT=llm).
 
 Done when:
@@ -529,7 +530,7 @@ Build:
 3. POST /bolna/report-quote (C8): verify the secret, update calls.slots and calls.provisionalTotal, reply in under 100 ms. For the Match agent's "first" stage, compute his first total from the rates he said in lib/pricing.ts and reply cite: true|false (his first total vs the best citable total; false if it can't be computed, R1).
 4. `pnpm bolna:check`: verifies the key, prints the wallet and concurrency from GET /user/me, lists the four agents and their webhook URLs and headers. Read-only.
 5. `pnpm bolna:sync` (R12): bolna/agents/{quote,haggle,match,confirm}.json built from CALL_SCRIPT.md (welcomes, prompts, settings, report_quote pointing at https://<deployment>.convex.site/bolna/report-quote, the webhook https://<deployment>.convex.site/bolna/webhook with the x-molbhav-secret header, retries off, no other tools). It creates or updates the four agents through Bolna's agent API, prints their ids, and never dials. Then set the four agent-id env vars yourself. Also write docs/BOLNA_SETUP.md: what bolna:sync does, how to check the agents in the dashboard, and the manual fallback if the API refuses something.
-6. Set the dev Convex env yourself: BOLNA_API_KEY, BOLNA_WEBHOOK_SECRET (generate it), BOLNA_TRIAL=true, TEST_PHONE_HASHES (from the admin page), GEMINI_API_KEY_BILLED, REC_TOKEN_SECRET (generate it). Show me the names you set, never the values.
+6. Set the dev Convex env yourself: BOLNA_API_KEY, BOLNA_WEBHOOK_SECRET (generate it), BOLNA_TRIAL=true, TEST_PHONE_HASHES (returned by admin:addDealer, or admin:phoneHash), GEMINI_API_KEY_BILLED, REC_TOKEN_SECRET (generate it). Show me the names you set, never the values.
 
 Do not place any real call yourself. When the code is ready, ask me before setting LIVE_CALLS_ENABLED=true on dev, then tell me exactly how to start the first test sweep to two verified teammate phones from the app, watch the Convex logs while it runs, and know how to roll back (LIVE_CALLS_ENABLED=false).
 

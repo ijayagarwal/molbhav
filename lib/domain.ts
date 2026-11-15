@@ -10,6 +10,31 @@ export type DeliverBy = "today" | "tomorrow_morning" | "tomorrow" | "day_after" 
 export type StockState = "yes" | "partial" | "no" | "unknown";
 export type BillType = "pakka" | "kachcha" | "unknown";
 export type WeightBasis = "kanta" | "standard" | "unknown";
+export type Consent = "test_ok" | "opted_in" | "unknown" | "opted_out";
+
+/** Why `claimDial` refused a live dial (ARCHITECTURE §11). Each has a hi/en string (`dial.*`). */
+export type DialRefusal =
+  | "config" // an env value is malformed: fail closed
+  | "live_off" // guard 1
+  | "not_verified" // guard 2
+  | "contractor_daily_cap" // guard 2
+  | "no_consent" // guard 3
+  | "dealer_daily_orders" // guard 4: AI calls from 2 orders today already (S2, R3)
+  | "dealer_order_calls" // guard 4: 4 AI calls in this order already (R3)
+  | "test_daily_calls" // guard 4 in trial mode (B9)
+  | "call_hours" // guard 5
+  | "order_call_cap" // guard 6: MAX_LIVE_CALLS_PER_ORDER
+  | "no_from_number" // guard 7
+  | "trial_test_phones_only" // guard 7 in trial mode (B9)
+  | "no_billed_key" // guard 8
+  | "invalid_number" // guard 9 (B10)
+  | "demo_dealer" // guard 9 (B10)
+  | "phone_hash_mismatch" // stored hash ≠ HMAC of the stored number: fail closed
+  | "a2p_not_declared" // guard 10
+  | "live_stage"; // guard 10
+
+/** Why a call ended `cancelled` (R18): a refused dial, or the queue, round, opt-out or stop button ending it. */
+export type CancelReason = DialRefusal | "queue_timeout" | "round_closed" | "opted_out" | "stopped" | "bolna_rescheduled";
 
 export type Flag =
   | "gst_unclear"

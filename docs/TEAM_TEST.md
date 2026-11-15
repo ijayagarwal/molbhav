@@ -10,7 +10,7 @@ Teammates **role-play dealers** on their own Bolna-verified phones in **trial mo
 The code doesn't change for real dealers in Milestone 2. Only the numbers, the consent type and the settings change. The sim personas for the demo order use the same numbers as these cards, so the simulator and the live runs show the same totals.
 
 ## Rules
-- **Only teammates' phones**, each verified in Bolna and added in `/app/admin` as a `test_ok` dealer. Never dial anyone else.
+- **Only teammates' phones**, each verified in Bolna and added by Claude Code as a `test_ok` dealer (`npx convex run admin:addDealer`, R18). Never dial anyone else.
 - **Consent:** each teammate agrees to be recorded, and to the clips being shown to judges.
 - **Labels:** dealer names carry a "TEST ·" prefix. Every price on the cards below is fictional test data, never presented as a market price.
 - **Speech:** speak naturally in Hindi, answer only what the agent asks, and use the card's numbers exactly. The test checks what the system heard against the card.
@@ -29,7 +29,7 @@ Do `START_HERE.md` C5 first. Then:
    - `LIVE_CONCURRENCY=2` (the trial dials 2 at a time; the rest queue);
    - `TEST_DAILY_CALLS=15` and `MAX_LIVE_SWEEPS_PER_HOUR=6` on test days (Claude Code sets and resets them);
    - the wallet: `pnpm bolna:check`. Milestone 1 needs about 10 live orders and the $5 trial covers about 5, so top up before the Team test (first check that a top-up keeps trial mode);
-   - the Jaipur `priceBands` rows (in `/app/admin`, R13) updated within the last 14 days and covering the card prices (steel ₹55–70/kg, cement ₹360–450/bag). Otherwise every live quote is "out of band", none is citable, and the haggle is skipped.
+   - the Jaipur `priceBands` rows (set with `admin:setPriceBand`, shown in `/app/admin`, R13, R18) updated within the last 14 days and covering the card prices (steel ₹55–70/kg, cement ₹360–450/bag). Otherwise every live quote is "out of band", none is citable, and the haggle is skipped.
 4. **Before Run 6:** download the Run 2 clips. Run 6 opts out P2, and opting out deletes **all** of that dealer's recordings.
 
 ## The order (said in the app, every run)
@@ -83,7 +83,7 @@ On Confirm, choose **लोकल ISI** for steel; cement is already **कोई
 | Run | Phones and cards | What it proves | Expected result |
 |---|---|---|---|
 | 1 | P1 = A, P2 = B (no regular dealer linked) | Dialling, disclosure, extraction, read-back, both haggles | A wins at ₹1,98,830; "₹1,780 कम · बीच वाले रेट से" (median of 2,00,610 and 2,00,750, lower middle, R5) |
-| 2 | First link P4 as your regular dealer in `/app/admin`. Then P1 = A, P2 = B, P3 = C, P4 = D. | **The full demo flow:** a flagged quote, the match call, the confirm call | Winner A ₹1,98,830; "₹5,470 कम · आपके dealer के पहले रेट से"; Balaji card "₹4,200 कम · ₹1,270 ज़्यादा"; confirm → Placed |
+| 2 | First Claude Code links P4 as your regular dealer (`admin:setRegularDealer`). Then P1 = A, P2 = B, P3 = C, P4 = D. | **The full demo flow:** a flagged quote, the match call, the confirm call | Winner A ₹1,98,830; "₹5,470 कम · आपके dealer के पहले रेट से"; Balaji card "₹4,200 कम · ₹1,270 ज़्यादा"; confirm → Placed |
 | 3 | P1 = A; P3 doesn't pick up; P2 says "अभी busy हूँ, दस मिनट बाद कॉल करो" | No answer, and a callback request | P3: one retry after 3 minutes, then no answer. P2: called back about 10 minutes later (P8); the round waits for it |
 | 4 | Run 2 again, but A says on the confirm call "रेट बढ़ गया, सत्तावन पचास लगेगा" | Re-pricing at confirm | No deal; Result shows the runner-up highlighted |
 | 5 | P1 = A, P2 = B; on the quote call, P1 cuts in at once with "हाँ जी बोलिए" | Interrupted welcome | The agent repeats the disclosure; the S5 check passes |

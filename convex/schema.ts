@@ -34,6 +34,18 @@ const callOutcome = v.union(
   v.literal("quoted"), v.literal("declined"), v.literal("callback_requested"), v.literal("no_quote"),
   v.literal("opted_out"), v.literal("disclosure_failed"), v.literal("terms_changed"), v.literal("confirmed"),
 );
+// why a call ended "cancelled" (R18): a refused dial (the claimDial guard codes, §11) or the queue,
+// round, opt-out or stop button ending it; the app shows each code in hi and en (dial.*)
+const cancelReason = v.union(
+  v.literal("config"), v.literal("live_off"), v.literal("not_verified"), v.literal("contractor_daily_cap"),
+  v.literal("no_consent"), v.literal("dealer_daily_orders"), v.literal("dealer_order_calls"),
+  v.literal("test_daily_calls"), v.literal("call_hours"), v.literal("order_call_cap"), v.literal("no_from_number"),
+  v.literal("trial_test_phones_only"), v.literal("no_billed_key"), v.literal("invalid_number"),
+  v.literal("demo_dealer"), v.literal("phone_hash_mismatch"), v.literal("a2p_not_declared"), v.literal("live_stage"),
+  v.literal("queue_timeout"), v.literal("round_closed"), v.literal("opted_out"), v.literal("stopped"),
+  v.literal("bolna_rescheduled"),
+);
+export const consent = v.union(v.literal("test_ok"), v.literal("opted_in"), v.literal("unknown"), v.literal("opted_out"));
 
 export const orderItem = v.object({
   id: v.string(),
@@ -87,7 +99,7 @@ export default defineSchema({
     phoneHash: v.string(),
     materials: v.array(material),
     source: v.union(v.literal("seed"), v.literal("admin"), v.literal("optin")),
-    consent: v.union(v.literal("test_ok"), v.literal("opted_in"), v.literal("unknown"), v.literal("opted_out")),
+    consent,
     language: v.optional(v.string()),
     isDemo: v.boolean(),
     simPersona: v.optional(v.string()),
@@ -148,9 +160,11 @@ export default defineSchema({
     callbackWhenText: v.optional(v.string()),
     extract: v.union(v.literal("pending"), v.literal("running"), v.literal("done"), v.literal("failed")),
     extractAttempts: v.number(),
-    terminationReason: v.optional(v.string()),
+    terminationReason: v.optional(v.string()),   // Bolna's, kept server-side
+    cancelReason: v.optional(cancelReason),      // set with status "cancelled" (R18); safe to show
   }).index("by_order", ["orderId"]).index("by_execution", ["providerExecutionId"]).index("by_deadline", ["deadlineAt"])
-    .index("by_mode_status", ["mode", "status"]),   // claimDial counts active live calls (R2)
+    .index("by_mode_status", ["mode", "status"])    // claimDial counts active live calls (R2)
+    .index("by_dealer", ["dealerId"]),             // opt-outs cancel a dealer's queued calls and recordings (R15)
 
   callEvents: defineTable({
     callId: v.id("calls"), orderId: v.id("orders"),
@@ -217,7 +231,9 @@ export default defineSchema({
     phoneHash: v.string(), at: v.number(), consent: v.string(), round,
     outcome: v.optional(v.string()),     // filled in when the call ends
     orderId: v.id("orders"), callId: v.id("calls"),   // written by claimDial at reservation (R3)
-  }).index("by_phoneHash_at", ["phoneHash", "at"]),
+    contractorId: v.id("contractors"),                // per-contractor daily cap (guard 2, R18)
+  }).index("by_phoneHash_at", ["phoneHash", "at"]).index("by_order", ["orderId"])
+    .index("by_contractor_at", ["contractorId", "at"]),
 
   priceBands: defineTable({              // dated sanity bands for citing (C4); seeded from lib/config.ts, edited in /app/admin (R13)
     city: v.string(), material,

@@ -1,6 +1,6 @@
 // Access rules for every public Convex function (CLAUDE.md hard rule 6, DECISIONS B1).
 // Every exported query and mutation outside convex/lib must call one of these
-// (enforced by convex/accessRule.test.ts).
+// (guarded builders in convex/lib/functions.ts; probed by convex/accessProbe.test.ts).
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";

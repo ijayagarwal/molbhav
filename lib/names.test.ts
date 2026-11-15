@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { graphemeCount, normaliseContractorName } from "./names";
+import { graphemeCount, normaliseContractorName, normaliseDealerName } from "./names";
 
 describe("normaliseContractorName", () => {
   test("accepts Hindi names with matras and conjuncts", () => {
@@ -38,3 +38,18 @@ describe("normaliseContractorName", () => {
     expect(normaliseContractorName("क्षि".repeat(17))).toBeNull(); // 17 graphemes but 68 code units
   });
 });
+
+describe("normaliseDealerName", () => {
+  test("accepts shop names with digits and light punctuation, in both scripts", () => {
+    for (const ok of ["Shree Balaji Traders", "A-1 Steel & Cement", "R.K. Traders", "राठौड़ बिल्डिंग मटेरियल", "Om Sai's"]) {
+      expect(normaliseDealerName(ok)).toBe(ok);
+    }
+    expect(normaliseDealerName("  Gupta   Hardware ")).toBe("Gupta Hardware");
+  });
+  test("rejects markup, separators and sentence-length input", () => {
+    for (const bad of ["", "<b>Gupta</b>", "Gupta; drop", "-Gupta", "Gupta, Hardware", "a b c d e f g", "x".repeat(41)]) {
+      expect(normaliseDealerName(bad)).toBeNull();
+    }
+  });
+});
+

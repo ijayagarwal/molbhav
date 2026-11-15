@@ -48,6 +48,12 @@ const publicFns: PublicFn[] = Object.entries(loaded).flatMap(([path, mod]) => {
 const NOT_PROBED: Record<string, string> = {
   "contractors:create": "acts only on the caller's own profile (ctx.userId); covered in access.test.ts",
   "dealers:listForCity": "takes a city, returns publicDealer only; covered in access.test.ts and scanned below",
+  "admin:phoneHashForTest": "takes a typed phone; the non-admin refusal is probed below with STRING_ARGS, the hash in admin.test.ts",
+};
+
+/** Sample values for string arguments, so the admin refusal probe can still call these. */
+const STRING_ARGS: Record<string, Record<string, unknown>> = {
+  "admin:phoneHashForTest": { phone: "9812345678" },
 };
 
 const SECRETS = {
@@ -181,7 +187,7 @@ describe("access probes over every public function", () => {
       test(`${id}: non-admins are refused`, async () => {
         vi.stubEnv("ADMIN_USER_IDS", "");
         const { asA, byTable } = await setup();
-        const args = fillArgs(fn, byTable) ?? {};
+        const args = fillArgs(fn, byTable) ?? STRING_ARGS[id] ?? {};
         const call = fn.kind === "query" ? asA.query(qref(fn), args) : asA.mutation(mref(fn), args);
         await expect(call).rejects.toThrow(/forbidden/);
         vi.unstubAllEnvs();
