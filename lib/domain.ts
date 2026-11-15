@@ -20,12 +20,13 @@ export type DialRefusal =
   | "contractor_daily_cap" // guard 2
   | "no_consent" // guard 3
   | "dealer_daily_orders" // guard 4: AI calls from 2 orders today already (S2, R3)
-  | "dealer_order_calls" // guard 4: 4 AI calls in this order already (R3)
+  | "dealer_order_calls" // guard 4: this order's calls to this number are used up (R3, R18)
   | "test_daily_calls" // guard 4 in trial mode (B9)
   | "call_hours" // guard 5
   | "order_call_cap" // guard 6: MAX_LIVE_CALLS_PER_ORDER
   | "no_from_number" // guard 7
-  | "trial_test_phones_only" // guard 7 in trial mode (B9)
+  | "trial_test_phones_only" // guard 7 in trial mode: an opted-in dealer (B9)
+  | "test_phone_unlisted" // a test_ok dealer whose hash isn't in TEST_PHONE_HASHES, in any mode (R18)
   | "no_billed_key" // guard 8
   | "invalid_number" // guard 9 (B10)
   | "demo_dealer" // guard 9 (B10)

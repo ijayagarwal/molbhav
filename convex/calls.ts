@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { CALLS } from "../lib/config";
-import type { CancelReason } from "../lib/domain";
-import { evaluateDial } from "../lib/liveGuards";
+import type { CancelReason, Round } from "../lib/domain";
+import { evaluateDial, opensDealerSlot } from "../lib/liveGuards";
+import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { requireOwnedOrder } from "./lib/access";
@@ -27,8 +28,16 @@ export const listForOrder = userQuery({
   },
 });
 
-/** Order statuses in which a round can still dial (quote → sweeping, haggle, match, confirm → placing). */
-const DIALING_ORDER_STATUSES: ReadonlySet<Doc<"orders">["status"]> = new Set(["sweeping", "haggling", "matching", "placing"]);
+/**
+ * The order statuses in which each round may dial (§6.2, §6.6, §6.7). A quote call can also come in the
+ * match step: the regular dealer gets a normal quote call when no total is citable (§6.6 item 3).
+ */
+const ROUND_STATUSES: Record<Round, ReadonlySet<Doc<"orders">["status"]>> = {
+  quote: new Set(["sweeping", "matching"]),
+  haggle: new Set(["haggling"]),
+  match: new Set(["matching"]),
+  confirm: new Set(["placing"]),
+};
 
 export type ClaimResult =
   /** Dial now. `from` is null on the Bolna trial (its own caller ID, B9). Never returned to a client. */
@@ -64,7 +73,7 @@ export const claimDial = internalMutation({
       order.mode !== "live" ||
       order.kind !== "app" ||
       order.roundSeq !== call.roundSeq ||
-      !DIALING_ORDER_STATUSES.has(order.status)
+      !ROUND_STATUSES[call.round].has(order.status)
     ) {
       return await cancel(ctx, call, "round_closed", now);
     }
@@ -72,7 +81,9 @@ export const claimDial = internalMutation({
 
     const dealer = await ctx.db.get(call.dealerId);
     if (dealer === null) return await cancel(ctx, call, "invalid_number", now);
-    const contractor = order.contractorId === undefined ? null : await ctx.db.get(order.contractorId);
+    // The contractor must be the order's owner, so no order can borrow another person's verification.
+    const linked = order.contractorId === undefined ? null : await ctx.db.get(order.contractorId);
+    const contractor = linked !== null && linked.userId === order.ownerUserId ? linked : null;
 
     const env = liveEnv();
     const dealerF = await dealerFacts(dealer);
@@ -101,8 +112,33 @@ export const claimDial = internalMutation({
       orderId: order._id,
       callId: call._id,
       contractorId: contractor._id,
+      opensSlot: opensDealerSlot(call.round, counts.dealerOpenedThisOrder),
     });
     await ctx.db.patch(call._id, { status: "dialing", statusRank: 1, deadlineAt: now + CALLS.dialingDeadlineMs });
     return { kind: "ok", to: dealer.phoneE164, from: env.trial ? null : env.fromNumber };
+  },
+});
+
+/**
+ * Deletes every recording of one dealer's calls, 100 calls per run (R15: an opt-out deletes all of a
+ * dealer's recordings at once). Scheduled by applyOptOut; continues itself until done.
+ */
+export const deleteDealerRecordings = internalMutation({
+  args: { dealerId: v.id("dealers"), cursor: v.optional(v.string()) },
+  handler: async (ctx, { dealerId, cursor }) => {
+    const page = await ctx.db
+      .query("calls")
+      .withIndex("by_dealer_status", (q) => q.eq("dealerId", dealerId))
+      .paginate({ cursor: cursor ?? null, numItems: 100 });
+    let deleted = 0;
+    for (const call of page.page) {
+      if (call.recordingStorageId === undefined) continue;
+      // Best effort: a blob already gone (retention, an earlier run) must not undo the opt-out.
+      if ((await ctx.db.system.get(call.recordingStorageId)) !== null) await ctx.storage.delete(call.recordingStorageId);
+      await ctx.db.patch(call._id, { recordingStorageId: undefined });
+      deleted++;
+    }
+    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.calls.deleteDealerRecordings, { dealerId, cursor: page.continueCursor });
+    return { deleted, done: page.isDone };
   },
 });

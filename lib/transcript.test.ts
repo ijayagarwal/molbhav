@@ -32,7 +32,8 @@ describe("welcomes in docs/CALL_SCRIPT.md (hard rule 3, C1)", () => {
     expect(scriptDiscloses(first)).toBe(true);
   });
   test.each(all)("$agent: no gendered first-person verb in the welcome", ({ text }) => {
-    expect(text).not.toMatch(/(रहा|रही|गया|गई|सकता|सकती) (हूँ|हूं)/u);
+    expect(text).not.toMatch(/(रहा|रही|गया|गई|सकता|सकती|करता|करती|चाहता|चाहती|देता|देती|बोलता|बोलती) (हूँ|हूं|था|थी)/u);
+    expect(text).not.toMatch(/मैं/u); // the agent speaks for the contractor, never as a gendered "I"
   });
 });
 
@@ -65,9 +66,23 @@ describe("disclosureMade (S5)", () => {
     expect(disclosureMade(repeated)).toBe(true);
   });
 
-  test("a size or grade in the dealer's turn isn't a rate; a phone number isn't either", () => {
-    const t = "assistant: नमस्ते जी\nuser: 12 mm वाला? Fe 500?\nuser: मेरा नंबर 98290 57 370 है\nassistant: ये AI कॉल है और रिकॉर्ड हो रही है\nuser: 58 रुपये";
+  test("a size or a grade in the dealer's turn isn't a rate", () => {
+    const t = "assistant: नमस्ते जी\nuser: 12 mm वाला? Fe 500D? बारह एमएम?\nassistant: ये AI कॉल है और रिकॉर्ड हो रही है\nuser: 58 रुपये";
     expect(disclosureMade(t)).toBe(true);
+    expect(disclosureMade("assistant: नमस्ते जी\nuser: हाँ एक मिनट\nassistant: ये AI कॉल है, रिकॉर्ड हो रही है\nuser: 58")).toBe(true);
+  });
+
+  // Review of 8A: these passed before and must fail.
+  test("आईएसआई (ISI) is not AI", () => {
+    expect(disclosureMade("assistant: नमस्ते जी, कॉल रिकॉर्ड हो रही है, सरिया के लिए आईएसआई वाला\nuser: 58 रुपये")).toBe(false);
+    expect(disclosureMade("assistant: वो लोग आ गए आईं, कॉल रिकॉर्ड हो रही है\nuser: 58")).toBe(false);
+  });
+  test("per-ton rates that look like a phone number still count as rates", () => {
+    expect(disclosureMade("assistant: नमस्ते जी\nuser: 57500 58000 चल रहा है\nassistant: ये AI कॉल है और रिकॉर्ड हो रही है")).toBe(false);
+  });
+  test("a rate right after a size still counts", () => {
+    expect(disclosureMade("assistant: नमस्ते जी\nuser: 12 mm 58 रुपये किलो\nassistant: ये AI कॉल है और रिकॉर्ड हो रही है")).toBe(false);
+    expect(disclosureMade("assistant: नमस्ते जी\nuser: OPC 53 का 380\nassistant: ये AI कॉल है और रिकॉर्ड हो रही है")).toBe(false);
   });
 
   test("no disclosure at all fails even when no rate was given", () => {

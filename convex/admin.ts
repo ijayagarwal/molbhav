@@ -4,7 +4,8 @@
 // adding or opting out a dealer, setting the regular dealer and the daily caps. They run only
 // from an authenticated Convex CLI (`npx convex run admin:<name> '{…}'`), never from a browser,
 // so a stolen anonymous admin cookie can't aim AI calls at anyone. Every write is audit-logged
-// with the actor named on the command line. The /app/admin page only reads.
+// with the actor named on the command line. The /app/admin page only reads; phone hashes for
+// TEST_PHONE_HASHES come from addDealer's result or `admin:phoneHash`, never from a browser.
 import { ConvexError, v } from "convex/values";
 import { CALLS, CITIES, CITY_AREAS, PRICING, type City } from "../lib/config";
 import { liveChecklist } from "../lib/liveGuards";
@@ -88,19 +89,6 @@ export const overview = adminQuery({
 });
 
 /**
- * The HMAC of a phone number the admin typed, for TEST_PHONE_HASHES (B9). It reveals nothing stored:
- * clients never see any stored hash, so this can't be used to reverse one.
- */
-export const phoneHashForTest = adminQuery({
-  args: { phone: v.string() },
-  handler: async (_ctx, { phone }) => {
-    const e164 = normaliseIndianMobile(phone.slice(0, 32));
-    if (e164 === null) return { ok: false as const };
-    return { ok: true as const, phoneHash: await hashPhone(e164) };
-  },
-});
-
-/**
  * "Reset demo" (B8, §6.12): wipes and re-creates the demo rows only. Price bands are refreshed only on the
  * demo deployment (DEMO_DEPLOYMENT=true), never on production, where they hold real field data.
  */
@@ -163,6 +151,13 @@ export const verifyContractor = internalMutation({
       if (c.phoneE164 !== phoneE164) throw new ConvexError({ code: "locked", hint: "unverifyContractor first" });
       return { contractorId: c._id, alreadyVerified: true };
     }
+    // One verified contractor per phone, so nobody multiplies their daily cap across devices (R18).
+    const samePhone = await ctx.db
+      .query("contractors")
+      .withIndex("by_phone", (q) => q.eq("phoneE164", phoneE164))
+      .collect();
+    const other = samePhone.find((x) => x._id !== c._id && x.verified);
+    if (other !== undefined) throw new ConvexError({ code: "phone_in_use", contractorId: other._id });
     const liveDailyCap = checkCap(args.liveDailyCap ?? CALLS.defaultContractorDailyOrders);
     await ctx.db.patch(c._id, { verified: true, phoneE164, liveDailyCap });
     await audit(ctx, who, "contractor.verify", c._id, { name: c.name, liveDailyCap, note });
@@ -232,7 +227,8 @@ export const addDealer = internalMutation({
     if (phoneE164 === null) throw new ConvexError({ code: "invalid_phone" });
     const phoneHash = await hashPhone(phoneE164);
 
-    const fields = { name, nameHi, city, area: args.area, materials, consent: args.consent, language: args.language };
+    const fields = { name, city, area: args.area, materials, consent: args.consent };
+    const optional = { ...(nameHi !== undefined ? { nameHi } : {}), ...(args.language !== undefined ? { language: args.language } : {}) };
     const existing = await ctx.db
       .query("dealers")
       .withIndex("by_phoneHash", (q) => q.eq("phoneHash", phoneHash))
@@ -240,11 +236,27 @@ export const addDealer = internalMutation({
     if (existing !== null) {
       if (existing.consent !== "opted_out") throw new ConvexError({ code: "dealer_exists", dealerId: existing._id });
       if (args.readdAfterOptOut !== true) throw new ConvexError({ code: "opted_out", hint: "set readdAfterOptOut with a fresh consent note" });
-      await ctx.db.patch(existing._id, { ...fields, source: "admin" });
+      // A fresh note means a new one: not any note this dealer's consent was recorded with before.
+      const history = await ctx.db
+        .query("auditLog")
+        .withIndex("by_target", (q) => q.eq("target", existing._id))
+        .collect();
+      const fold = (n: string) => n.toLowerCase().replace(/\s+/g, " ").trim();
+      const usedBefore = history.some((a) => {
+        try {
+          const note = (JSON.parse(a.detail ?? "{}") as { consentNote?: unknown }).consentNote;
+          return typeof note === "string" && fold(note) === fold(consentNote);
+        } catch {
+          return false;
+        }
+      });
+      if (usedBefore) throw new ConvexError({ code: "stale_consent_note" });
+      // Fields not given (nameHi, language) keep their earlier values.
+      await ctx.db.patch(existing._id, { ...fields, ...optional, source: "admin" });
       await audit(ctx, who, "dealer.readd_after_opt_out", existing._id, { consent: args.consent, consentNote });
       return { dealerId: existing._id, phoneHash, readded: true };
     }
-    const dealerId = await ctx.db.insert("dealers", { ...fields, phoneE164, phoneHash, source: "admin", isDemo: false });
+    const dealerId = await ctx.db.insert("dealers", { ...fields, ...optional, phoneE164, phoneHash, source: "admin", isDemo: false });
     await audit(ctx, who, "dealer.add", dealerId, { consent: args.consent, consentNote });
     return { dealerId, phoneHash, readded: false };
   },
@@ -328,7 +340,7 @@ export const setPriceBand = internalMutation({
   },
 });
 
-/** CLI twin of phoneHashForTest, for setting TEST_PHONE_HASHES from the terminal. */
+/** The HMAC of a phone number, for TEST_PHONE_HASHES (B9). CLI only: `npx convex run admin:phoneHash '{"phone":"…"}'`. */
 export const phoneHash = internalQuery({
   args: { phone: v.string() },
   handler: async (_ctx, { phone }) => {
