@@ -561,8 +561,41 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `dealer.errMaterials` | कम से कम एक सामान चुनिए। | Please choose at least one material. |
 | `privacy.*` (34 keys) | The privacy notice on `/privacy`, in `lib/i18n/hi.ts` and `en.ts`: what we keep, where, processors, retention, erasure, the dealer opt-out. A draft for the founders' lawyer. | Same, in English. |
 | `meta.*` | Page titles and descriptions for `/`, `/dealer`, `/privacy`, and the og:image alt text. | Same, in English. |
+| `try.title` | खुद आज़माइए | Try it yourself |
+| `try.sub` | एक ऑर्डर बोलिए, लिखिए या नीचे से चुनिए। देखिए मोलभाव उसे कैसे समझता है, फिर काल्पनिक dealers से रेट लेके मोलभाव करता है। | Say an order, type it or pick one below. See how Molbhav understands it, then gets rates from fictional dealers and bargains. |
+| `try.demoNote` | DEMO: काल्पनिक dealers, कोई असली कॉल नहीं जाती। आवाज़ रखी नहीं जाती, और ये डेमो ऑर्डर 24 घंटे में मिट जाता है। | DEMO: fictional dealers; no real call is made. Your voice isn't kept, and this demo order is deleted within 24 hours. |
+| `try.samplesTitle` | एक ऑर्डर चुनिए | Pick an order |
+| `try.ownTitle` | या अपना ऑर्डर दीजिए | Or give your own order |
+| `try.speak` | बोलके बताइए | Say it |
+| `try.micHint` | दबाइए और बोलिए · {s} सेकंड तक | Press and speak · up to {s} seconds |
+| `try.type` / `try.send` | लिख के बताइए / भेजिए | Type it / Send |
+| `try.making` | डेमो ऑर्डर बन रहा है… | Making the demo order… |
+| `try.understood` | हमने ये समझा | Here's what we understood |
+| `try.start` / `try.starting` | मोलभाव शुरू कीजिए (DEMO) / शुरू कर रहे हैं… | Start bargaining (DEMO) / Starting… |
+| `try.qtyMissing` | मात्रा या इकाई सुनाई नहीं दी। फिर से बोलिए या लिखिए। | We didn't catch the quantity or unit. Say or type it again. |
+| `try.sweepNote` | सब सिम्युलेटर पे: काल्पनिक dealers, असली नियम। | All on the simulator: fictional dealers, real rules. |
+| `try.resultNote` | ये काल्पनिक dealers के DEMO रेट हैं। | These are DEMO rates from fictional dealers. |
+| `try.others` | बाकी रेट | Other rates |
+| `try.endBody` | जयपुर पायलट में हमारी टीम आपके लिए असली dealers को कॉल करती है। अपना नंबर छोड़िए, हम WhatsApp पे बताएँगे। | In the Jaipur pilot our team calls real dealers for you. Leave your number and we'll tell you on WhatsApp. |
+| `try.join` / `try.whatsapp` | Waitlist में जुड़िए / WhatsApp पे जुड़िए | Join the waitlist / Join on WhatsApp |
+| `try.whatsappText` | नमस्ते, मोलभाव का डेमो देखा। अपने dealers का रेट चाहिए। | Hi, I tried the Molbhav demo. I'd like rates from my own dealers. |
+| `try.again` / `try.home` | एक और आज़माइए / मोलभाव के बारे में | Try another / About Molbhav |
+| `try.expired` | ये डेमो ऑर्डर अब नहीं है। डेमो ऑर्डर 24 घंटे में मिट जाते हैं। | This demo order is gone. Demo orders are deleted within 24 hours. |
+| `try.errLimit` | अभी बहुत डेमो हो गए। थोड़ी देर बाद फिर से कोशिश कीजिए। | Lots of demos just now. Please try again in a little while. |
+| `try.errCap` | आज के डेमो पूरे हो गए। कल फिर आइए, या नीचे Waitlist में जुड़िए। | Today's demos are used up. Come back tomorrow, or join the waitlist below. |
+| `try.errStart` | डेमो शुरू नहीं हो पाया। फिर से कोशिश कीजिए। | The demo couldn't start. Please try again. |
+| `try.errNoDealers` | डेमो dealers अभी तैयार नहीं हैं। थोड़ी देर बाद आइए। | The demo dealers aren't ready yet. Please come back a little later. |
+| `try.errVoiceOff` | अभी बोलके या लिखके डेमो बंद है। ऊपर से कोई ऑर्डर चुनिए। | Speaking or typing a demo order is off right now. Pick an order above. |
+| `landing.tryTitle` | खुद आज़माइए | Try it yourself |
+| `landing.tryBody` | एक ऑर्डर बोलिए या लिखिए। मोलभाव उसे समझेगा, फिर सिम्युलेटर पे काल्पनिक dealers से रेट लेके मोलभाव करेगा। कोई असली कॉल नहीं। | Say or type an order. Molbhav understands it, then gets rates from fictional dealers on the simulator and bargains. No real call is made. |
+| `landing.tryCta` | डेमो खोलिए | Open the demo |
+| `landing.boardLabel` | डेमो: काल्पनिक dealers से मोलभाव | Demo: bargaining with fictional dealers |
+| `landing.boardPause` / `landing.boardPlay` | डेमो रोकिए / डेमो चलाइए | Pause the demo / Play the demo |
+| `present.*` (53 keys) | The presenter view (`/present`, admins only): its title, the pipeline steps (Mic, STT, समझा, कॉल, रेट, मोलभाव, Match, नतीजा), the stats, the event-log lines (Plex Mono, mostly short technical tags such as `quote · {dealer} · {total}`), readiness, "Reset demo" and the demo-contractor link. | Same, in English. |
 
 The Phase 1C rows from `landing.navDealers` down (landing sections, waitlist, `/dealer`, `/privacy`, page metadata) follow the pilot wording (G2: AI calls are "जल्द"). They need the native speaker's review, and the consent texts (`waitlist.notice`, `waitlist.consent`, `dealer.notice`, `dealer.consent`) and `privacy.*` need the founders' lawyer before the landing link is shared publicly.
+
+The Phase 7 rows (`try.*`, the new `landing.*` rows, `present.*`) are new and need the native speaker's review; the sandbox copy never claims live AI calls (G2): it says "DEMO" and "काल्पनिक dealers" before anything starts.
 
 The voice-order rows from `primer.title` down (Phase 4 client) are new and need the native speaker's review most. Every `/api/voice/order` error code maps to one of them in `lib/client/voiceErrors.ts`; `voice.soon` shows only for `not_configured`.
 

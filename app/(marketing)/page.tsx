@@ -59,7 +59,7 @@ export default async function LandingPage({ searchParams }: PageProps<"/">) {
             <div className="flex flex-col gap-2">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Link
-                  href="/try"
+                  href="/app"
                   className="press-paint inline-flex h-16 items-center justify-center gap-3 rounded-card border-2 border-ink bg-haldi px-6 font-display text-title-2 shadow-paint lg:w-fit"
                 >
                   <MicBold className="size-6" />
