@@ -115,7 +115,9 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
   - A parallel agent is fixing the remaining screen findings: the signed-out crash on app links, the sweep
     phase title, the first-quote announcement, the Dealers back link, focus in bottom sheets, truncation at
     360 px, a ledger overlap and leftover hard-coded copy.
-- **Next:** merge those fixes, deploy, re-verify on production; then Phase 4 once the keys arrive.
+- **Production re-verified after the fixes** (1440 px, Hindi): board prices visible, placed at 113 s, the share
+  link and its preview image (correct Hindi shaping) work, no console errors.
+- **Next:** merge the screen fixes, deploy, re-verify on production; then Phase 4 once the keys arrive.
 
 ### 17 Nov 2026
 - **The user asked for:**
