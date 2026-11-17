@@ -23,6 +23,13 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   ttsUser: { kind: "token bucket", rate: 60, period: HOUR, capacity: 10 },
   // orders.createDraft per user (it is also callable without the voice route; it costs nothing but rows).
   draftCreate: { kind: "token bucket", rate: 60, period: HOUR, capacity: 20 },
+  // waitlist.join (landing waitlist and /dealer opt-in, §6.13): 5 an hour per IP hash, plus a deployment-wide
+  // ceiling so a botnet can't fill the table.
+  waitlistIp: { kind: "token bucket", rate: 5, period: HOUR, capacity: 5 },
+  waitlistAll: { kind: "token bucket", rate: 600, period: HOUR, capacity: 100 },
+  // events.track (POST /api/e and the server-side events, G6) per IP hash (generous for CGNAT), and overall.
+  eventsIp: { kind: "token bucket", rate: 300, period: HOUR, capacity: 60 },
+  eventsAll: { kind: "token bucket", rate: 30000, period: HOUR, capacity: 3000 },
 });
 
 /**
