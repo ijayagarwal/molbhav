@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { DEMO_ITEMS } from "./fixtures/demoOrder";
-import { readBackText, resultSummaryText } from "./readback";
+import { readBackReady, readBackText, resultSummaryText } from "./readback";
 
 describe("readBackText (V3)", () => {
   test("Hindi: what and how much with the tier, then time and credit, then the closing statement", () => {
@@ -15,6 +15,19 @@ describe("readBackText (V3)", () => {
     expect(readBackText({ items: DEMO_ITEMS, deliverBy: "tomorrow_morning", creditDaysWanted: 15 }, "en")).toBe(
       "2 tons 12 mm local ISI TMT steel Fe500D and 150 bags PPC cement. By tomorrow morning, 15 days credit. If that's right, start.",
     );
+  });
+  test("a site other than the default is spoken first in the second sentence, still 3 sentences", () => {
+    const site = { hi: "मानसरोवर", en: "Mansarovar" };
+    const hi = readBackText({ items: DEMO_ITEMS, deliverBy: "tomorrow_morning", creditDaysWanted: 15, site }, "hi");
+    expect(hi).toBe("दो टन बारह mm लोकल ISI सरिया Fe500D, और डेढ़ सौ बोरी PPC सीमेंट। मानसरोवर साइट, कल सुबह तक, पंद्रह दिन उधार। सही हो तो शुरू कीजिए।");
+    expect(hi.split("।").filter((s) => s.trim()).length).toBe(3);
+    expect(readBackText({ items: DEMO_ITEMS, site }, "en")).toBe("2 tons 12 mm local ISI TMT steel Fe500D and 150 bags PPC cement. To the Mansarovar site. If that's right, start.");
+  });
+  test("readBackReady: every item needs a quantity and a unit", () => {
+    expect(readBackReady(DEMO_ITEMS)).toBe(true);
+    expect(readBackReady([])).toBe(false);
+    expect(readBackReady([{ ...DEMO_ITEMS[0], quantity: undefined }])).toBe(false);
+    expect(readBackReady([{ ...DEMO_ITEMS[0], unit: undefined }])).toBe(false);
   });
 });
 

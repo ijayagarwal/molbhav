@@ -49,6 +49,8 @@ const NOT_PROBED: Record<string, string> = {
   "contractors:create": "acts only on the caller's own profile (ctx.userId); covered in access.test.ts",
   "dealers:listForCity": "takes a city, returns publicDealer only; covered in access.test.ts and scanned below",
   "sweep:start": "takes a mode and an array of dealer ids; another user, a signed-out caller and dealers it may not call are refused in engine.test.ts",
+  "orders:createDraft": "writes only the caller's own draft (ctx.contractor) and matches the site among the caller's own sites; signed-out, not onboarded and invalid items are refused in voice.test.ts",
+  "limits:consumeVoice": "needs CONVEX_SERVER_SECRET and keys its limits on ctx.userId; signed-out callers and a wrong secret are refused in voice.test.ts",
 };
 
 /**
