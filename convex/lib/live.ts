@@ -42,16 +42,33 @@ export async function contractorOrdersToday(ctx: Ctx, contractorId: Id<"contract
   return new Set(rows.filter((r) => r.opensSlot).map((r) => r.orderId as string));
 }
 
-/** The dealer's number, re-hashed from the stored E.164 so a stale `phoneHash` can't unlock a dial. */
-export async function dealerFacts(dealer: Doc<"dealers">): Promise<DealerFacts> {
+/**
+ * The dealer's number, re-hashed from the stored E.164 so a stale `phoneHash` can't unlock a dial; whether the
+ * founders restricted it; and whether the panel's test list has this dealer under that re-hashed number (R24).
+ */
+export async function dealerFacts(ctx: Ctx, dealer: Doc<"dealers">): Promise<DealerFacts> {
   const phoneHash = !dealer.isDemo && isIndianMobileE164(dealer.phoneE164) ? await hashPhone(dealer.phoneE164) : null;
+  const listed =
+    phoneHash === null
+      ? []
+      : await ctx.db
+          .query("testPhones")
+          .withIndex("by_phoneHash", (q) => q.eq("phoneHash", phoneHash))
+          .collect();
   return {
     consent: dealer.consent,
     phoneE164: dealer.phoneE164,
     isDemo: dealer.isDemo,
     phoneHash,
     storedHashMatches: phoneHash !== null && phoneHash === dealer.phoneHash,
+    restricted: dealer.restricted === true,
+    onPanelTestList: listed.some((row) => row.dealerId === dealer._id),
   };
+}
+
+/** Rows on the panel's test list (R24), for liveAvailability on the trial. At most 50 are counted. */
+export async function panelTestPhoneCount(ctx: Ctx): Promise<number> {
+  return (await ctx.db.query("testPhones").take(50)).length;
 }
 
 /** callLog counts for one number and one order (guards 2, 4 and 6; R3, R18). The order's rows are all-time. */

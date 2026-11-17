@@ -179,6 +179,11 @@ export const prepareDial = internalMutation({
       await finishLiveCall(ctx, call, { status: "cancelled", cancelReason: dealer?.consent === "opted_out" ? "opted_out" : "no_consent" });
       return { kind: "abort" };
     }
+    // Restricted in the founders' panel after claimDial (R24): no dial either.
+    if (dealer.restricted === true) {
+      await finishLiveCall(ctx, call, { status: "cancelled", cancelReason: "dealer_restricted" });
+      return { kind: "abort" };
+    }
     const agentId = agentIdFor(call.round);
     if (agentId === null || (process.env.BOLNA_API_KEY?.trim() ?? "") === "") {
       console.error(JSON.stringify({ evt: "bolna_not_configured", callId, missing: agentId === null ? AGENT_ENV[call.round] : "BOLNA_API_KEY" }));

@@ -116,6 +116,19 @@ export interface DealerFacts {
   phoneHash: string | null;
   /** The stored `dealers.phoneHash` equals `phoneHash`. */
   storedHashMatches: boolean;
+  /** The founders restricted this dealer in the panel (`dealers.restricted`, R24): never dialled. */
+  restricted: boolean;
+  /**
+   * This dealer (its id and its re-computed hash) is on the panel's test list (`testPhones`, R24). It counts
+   * only in trial mode, where Bolna itself still dials only numbers verified in its dashboard.
+   */
+  onPanelTestList: boolean;
+}
+
+/** Whether a test_ok dealer is listed (B9, R18, R24): TEST_PHONE_HASHES always; the panel's list only on the trial. */
+export function testPhoneListed(env: LiveEnv, dealer: Pick<DealerFacts, "phoneHash" | "onPanelTestList">): boolean {
+  if (dealer.phoneHash === null) return false;
+  return env.testPhoneHashes.has(dealer.phoneHash) || (env.trial && dealer.onPanelTestList);
 }
 
 /**
@@ -123,13 +136,15 @@ export interface DealerFacts {
  * The Choose screen uses this to list only callable dealers; claimDial uses it as its first stage.
  */
 export function dealerRefusal(env: LiveEnv, dealer: DealerFacts): DialRefusal | null {
+  if (dealer.restricted) return "dealer_restricted";
   if (dealer.isDemo) return "demo_dealer";
   if (!isIndianMobileE164(dealer.phoneE164) || dealer.phoneHash === null) return "invalid_number";
   if (!dealer.storedHashMatches) return "phone_hash_mismatch";
   if (dealer.consent !== "test_ok" && dealer.consent !== "opted_in") return "no_consent";
-  // test_ok means a teammate's phone (B9): it must be listed by hash in every mode, so a real dealer
-  // entered as test_ok by mistake can't skip guard 10 (R18).
-  if (dealer.consent === "test_ok" && !env.testPhoneHashes.has(dealer.phoneHash)) return "test_phone_unlisted";
+  // test_ok means a teammate's (or, from the panel, a known dealer's) phone (B9, R24): it must be listed by
+  // hash in every mode, so a real dealer entered as test_ok by mistake can't skip guard 10 (R18). With trial
+  // mode off only TEST_PHONE_HASHES (set from the CLI) counts; the panel's list never opens a registered number.
+  if (dealer.consent === "test_ok" && !testPhoneListed(env, dealer)) return "test_phone_unlisted";
   if (env.trial) {
     if (dealer.consent !== "test_ok") return "trial_test_phones_only";
   } else if (env.fromNumber === null) {
@@ -222,6 +237,8 @@ export function liveAvailability(
   contractor: { verified: boolean; liveDailyCap: number },
   contractorOrdersToday: number,
   now: number,
+  /** Rows on the panel's test list (`testPhones`, R24); they count on the trial only, like in dealerRefusal. */
+  panelTestPhones = 0,
 ): { available: boolean; reason: LiveUnavailableReason | null } {
   const no = (reason: LiveUnavailableReason) => ({ available: false, reason });
   // Deployment problems all read as "live calls are off": clients never learn which setting is missing.
@@ -229,7 +246,7 @@ export function liveAvailability(
     env.errors.length === 0 &&
     env.liveCallsEnabled &&
     env.billedKeySet &&
-    (env.trial ? env.testPhoneHashes.size > 0 : env.fromNumber !== null);
+    (env.trial ? env.testPhoneHashes.size + panelTestPhones > 0 : env.fromNumber !== null);
   if (!deploymentReady) return no("live_off");
   if (!contractor.verified) return no("not_verified");
   if (contractorOrdersToday >= contractor.liveDailyCap) return no("daily_cap");

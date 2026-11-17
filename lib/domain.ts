@@ -32,7 +32,8 @@ export type DialRefusal =
   | "demo_dealer" // guard 9 (B10)
   | "phone_hash_mismatch" // stored hash ≠ HMAC of the stored number: fail closed
   | "a2p_not_declared" // guard 10
-  | "live_stage"; // guard 10
+  | "live_stage" // guard 10
+  | "dealer_restricted"; // the founders restricted this dealer in the panel (R24)
 
 /** Why a call ended `cancelled` (R18): a refused dial, or the queue, round, opt-out or stop button ending it. */
 export type CancelReason = DialRefusal | "queue_timeout" | "round_closed" | "opted_out" | "stopped" | "bolna_rescheduled";

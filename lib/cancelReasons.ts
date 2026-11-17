@@ -32,6 +32,7 @@ export const PUBLIC_CANCEL_REASON: Record<CancelReason, PublicCancelReason> = {
   invalid_number: "dealer_unavailable",
   demo_dealer: "dealer_unavailable",
   phone_hash_mismatch: "dealer_unavailable",
+  dealer_restricted: "dealer_unavailable",
   dealer_daily_orders: "dealer_rested",
   dealer_order_calls: "dealer_rested",
   test_daily_calls: "dealer_rested",
