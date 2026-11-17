@@ -31,11 +31,18 @@ export function sameSecret(given: string, expected: string): boolean {
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
 
-/** null when the request carries the right x-molbhav-secret; otherwise the response to send. */
+/**
+ * null when the request carries the shared secret; otherwise the response to send. The secret comes in the
+ * `x-molbhav-secret` header (the report_quote tool sets it through Bolna's API) or as `?token=` in the webhook
+ * URL: Bolna's agent API has no field for webhook headers, and a URL token lets `pnpm bolna:sync` set everything
+ * with no manual dashboard step (CLAUDE.md hard rule 7). Both are compared in constant time.
+ */
 function checkSecret(req: Request): Response | null {
   const expected = process.env.BOLNA_WEBHOOK_SECRET ?? "";
   if (expected.length < MIN_SECRET_LENGTH) return json({ error: "not_configured" }, 503);
-  if (!sameSecret(req.headers.get("x-molbhav-secret") ?? "", expected)) return json({ error: "unauthorized" }, 401);
+  const header = req.headers.get("x-molbhav-secret") ?? "";
+  const token = new URL(req.url).searchParams.get("token") ?? "";
+  if (!sameSecret(header, expected) && !sameSecret(token, expected)) return json({ error: "unauthorized" }, 401);
   return null;
 }
 

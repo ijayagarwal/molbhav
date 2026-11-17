@@ -329,6 +329,35 @@ export const addDealer = internalMutation({
 });
 
 /** Opt-out at once (S2, R15): consent → opted_out, queued calls cancelled, recordings deleted. */
+/**
+ * Fixes a test or opted-in dealer's phone (e.g. two numbers entered the wrong way round). CLI only (R18), audit-
+ * logged, a fresh consent note required. Refuses DEMO dealers, opted-out dealers and a number another dealer has.
+ * Returns the new phone hash (for TEST_PHONE_HASHES in trial mode).
+ */
+export const replaceDealerPhone = internalMutation({
+  args: { dealerId: v.id("dealers"), phone: v.string(), consentNote: v.string(), actor },
+  handler: async (ctx, args) => {
+    const who = actorTag(args.actor);
+    const consentNote = requireNote(args.consentNote, 10);
+    const d = await ctx.db.get(args.dealerId);
+    if (d === null) throw new ConvexError({ code: "not_found" });
+    if (d.isDemo) throw new ConvexError({ code: "demo_dealer" });
+    if (d.consent === "opted_out") throw new ConvexError({ code: "opted_out" });
+    const phoneE164 = normaliseIndianMobile(args.phone);
+    if (phoneE164 === null) throw new ConvexError({ code: "invalid_phone" });
+    const phoneHash = await hashPhone(phoneE164);
+    if (phoneHash === d.phoneHash) return { dealerId: d._id, phoneHash, changed: false };
+    const taken = await ctx.db
+      .query("dealers")
+      .withIndex("by_phoneHash", (q) => q.eq("phoneHash", phoneHash))
+      .first();
+    if (taken !== null) throw new ConvexError({ code: "dealer_exists", dealerId: taken._id });
+    await ctx.db.patch(d._id, { phoneE164, phoneHash });
+    await audit(ctx, who, "dealer.replace_phone", d._id, { consentNote });
+    return { dealerId: d._id, phoneHash, changed: true };
+  },
+});
+
 export const optOutDealer = internalMutation({
   args: { dealerId: v.optional(v.id("dealers")), phone: v.optional(v.string()), note: v.string(), actor },
   handler: async (ctx, args) => {

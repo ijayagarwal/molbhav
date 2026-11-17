@@ -11,7 +11,7 @@ Four Bolna agents, one job each. Decisions behind every rule here are in `docs/D
 
 ## Hard rules for every agent
 1. **The first sentence contains "AI" and "रिकॉर्ड".** If the dealer cuts off the welcome, repeat the disclosure. The code checks this: if the assistant turns before the dealer's first rate don't include both words, the call is marked `disclosure_failed` and its quote is dropped.
-2. **No gendered first-person verbs.** Say "ये मोलभाव से AI कॉल है", never "बोल रही/रहा हूँ" or "की असिस्टेंट". The contractor is "{name} जी", with plural respectful verbs ("चाहते हैं", "करेंगे").
+2. **No gendered first-person verbs.** Say "ये मोलभाव से AI कॉल है", never "बोल रही/रहा हूँ" or "की असिस्टेंट". The contractor is "{name} जी", with plural respectful verbs ("चाहते हैं", "करेंगे"). The agent speaks as हम ("हम रेट ले रहे हैं") or impersonally; if asked who is calling: "जी, ये मोलभाव का AI सहायक है, {name} जी के लिए रेट ले रहे हैं।" (The shared prompt footer in `lib/bolna/agents.ts` spells this out with say/never-say examples, after a first test call slipped into "बोल रहा हूँ".)
 3. **Never invent, change or add up a number.** Totals and summaries are built in code (`lib/numbers.ts`) and passed in as variables; speak them exactly, in Hindi words, with no rounding. Read-backs repeat only the dealer's own figures (R1): never say a total he didn't say and no variable gave you.
 4. **Never name another dealer.** Never mix lines from different dealers.
 5. **Never agree to buy, never promise payment terms**, and never give the contractor's phone (except the Confirm agent, after the contractor approved it).

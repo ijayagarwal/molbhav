@@ -440,6 +440,15 @@ describe("POST /bolna/webhook", () => {
     expect(await t.run(async (ctx) => await ctx.db.query("providerEvents").collect())).toHaveLength(0);
   });
 
+  test("also accepts the secret as ?token= in the URL (Bolna's API can't set webhook headers); a wrong token is refused", async () => {
+    const { t, executionId } = await dialed();
+    const e = bolna.executions.get(executionId)!;
+    const post = (q: string) => t.fetch(`/bolna/webhook${q}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(e) });
+    expect((await post("?token=wrong")).status).toBe(401);
+    expect((await post(`?token=${SECRET.slice(0, -1)}x`)).status).toBe(401);
+    expect((await post(`?token=${encodeURIComponent(SECRET)}`)).status).toBe(200);
+  });
+
   test("a duplicate changes nothing; a late, out-of-order event changes nothing; the re-fetch is what counts", async () => {
     const { t, callId, executionId } = await dialed();
     await answered(t, executionId, TRANSCRIPT.A);

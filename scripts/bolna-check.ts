@@ -49,7 +49,9 @@ export function describeAgent(agent: unknown): string[] {
   const tools = findAll(agent, "tools").flatMap((t) => (Array.isArray(t) ? t : [])).filter(isObj);
   const webhook = findAll(agent, "webhook_url").find((v) => typeof v === "string");
   lines.push(`  status: ${String(agent.agent_status ?? "?")} · updated ${String(agent.updated_at ?? "?")}`);
-  lines.push(`  webhook: ${typeof webhook === "string" ? webhook : "(not returned by the API: check the dashboard's Extractions tab)"}`);
+  // The URL carries the shared secret as ?token=: print only whether it's there, never the value.
+  const shown = typeof webhook === "string" ? webhook.replace(/([?&]token=)[^&]+/, (_m, p: string) => `${p}<set>`) : null;
+  lines.push(`  webhook: ${shown ?? "(not returned by the API: check the dashboard's Extractions tab)"}`);
   lines.push(`  header names: ${[...headerNames(agent)].sort().join(", ") || "(none visible; the webhook header is set in the dashboard)"}`);
   lines.push(`  tools: ${tools.map((t) => `${String(t.name)} (${String(t.key)})`).join(", ") || "(none)"}`);
   for (const url of findAll(agent, "url").filter((u): u is string => typeof u === "string")) lines.push(`  tool url: ${url}`);

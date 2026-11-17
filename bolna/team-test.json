@@ -1,0 +1,8 @@
+{
+  "about": "The Team test setup per deployment (docs/TEAM_TEST.md): the founder's contractor account and the teammate dealer(s). Ids only, never phone numbers. `pnpm team:setup` asks for the numbers in macOS dialogs and applies them.",
+  "dev": {
+    "contractorId": "kh7a1adepk5gph7dq8fva7r5hx8jcn5t",
+    "contractorName": "ramesh",
+    "dealers": [{ "dealerId": "kn7a2mfq8gwrfx7nhy7jkan29x8jc6m1", "name": "Agarwal Steels", "card": "A" }]
+  }
+}

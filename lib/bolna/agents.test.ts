@@ -96,7 +96,7 @@ describe("the agents are built from docs/CALL_SCRIPT.md (R12)", () => {
     const text = JSON.stringify(filled);
     expect(text).not.toContain("@@");
     expect(filled.agent_config.agent_name).toBe("Molbhav Quote [dev]");
-    expect(filled.agent_config.webhook_url).toBe("https://happy-otter-123.convex.site/bolna/webhook");
+    expect(filled.agent_config.webhook_url).toBe(`https://happy-otter-123.convex.site/bolna/webhook?token=${"x".repeat(32)}`);
     expect(() => fillPlaceholders(built.quote, { siteUrl: "http://evil.example", secret: "x".repeat(32), target: "dev" })).toThrow();
     expect(() => fillPlaceholders(built.quote, { siteUrl: "https://a.convex.site", secret: "short", target: "dev" })).toThrow();
   });

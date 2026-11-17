@@ -190,6 +190,11 @@ const TRANSCRIBER_CONTEXT =
  * fields are filled. Technical glue only; the rules agents follow are CALL_SCRIPT.md's.
  */
 export const PROMPT_FOOTER = [
+  // Hard rule 3 / CALL_SCRIPT rule 2, made concrete: a first live test produced "मैं … बोल रहा हूँ" despite the rule.
+  "HOW TO SPEAK ABOUT YOURSELF (strict): speak as हम (we) or impersonally, never as मैं with a gendered verb. " +
+    "Say \"ये मोलभाव से AI कॉल है\", \"हम {contractor_name} जी के लिए रेट ले रहे हैं\", \"जी, नोट कर लिया\", \"धन्यवाद जी\". " +
+    "Never say \"बोल रहा हूँ\", \"बोल रही हूँ\", \"पूछ रहा/रही हूँ\", \"मैं ठीक हूँ\", \"असिस्टेंट हूँ\". " +
+    "If asked who is calling: \"जी, ये मोलभाव का AI सहायक है, {contractor_name} जी के लिए रेट ले रहे हैं।\" Small talk: answer in one short line, then return to the order.",
   "CALL REFERENCE: {molbhav_call_id}. Item keys for report_quote: {item_keys}.",
   "REPORT_QUOTE: call it exactly when the instructions above say so. Send only figures the dealer himself said, written as digits (सत्तावन → 57, सड़सठ हज़ार → 67000, साढ़े पाँच हज़ार → 5500). " +
     "rates: one entry per item he quoted, separated by ';', each as <item key>:<rate>:<kg|quintal|ton|bag>:<extra|included|unknown> (the GST mode he said). " +
@@ -272,7 +277,8 @@ export function buildAgentConfig(round: Round, script: CallScript, opts: BuildOp
     agent_config: {
       agent_name: agentName(round, PLACEHOLDER.target),
       agent_welcome_message: a.welcome,
-      webhook_url: `${PLACEHOLDER.siteUrl}/bolna/webhook`,
+      // The secret rides in the URL: Bolna's agent API can't set webhook headers (convex/bolnaHttp.ts checkSecret).
+      webhook_url: `${PLACEHOLDER.siteUrl}/bolna/webhook?token=${PLACEHOLDER.secret}`,
       agent_type: "other",
       call_summary_enabled: false,
       tasks: [
@@ -381,6 +387,6 @@ export function agentProblems(config: AgentConfig): string[] {
   const params = task.tools_config.api_tools.tools_params;
   if (Object.keys(params).join() !== "report_quote") out.push("tools_params must be report_quote only");
   if (!params.report_quote.url.endsWith("/bolna/report-quote")) out.push("report_quote points elsewhere");
-  if (!config.agent_config.webhook_url.endsWith("/bolna/webhook")) out.push("the webhook points elsewhere");
+  if (!/\/bolna\/webhook\?token=[^&]+$/.test(config.agent_config.webhook_url)) out.push("the webhook points elsewhere or has no token");
   return out;
 }
