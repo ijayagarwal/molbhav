@@ -110,7 +110,7 @@ const MAX_RAW_TEXT = 200;
 
 /**
  * The voice order's draft (ARCHITECTURE §6.1 step 5): written by POST /api/voice/order as the user, after
- * STT and the Gemini parse. Sim mode (hard rule 1). Everything is re-checked here, because any signed-in
+ * STT and the OpenAI parse. Sim mode (hard rule 1). Everything is re-checked here, because any signed-in
  * client can call it directly:
  * - items must already be in lib/parse.ts's sanitized form (enums, config brands, TMT sizes, stable ids);
  * - the site is matched IN CODE from siteText (R7): nothing said → the default site; an area from the city's
