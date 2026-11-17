@@ -194,12 +194,17 @@ export function DealerRow(p: DealerRowProps) {
             ) : null}
             <span className="truncate font-display text-label">{p.name}</span>
           </span>
-          {/* The second line wraps inside the Dealer cell: a long flag ("Check GST · Not in the bargaining")
-              takes its own line and wraps its words rather than running under the Status column. */}
-          <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+          {/* The second line stays inside the Dealer cell (72 px rows): the flag keeps its width and only
+              truncates if the cell is narrower than it; the line text (flex-basis 0) takes what is left. A
+              shrink-0 flag used to run under the Status pill. */}
+          <span className="flex min-w-0 items-center gap-1.5">
             {p.badge ? <span className="shrink-0 rounded-parchi border border-ink px-1.5 text-meta">{p.badge}</span> : null}
-            {flagInline ? <span className="min-w-0 max-w-full rounded-parchi border border-lal px-1.5 text-meta text-lal">{p.note}</span> : null}
-            <span className="min-w-0 max-w-full truncate text-meta text-ink-2">{second}</span>
+            {flagInline ? (
+              <span title={p.note} className="min-w-0 truncate rounded-parchi border border-lal px-1.5 text-meta text-lal">
+                {p.note}
+              </span>
+            ) : null}
+            <span className="min-w-0 flex-1 basis-0 truncate text-meta text-ink-2">{second}</span>
           </span>
         </div>
         <div role={cellRole} className="min-w-0">
