@@ -154,6 +154,11 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
 - **Choose dealers: Demo / Live** appears only when the server says live calls are possible for this contractor;
   live lists only test_ok or opted-in dealers; a live order's screens show LIVE, never DEMO.
 - **Confirm** now asks an unsaid steel grade and cement type with chips (PRODUCT §4) and shows a named brand.
+- **Bolna connected (18 Nov 2026, dev deployment):** the founders' key is set; eight agents exist in their Bolna
+  account: the Sarvam set `[dev]` and the ElevenLabs set `[dev-elevenlabs]` (Abhay voice), all checks ok;
+  `pnpm bolna:voice` switches between them without touching Bolna (dev is on ElevenLabs now). One teammate is
+  a `test_ok` dealer ("Agarwal Steels", Card A) and on `TEST_PHONE_HASHES`; the founder's account "ramesh" is
+  verified. `LIVE_CALLS_ENABLED` is NOT set: no live call until a founder says "go".
 - **Phase 8C merged:** live calls' recordings are copied into Convex storage, played through 10-minute signed links
   (`/rec`, seekable) on the board and on Result; recordings and transcripts are deleted at 30 days, callLog after a
   year, never-onboarded anonymous users after 7 days. Inert until live calls exist.

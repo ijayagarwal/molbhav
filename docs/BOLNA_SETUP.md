@@ -57,6 +57,16 @@ How the four phone agents get into Bolna, what the founders do in Bolna's dashbo
   `--dry-run` sends nothing. It never dials.
 - **`pnpm bolna:check [--target dev] [--from-convex]`** (read-only, GETs only): the key works; wallet and concurrency (`GET /user/me`); for each agent (by `BOLNA_*_AGENT_ID`, else by name): status, webhook URL, header **names** (never values), tools and their URLs, voice, transcriber, `call_terminate`, and a `PROBLEMS` line if anything that must stay off is on.
 
+### Voice sets and `pnpm bolna:voice` (18 Nov 2026)
+Each deployment can have two complete sets of the four agents, identical except for the voice (R20):
+`[dev]` (Sarvam Ashutosh) and `[dev-elevenlabs]` (ElevenLabs "Abhay – Smart BFSI Customer Care Agent",
+`E0XZpcnyzAqDnxXoA920`, `eleven_v4_turbo`, Hindi and English). The ids are in `bolna/voice-sets.json`.
+`pnpm bolna:voice elevenlabs|sarvam` switches by changing only the four `BOLNA_*_AGENT_ID` env vars: nothing is
+sent to Bolna, so the dashboard-only webhook header (set once on all eight agents) is never lost. `pnpm
+bolna:voice` alone shows the active set. To spend the founders' own ElevenLabs credits instead of the Bolna
+wallet, connect the ElevenLabs key under Bolna **Settings → Integrations**; disconnecting it (or switching to
+the Sarvam set) changes nothing in our code.
+
 ## 4. What the agents are (and why)
 
 | Part | Setting | Why |
