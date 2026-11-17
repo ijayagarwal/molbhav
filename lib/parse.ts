@@ -37,6 +37,11 @@ const MAX_QTY: Record<Unit, number> = { kg: 1_000_000, ton: 1_000, quintal: 10_0
 export const PARSE_NOTES = ["size_said_in_suta", "brand_not_in_list"] as const;
 export type ParseNote = (typeof PARSE_NOTES)[number];
 
+export type Grade = (typeof PARSE_GRADES)[number];
+export type CementType = (typeof PARSE_CEMENT_TYPES)[number];
+/** An OrderItem whose grade and cement type are the enum values (what orders.createDraft accepts). */
+export type DraftItem = Omit<OrderItem, "grade" | "cementType"> & { grade?: Grade; cementType?: CementType };
+
 // ── Validation of the raw answer (§8.1 shape) ───────────────────────────────────────────
 
 const optStr = z.string().nullish().catch(null);
@@ -217,9 +222,9 @@ function cementInBags(q: number | undefined, unit: Unit | undefined): { quantity
  * which, R10), sizes only from the TMT list, cement in bags. Also the check createDraft runs: an item is
  * valid there only if it maps to itself.
  */
-export function sanitizeItem(item: Omit<OrderItem, "id"> & { id?: string }, city: City): { item: Omit<OrderItem, "id">; notes: ParseNote[] } {
+export function sanitizeItem(item: Omit<OrderItem, "id"> & { id?: string }, city: City): { item: Omit<DraftItem, "id">; notes: ParseNote[] } {
   const notes: ParseNote[] = [];
-  const out: Omit<OrderItem, "id"> = { material: item.material };
+  const out: Omit<DraftItem, "id"> = { material: item.material };
   const brand = matchBrand(item.brand, item.material, city);
   if (item.brand && brand === undefined) notes.push("brand_not_in_list");
   const allowed = item.material === "tmt_steel" ? STEEL_TIERS : CEMENT_TIERS;
@@ -347,7 +352,7 @@ export function resolveSite(siteText: string | undefined, sites: SiteLike[], cit
 // ── The whole answer → the draft ─────────────────────────────────────────────────────────
 
 export interface ParsedDraft {
-  items: OrderItem[];
+  items: DraftItem[];
   siteText?: string;
   /** The CITY_AREAS key matched from siteText, for display; createDraft resolves the site itself. */
   areaKey?: string;
@@ -367,7 +372,7 @@ export function toDraft(raw: RawParse, transcript: string, city: City): ParsedDr
 
   const kept = raw.items.slice(0, PARSE_LIMITS.maxItems);
   const ids = itemIds(kept.map((i) => i.material));
-  const items: OrderItem[] = kept.map((r, n) => {
+  const items: DraftItem[] = kept.map((r, n) => {
     const { item, notes: itemNotes } = sanitizeItem(
       {
         material: r.material,
