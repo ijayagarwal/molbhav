@@ -46,6 +46,18 @@ export const CALLS = {
   maxContractorDailyOrders: 20,
 } as const;
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** How long we keep things (DECISIONS B6, S4; ARCHITECTURE §6.11; the /privacy page says the same). */
+export const RETENTION = {
+  /** A live call's recording and transcript, from the end of the call. */
+  recordingMs: 30 * DAY_MS,
+  /** callLog rows: number hash, time, consent, outcome (no audio, no text). */
+  callLogMs: 365 * DAY_MS,
+  /** Anonymous users who never onboarded (no contractor row), with their auth sessions and accounts. */
+  anonUserMs: 7 * DAY_MS,
+} as const;
+
 export type City = "Jaipur";
 export const CITIES: readonly City[] = ["Jaipur"];
 
