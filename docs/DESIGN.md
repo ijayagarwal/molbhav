@@ -452,6 +452,12 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `item.cement` | सीमेंट | Cement |
 | `item.cementOf` | {type} सीमेंट | {type} cement |
 | `item.type` | टाइप | Type |
+| `settings.account` | खाता | Account |
+| `logout.button` | लॉग आउट | Log out |
+| `logout.title` | इस फ़ोन से लॉग आउट करें? | Log out of this phone? |
+| `logout.warning` | अभी फ़ोन नंबर से लॉगिन नहीं है, इसलिए लॉग आउट के बाद आपके पुराने ऑर्डर इस फ़ोन पे नहीं दिखेंगे। शुरू से शुरू करना होगा। | There's no phone-number login yet, so after you log out, your past orders won't show on this phone. You'll start again from the beginning. |
+| `logout.confirm` | हाँ, लॉग आउट कीजिए | Yes, log out |
+| `logout.cancel` | रहने दीजिए | Stay logged in |
 | `badge.regular` | आपके dealer | Your dealer |
 | `badge.demo` | DEMO | DEMO |
 | `demo.watermark` | DEMO · काल्पनिक dealers | DEMO · fictional dealers |

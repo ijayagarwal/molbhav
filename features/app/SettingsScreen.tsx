@@ -3,8 +3,12 @@
 // /app/settings: the whole app's language (hi ⇄ en), device sounds, the spoken result (V7), single-key
 // shortcuts (WCAG 2.1.4), the demo-mode note and privacy. Settings belong to a session: a signed-out
 // visitor (a fresh browser) is sent to /app, where onboarding starts one.
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
-import { useEffect, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
+import { BottomSheet } from "@/components/mb/AppShell";
+import { SecondaryButton } from "@/components/mb/Buttons";
 import { api } from "@/convex/_generated/api";
 import { useLanguage } from "@/features/i18n/useLanguage";
 import { setSoundEnabled } from "@/lib/client/earcons";
@@ -51,7 +55,20 @@ export function SettingsScreen() {
   const prefs = usePrefs();
   const signedIn = useRequireSession();
   const me = useQuery(api.contractors.me, {});
+  const { signOut } = useAuthActions();
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState<"ask" | "busy" | null>(null);
   useEffect(() => setSoundEnabled(prefs.sound), [prefs.sound]);
+
+  const logOut = async () => {
+    setLoggingOut("busy");
+    try {
+      await signOut();
+    } finally {
+      setLoggingOut(null);
+      router.replace("/app");
+    }
+  };
 
   const set = <K extends keyof Prefs>(k: K) => (v: Prefs[K]) => setPref(k, v);
   const area = me?.site ? CITY_AREAS.Jaipur.find((a) => a.key === me.site?.area) : undefined;
@@ -118,7 +135,26 @@ export function SettingsScreen() {
         <p className="text-body text-ink-2">{t("settings.modeHint")}</p>
       </Group>
 
+      {/* Log out (the founders asked for it). Sessions are anonymous until phone-number login exists, so the
+          sheet says plainly that past orders won't come back on this phone. */}
+      <Group title={t("settings.account")}>
+        {me ? <p className="text-body">{me.name}</p> : null}
+        <SecondaryButton tone="lal" onClick={() => setLoggingOut("ask")}>
+          {t("logout.button")}
+        </SecondaryButton>
+      </Group>
+
       <p className="px-1 text-meta text-ink-2">{t("settings.privacy")}</p>
+
+      <BottomSheet open={loggingOut !== null} title={t("logout.title")} onClose={() => setLoggingOut(null)} closeLabel={t("panel.close")}>
+        <p className="text-body">{t("logout.warning")}</p>
+        <div className="flex flex-col gap-3">
+          <SecondaryButton tone="lal" onClick={logOut} disabled={loggingOut === "busy"} aria-busy={loggingOut === "busy"}>
+            {t("logout.confirm")}
+          </SecondaryButton>
+          <SecondaryButton onClick={() => setLoggingOut(null)}>{t("logout.cancel")}</SecondaryButton>
+        </div>
+      </BottomSheet>
     </AppFrame>
   );
 }
