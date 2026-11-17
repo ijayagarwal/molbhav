@@ -9,6 +9,7 @@ import { BottomSheet } from "@/components/mb/AppShell";
 import { PrimaryButton } from "@/components/mb/Buttons";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { beacon } from "@/features/marketing/beacon";
 import type { DictKey } from "@/lib/i18n/getDict";
 import { useT } from "@/lib/i18n/useT";
 
@@ -43,6 +44,7 @@ export function ShareSheet({ orderId, open, onClose }: { orderId: Id<"orders">; 
 
   const send = async () => {
     if (!link) return;
+    if (mode) beacon("parchi_share", { mode }); // G6: the mode only, never the link
     const text = t("share.message", { url: link.url });
     const data: ShareData = link.file ? { files: [link.file], text, url: link.url } : { text, url: link.url };
     if (navigator.canShare?.(data)) {

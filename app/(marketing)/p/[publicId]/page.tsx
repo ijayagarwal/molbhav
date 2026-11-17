@@ -1,9 +1,10 @@
 import { fetchQuery } from "convex/nextjs";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { DemoStamp, Parchi } from "@/components/mb/Parchi";
 import { Wordmark } from "@/components/mb/Wordmark";
 import { api } from "@/convex/_generated/api";
+import { BeaconLink } from "@/features/marketing/BeaconLink";
+import { trackAfterResponse } from "@/features/marketing/server";
 import { DELIVER_BY } from "@/lib/config";
 import { getServerDict } from "@/lib/i18n/server";
 import { formatPaise } from "@/lib/numbers";
@@ -12,6 +13,8 @@ import { sharedItemLine } from "@/lib/shareText";
 // /p/[publicId]: the shared parchi (G4, DESIGN §21.3, design/reference/SharedParchi.html). Opened from
 // WhatsApp by site owners and family. Server-rendered, no Convex client. noindex. Never shows the site, a
 // date, phone numbers, recordings or losing prices: share.get returns only what the mode allows.
+// Analytics (G6): parchi_open is recorded here after the response; the CTA sends parchi_cta and carries
+// ref=parchi_<mode> to the landing page's waitlist (G5). Neither event carries the link's id.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function SharedParchiPage({ params }: PageProps<"/p/[publicId]">) {
@@ -29,6 +32,7 @@ export default async function SharedParchiPage({ params }: PageProps<"/p/[public
     );
   }
 
+  await trackAfterResponse("parchi_open", { mode: view.mode }, "/p/[id]");
   const dealerName = view.dealer ? (lang === "hi" ? (view.dealer.nameHi ?? view.dealer.name) : view.dealer.name) : null;
   const items = view.items.map((i) => sharedItemLine(i, lang));
   const credit = view.contractor ?? "";
@@ -74,9 +78,14 @@ export default async function SharedParchiPage({ params }: PageProps<"/p/[public
         <li>{t["shared.trustHonest"]}</li>
       </ul>
 
-      <Link href="/" className="press-paint inline-flex h-16 items-center justify-center rounded-card border-2 border-ink bg-haldi px-5 font-display text-title-2 shadow-paint">
+      <BeaconLink
+        href={`/?ref=parchi_${view.mode}`}
+        event="parchi_cta"
+        eventProps={{ mode: view.mode }}
+        className="press-paint inline-flex h-16 items-center justify-center rounded-card border-2 border-ink bg-haldi px-5 font-display text-title-2 shadow-paint"
+      >
         {t["shared.cta"]}
-      </Link>
+      </BeaconLink>
     </main>
   );
 }
