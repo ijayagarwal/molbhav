@@ -40,11 +40,13 @@ export const getOrNull = userQuery({
 export const listMine = userQuery({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db
+    // App orders only: a visitor's /try sandbox orders (G3) never show in /app's Home or Bahi.
+    const rows = await ctx.db
       .query("orders")
       .withIndex("by_owner", (q) => q.eq("ownerUserId", ctx.userId))
       .order("desc")
-      .take(50);
+      .take(80);
+    return rows.filter((o) => o.kind === "app").slice(0, 50);
   },
 });
 
