@@ -87,9 +87,16 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 - **/app's first load was over budget** (260 KB of JS against 200 KB). Now 182 KB on production: icons ship
   one weight instead of six, motion code loads only on order screens, and Home and onboarding load on demand.
   CI now measures /app's real first render on a Pixel 7 profile.
-- **In progress (two agents):** the OpenAI swap across every call site, and the phone side of voice (real
-  recorder, mic permission primer, live transcript, typed fallback, Confirm's missing-field chips, the Sarvam
-  read-back).
+- **OpenAI swap merged** (every call site, guard 8 reads `OPENAI_API_KEY`, `@google/genai` removed). With the
+  real key: `pnpm eval:parse` 20/20 (p50 1.4 s); `pnpm eval:extract` 10/10 after a fix the first run exposed
+  (a dealer agreeing with the read-back was read as "confirmed"; code now decides that only confirm calls
+  can be confirmed).
+- **The voice route works end to end on local dev with the real keys** (Pixel profile, signed-in contractor):
+  10.8 s of spoken Hindi → transcript streamed at 1.2 s → draft at 3.1 s → Confirm shows 12mm Fe500D 2 ton
+  (tier asked), PPC 150 bags ("कोई भी" pre-selected), Mansarovar, कल सुबह, 15 days. Typed fallback: draft at
+  2.6 s. Server-built read-back from Sarvam: 3.5 s.
+- **In progress (an agent):** the phone side of voice (real recorder, mic permission primer, live transcript,
+  typed fallback in the UI, Confirm's chips asked one at a time, the read-back autoplay).
 
 ### 17 Nov 2026 (evening): the whole sim flow works end to end
 - **What a contractor can do now (sim, DEMO dealers, zero call cost):** onboard → tap the example order →
