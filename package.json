@@ -18,7 +18,10 @@
     "fonts": ".venv/bin/python scripts/fonts.py",
     "icons": "tsx scripts/icons.ts",
     "postinstall": "node scripts/og-wasm.mjs",
-    "icons:bold": "tsx scripts/icons-bold.ts"
+    "icons:bold": "tsx scripts/icons-bold.ts",
+    "bolna:build": "tsx scripts/bolna-sync.ts --build-only",
+    "bolna:sync": "tsx --env-file-if-exists=.env.local scripts/bolna-sync.ts",
+    "bolna:check": "tsx --env-file-if-exists=.env.local scripts/bolna-check.ts"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",

@@ -1,0 +1,239 @@
+{
+  "agent_config": {
+    "agent_name": "Molbhav Haggle [@@MOLBHAV_TARGET@@]",
+    "agent_welcome_message": "नमस्ते जी, ये मोलभाव से AI कॉल है, {contractor_name} जी की तरफ़ से दोबारा, और कॉल रिकॉर्ड हो रही है। आपके रेट के बारे में एक मिनट बात करनी थी।",
+    "webhook_url": "@@CONVEX_SITE_URL@@/bolna/webhook",
+    "agent_type": "other",
+    "call_summary_enabled": false,
+    "tasks": [
+      {
+        "task_type": "conversation",
+        "toolchain": {
+          "execution": "sequential",
+          "pipelines": [
+            [
+              "transcriber",
+              "llm",
+              "synthesizer"
+            ]
+          ]
+        },
+        "tools_config": {
+          "llm_agent": {
+            "agent_type": "simple_llm_agent",
+            "agent_flow_type": "streaming",
+            "llm_config": {
+              "provider": "openai",
+              "model": "gpt-5.4-mini",
+              "max_tokens": 250,
+              "temperature": 1,
+              "reasoning_effort": "none",
+              "verbosity": "low"
+            }
+          },
+          "synthesizer": {
+            "provider": "sarvam",
+            "provider_config": {
+              "voice": "Ashutosh (Conversational)",
+              "voice_id": "ashutosh_hi_conversational",
+              "model": "bulbul:v4-flash",
+              "language": "hi",
+              "speed": 1
+            },
+            "stream": true,
+            "buffer_size": 150,
+            "audio_format": "wav",
+            "caching": true
+          },
+          "transcriber": {
+            "provider": "sarvam",
+            "model": "saaras:v4",
+            "language": "hi",
+            "stream": true,
+            "endpointing": 500,
+            "keywords": "TMT,Fe500D,Fe550D,Fe500,PPC,OPC,ISI,GST,mm,सरिया,सीमेंट,बोरी,कट्टा,क्विंटल,टन,किलो,भाड़ा,उतराई,हमाली,कांटा,पक्का बिल,कच्चा बिल,उधार,कैश,Tata Tiscon,JSW Neosteel,SAIL,Jindal Panther,Shakti TMT,Shree TMT,UltraTech,ACC,Ambuja,Shree,JK Lakshmi,JK Cement",
+            "context": "Phone call from a buyer's AI assistant to a building-material dealer in Jaipur, India. The dealer quotes TMT steel (सरिया) and cement rates in Hindi or Hinglish: rupees per kg, quintal, ton or bag, GST, delivery (भाड़ा) and unloading (उतराई) charges, credit days (उधार)."
+          },
+          "input": {
+            "provider": "plivo",
+            "format": "wav"
+          },
+          "output": {
+            "provider": "plivo",
+            "format": "wav"
+          },
+          "api_tools": {
+            "tools": [
+              {
+                "name": "report_quote",
+                "key": "custom_task",
+                "description": "Record what the dealer said on this call. Call it once after the dealer says हाँ to your final read-back (stage final). The Match agent also calls it once right after the dealer confirms the read-back of his first full quote, before naming any other number (stage first); its reply says cite=true or cite=false. Also call it with stage outcome when the dealer declines, asks for a callback or says not to call again, and on the Confirm agent with outcome confirmed or terms_changed. Send only the dealer's own figures, never a total you worked out.",
+                "pre_call_message": "जी, एक सेकंड, नोट कर रहे हैं।",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "molbhav_call_id": {
+                      "type": "string",
+                      "description": "This call's reference: {molbhav_call_id}. Send it exactly."
+                    },
+                    "stage": {
+                      "type": "string",
+                      "description": "first, final or outcome."
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "description": "quoted, callback, declined, opt_out, confirmed or terms_changed."
+                    },
+                    "rates": {
+                      "type": "string",
+                      "description": "Per item, separated by ';': <item key>:<rate as digits>:<kg|quintal|ton|bag>:<extra|included|unknown>. Item keys: {item_keys}."
+                    },
+                    "brand": {
+                      "type": "string",
+                      "description": "Per item, separated by ';': <item key>:<brand the dealer named>."
+                    },
+                    "stock": {
+                      "type": "string",
+                      "description": "full, partial, none or unknown."
+                    },
+                    "delivery": {
+                      "type": "string",
+                      "description": "Delivery (भाड़ा) in rupees as digits, or free. Empty if not said."
+                    },
+                    "unloading": {
+                      "type": "string",
+                      "description": "Unloading (उतराई) in rupees as digits, or free. Empty if not said."
+                    },
+                    "credit_days": {
+                      "type": "string",
+                      "description": "Credit days as digits, or cash. Empty if not said."
+                    },
+                    "bill": {
+                      "type": "string",
+                      "description": "pakka or kachcha. Empty if not said."
+                    },
+                    "weight_basis": {
+                      "type": "string",
+                      "description": "kanta or standard. Empty if not said."
+                    },
+                    "all_in_said": {
+                      "type": "string",
+                      "description": "Only if the dealer himself said one all-in figure: that figure as digits. Otherwise empty."
+                    },
+                    "callback_when": {
+                      "type": "string",
+                      "description": "For a callback: the time the dealer gave, in his words."
+                    }
+                  },
+                  "required": [
+                    "molbhav_call_id",
+                    "stage"
+                  ]
+                }
+              }
+            ],
+            "tools_params": {
+              "report_quote": {
+                "method": "POST",
+                "url": "@@CONVEX_SITE_URL@@/bolna/report-quote",
+                "api_token": null,
+                "headers": {
+                  "Content-Type": "application/json",
+                  "x-molbhav-secret": "@@BOLNA_WEBHOOK_SECRET@@"
+                },
+                "param": {
+                  "molbhav_call_id": "%(molbhav_call_id)s",
+                  "stage": "%(stage)s",
+                  "outcome": "%(outcome)s",
+                  "rates": "%(rates)s",
+                  "brand": "%(brand)s",
+                  "stock": "%(stock)s",
+                  "delivery": "%(delivery)s",
+                  "unloading": "%(unloading)s",
+                  "credit_days": "%(credit_days)s",
+                  "bill": "%(bill)s",
+                  "weight_basis": "%(weight_basis)s",
+                  "all_in_said": "%(all_in_said)s",
+                  "callback_when": "%(callback_when)s"
+                }
+              }
+            }
+          },
+          "multilingual_config": {
+            "enabled": true,
+            "active_language": "hi",
+            "language_switch_trigger": "requested_or_auto_detected",
+            "languages": {
+              "hi": {
+                "synthesizer": {
+                  "provider": "sarvam",
+                  "provider_config": {
+                    "voice": "Ashutosh (Conversational)",
+                    "voice_id": "ashutosh_hi_conversational",
+                    "model": "bulbul:v4-flash",
+                    "language": "hi",
+                    "speed": 1
+                  },
+                  "stream": true,
+                  "buffer_size": 150,
+                  "audio_format": "wav",
+                  "caching": true
+                },
+                "system_prompt": "You are Molbhav's AI buying assistant calling a dealer back for {contractor_name} जी. You are an AI; never claim otherwise. No gendered first-person verbs.\n\nCONTEXT: Order: {order_spoken}. This dealer's earlier all-in total: {their_total_spoken}.\nAnother dealer's real, confirmed all-in total for the same order and brand tier, which is LOWER: {competing_total_spoken}, with terms: {competing_terms_spoken}.\nIts per-item lines, only if asked: {competing_lines_spoken}.\n\nGOAL: this dealer's best final all-in price (rate, GST, delivery, unloading) for the same order.\n\nRULES:\n- Say the competing total once, exactly as given: \"एक और dealer ने {competing_terms_spoken} के साथ, सब मिलाके {competing_total_spoken} बोला है। आप सबसे बढ़िया कितना कर सकते हैं, सब मिलाके?\"\n- If asked for that dealer's item rates, read {competing_lines_spoken} exactly; if it is empty, say \"उन्होंने सब मिलाके बताया है।\" Never name the dealer, never change a number, never mix dealers.\n- If asked about terms (उधार, brand, बिल), answer from {competing_terms_spoken} only.\n- At most two asks. If the dealer says \"यही final है\", accept politely.\n- If they offer extras (free delivery, more credit) instead of a lower price, note them and confirm.\n- Read the new offer back in the dealer's own figures (the rates or the all-in figure he said, and what it includes). Never add numbers up yourself. Wait for \"हाँ\", then call report_quote.\n- End: \"धन्यवाद जी, {contractor_name} जी जल्दी बताएँगे।\" Never agree to buy.\n\nCALL REFERENCE: {molbhav_call_id}. Item keys for report_quote: {item_keys}.\nREPORT_QUOTE: call it exactly when the instructions above say so. Send only figures the dealer himself said, written as digits (सत्तावन → 57, सड़सठ हज़ार → 67000, साढ़े पाँच हज़ार → 5500). rates: one entry per item he quoted, separated by ';', each as <item key>:<rate>:<kg|quintal|ton|bag>:<extra|included|unknown> (the GST mode he said). brand: <item key>:<brand he named>, separated by ';'. stock: full, partial, none or unknown. delivery and unloading: rupees as digits, or free; leave empty if he didn't say. credit_days: days as digits, or cash. bill: pakka or kachcha. weight_basis: kanta or standard. all_in_said: only if he said one all-in figure himself, as digits; otherwise leave it empty. NEVER send a total you added up yourself. For a callback, declined call or opt-out send stage outcome with the outcome (and callback_when: the time he gave, in his words).",
+                "handoff_message": "जी, हिंदी में बात करते हैं।"
+              },
+              "en": {
+                "transcriber": {
+                  "language": "en"
+                },
+                "synthesizer": {
+                  "provider": "sarvam",
+                  "provider_config": {
+                    "voice": "Dev (Conversational)",
+                    "voice_id": "dev_en_conversational",
+                    "model": "bulbul:v4-flash",
+                    "language": "en",
+                    "speed": 1
+                  },
+                  "stream": true,
+                  "buffer_size": 150,
+                  "audio_format": "wav",
+                  "caching": true
+                },
+                "system_prompt": "You are Molbhav's AI buying assistant calling a dealer back for {contractor_name} जी. You are an AI; never claim otherwise. No gendered first-person verbs.\n\nCONTEXT: Order: {order_spoken}. This dealer's earlier all-in total: {their_total_spoken}.\nAnother dealer's real, confirmed all-in total for the same order and brand tier, which is LOWER: {competing_total_spoken}, with terms: {competing_terms_spoken}.\nIts per-item lines, only if asked: {competing_lines_spoken}.\n\nGOAL: this dealer's best final all-in price (rate, GST, delivery, unloading) for the same order.\n\nRULES:\n- Say the competing total once, exactly as given: \"एक और dealer ने {competing_terms_spoken} के साथ, सब मिलाके {competing_total_spoken} बोला है। आप सबसे बढ़िया कितना कर सकते हैं, सब मिलाके?\"\n- If asked for that dealer's item rates, read {competing_lines_spoken} exactly; if it is empty, say \"उन्होंने सब मिलाके बताया है।\" Never name the dealer, never change a number, never mix dealers.\n- If asked about terms (उधार, brand, बिल), answer from {competing_terms_spoken} only.\n- At most two asks. If the dealer says \"यही final है\", accept politely.\n- If they offer extras (free delivery, more credit) instead of a lower price, note them and confirm.\n- Read the new offer back in the dealer's own figures (the rates or the all-in figure he said, and what it includes). Never add numbers up yourself. Wait for \"हाँ\", then call report_quote.\n- End: \"धन्यवाद जी, {contractor_name} जी जल्दी बताएँगे।\" Never agree to buy.\n\nCALL REFERENCE: {molbhav_call_id}. Item keys for report_quote: {item_keys}.\nREPORT_QUOTE: call it exactly when the instructions above say so. Send only figures the dealer himself said, written as digits (सत्तावन → 57, सड़सठ हज़ार → 67000, साढ़े पाँच हज़ार → 5500). rates: one entry per item he quoted, separated by ';', each as <item key>:<rate>:<kg|quintal|ton|bag>:<extra|included|unknown> (the GST mode he said). brand: <item key>:<brand he named>, separated by ';'. stock: full, partial, none or unknown. delivery and unloading: rupees as digits, or free; leave empty if he didn't say. credit_days: days as digits, or cash. bill: pakka or kachcha. weight_basis: kanta or standard. all_in_said: only if he said one all-in figure himself, as digits; otherwise leave it empty. NEVER send a total you added up yourself. For a callback, declined call or opt-out send stage outcome with the outcome (and callback_when: the time he gave, in his words).",
+                "handoff_message": "Sure, we can talk in English."
+              }
+            }
+          }
+        },
+        "task_config": {
+          "hangup_after_silence": 20,
+          "incremental_delay": 400,
+          "number_of_words_for_interruption": 3,
+          "hangup_after_LLMCall": true,
+          "call_cancellation_prompt": "Decide whether this phone call is complete. It is complete if the assistant has already said its closing thank-you line (it starts with धन्यवाद), or the dealer refused to talk, asked not to be called again, or asked to be called back later and the assistant has thanked him. Otherwise it is not complete.",
+          "backchanneling": false,
+          "ambient_noise": false,
+          "call_terminate": 90,
+          "voicemail": false,
+          "dtmf_enabled": false,
+          "auto_reschedule": false,
+          "welcome_message_delay": 700,
+          "check_if_user_online": true,
+          "trigger_user_online_message_after": 8,
+          "check_user_online_message": {
+            "hi": "जी, आप लाइन पे हैं?",
+            "en": "Are you still on the line?"
+          },
+          "call_hangup_message": null,
+          "interruptible_hangup_message": false
+        }
+      }
+    ]
+  },
+  "agent_prompts": {
+    "task_1": {
+      "system_prompt": "You are Molbhav's AI buying assistant calling a dealer back for {contractor_name} जी. You are an AI; never claim otherwise. No gendered first-person verbs.\n\nCONTEXT: Order: {order_spoken}. This dealer's earlier all-in total: {their_total_spoken}.\nAnother dealer's real, confirmed all-in total for the same order and brand tier, which is LOWER: {competing_total_spoken}, with terms: {competing_terms_spoken}.\nIts per-item lines, only if asked: {competing_lines_spoken}.\n\nGOAL: this dealer's best final all-in price (rate, GST, delivery, unloading) for the same order.\n\nRULES:\n- Say the competing total once, exactly as given: \"एक और dealer ने {competing_terms_spoken} के साथ, सब मिलाके {competing_total_spoken} बोला है। आप सबसे बढ़िया कितना कर सकते हैं, सब मिलाके?\"\n- If asked for that dealer's item rates, read {competing_lines_spoken} exactly; if it is empty, say \"उन्होंने सब मिलाके बताया है।\" Never name the dealer, never change a number, never mix dealers.\n- If asked about terms (उधार, brand, बिल), answer from {competing_terms_spoken} only.\n- At most two asks. If the dealer says \"यही final है\", accept politely.\n- If they offer extras (free delivery, more credit) instead of a lower price, note them and confirm.\n- Read the new offer back in the dealer's own figures (the rates or the all-in figure he said, and what it includes). Never add numbers up yourself. Wait for \"हाँ\", then call report_quote.\n- End: \"धन्यवाद जी, {contractor_name} जी जल्दी बताएँगे।\" Never agree to buy.\n\nCALL REFERENCE: {molbhav_call_id}. Item keys for report_quote: {item_keys}.\nREPORT_QUOTE: call it exactly when the instructions above say so. Send only figures the dealer himself said, written as digits (सत्तावन → 57, सड़सठ हज़ार → 67000, साढ़े पाँच हज़ार → 5500). rates: one entry per item he quoted, separated by ';', each as <item key>:<rate>:<kg|quintal|ton|bag>:<extra|included|unknown> (the GST mode he said). brand: <item key>:<brand he named>, separated by ';'. stock: full, partial, none or unknown. delivery and unloading: rupees as digits, or free; leave empty if he didn't say. credit_days: days as digits, or cash. bill: pakka or kachcha. weight_basis: kanta or standard. all_in_said: only if he said one all-in figure himself, as digits; otherwise leave it empty. NEVER send a total you added up yourself. For a callback, declined call or opt-out send stage outcome with the outcome (and callback_when: the time he gave, in his words)."
+    }
+  }
+}
