@@ -112,6 +112,7 @@ export function SweepScreen({ orderId }: { orderId: string }) {
     const q = r.quote;
     const area = CITY_AREAS.Jaipur.find((a) => a.key === r.dealer.area)?.[lang] ?? r.dealer.area;
     const flagged = r.kind === "notComparable";
+    const flag = q?.flags.includes("gst_unclear") ? t("flag.checkGst") : t("flag.check");
     return {
       layout,
       name: nameOf(r),
@@ -129,9 +130,10 @@ export function SweepScreen({ orderId }: { orderId: string }) {
       strike: r.strike ? { fromPaise: r.strike.from, toPaise: r.strike.to, droppedLabel: t("haggle.dropped", { x: formatPaise(r.strike.from - r.strike.to).replace("₹", "") }), variant: r.dealer._id.charCodeAt(r.dealer._id.length - 1) } : undefined,
       totalNote: flagged ? t("sweep.allIn") : undefined,
       badge: r.dealer.isRegular ? t("badge.regular") : undefined,
-      note: r.kind === "held" ? t("dealers.matchLater") : flagged ? `${q?.flags.includes("gst_unclear") ? t("flag.checkGst") : t("flag.check")} · ${t("sweep.notInHaggle")}` : undefined,
+      // Desk (Desk.html): the short flag, with "not in the bargaining" as the row's second line.
+      note: r.kind === "held" ? t("dealers.matchLater") : flagged ? (layout === "desk" ? flag : `${flag} · ${t("sweep.notInHaggle")}`) : undefined,
       noteTone: flagged ? "lal" : "ink",
-      line: layout === "desk" && r.strike ? t("haggle.dropped", { x: formatPaise(r.strike.from - r.strike.to).replace("₹", "") }) : undefined,
+      line: layout !== "desk" ? undefined : r.strike ? t("haggle.dropped", { x: formatPaise(r.strike.from - r.strike.to).replace("₹", "") }) : flagged ? t("sweep.notInHaggle") : undefined,
       credit: q ? (q.creditDays ? t("confirm.creditDays", { n: q.creditDays }) : t("confirm.cash")) : undefined,
       delivery: q?.deliveryBy ? DELIVER_BY[q.deliveryBy as DeliverBy]?.[lang] : undefined,
       winner: false,

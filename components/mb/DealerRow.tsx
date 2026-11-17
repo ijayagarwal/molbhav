@@ -194,10 +194,12 @@ export function DealerRow(p: DealerRowProps) {
             ) : null}
             <span className="truncate font-display text-label">{p.name}</span>
           </span>
-          <span className="flex min-w-0 items-center gap-1.5">
+          {/* The second line wraps inside the Dealer cell: a long flag ("Check GST · Not in the bargaining")
+              takes its own line and wraps its words rather than running under the Status column. */}
+          <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
             {p.badge ? <span className="shrink-0 rounded-parchi border border-ink px-1.5 text-meta">{p.badge}</span> : null}
-            {flagInline ? <span className="shrink-0 rounded-parchi border border-lal px-1.5 text-meta text-lal">{p.note}</span> : null}
-            <span className="truncate text-meta text-ink-2">{second}</span>
+            {flagInline ? <span className="min-w-0 max-w-full rounded-parchi border border-lal px-1.5 text-meta text-lal">{p.note}</span> : null}
+            <span className="min-w-0 max-w-full truncate text-meta text-ink-2">{second}</span>
           </span>
         </div>
         <div role={cellRole} className="min-w-0">
