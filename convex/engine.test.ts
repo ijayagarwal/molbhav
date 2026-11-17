@@ -239,6 +239,15 @@ async function errorCode(p: Promise<unknown>): Promise<string> {
   return "no error";
 }
 
+const removeRegularDealer = (t: T, contractorId: Id<"contractors">) =>
+  t.run(async (ctx) => {
+    const rows = await ctx.db
+      .query("contractorDealers")
+      .withIndex("by_contractor", (q) => q.eq("contractorId", contractorId))
+      .collect();
+    for (const r of rows.filter((x) => x.relation === "regular")) await ctx.db.delete(r._id);
+  });
+
 describe("sweep.start: who may start what", () => {
   test("refuses another user and a signed-out caller, and changes nothing", async () => {
     const { t, orderId, dealer } = await setup();
@@ -421,5 +430,88 @@ describe("extraction", () => {
     expect(q("bajrang")).toMatchObject({ billType: "pakka", comparable: true });
     expect(calls.find((c) => c.dealerId === dealer.krishna)).toMatchObject({ status: "completed", outcome: "callback_requested", callbackWhenText: "एक घंटे बाद" });
     expect(q("krishna")).toBeUndefined();
+  });
+});
+
+describe("haggle and match", () => {
+  test("on any order: cites only another dealer's lower citable total, drops only go down, a stated all-in counts (R1)", async () => {
+    const OTHER: OrderItem[] = [
+      { id: "s", material: "tmt_steel", diameterMm: 16, grade: "Fe550D", tier: "branded", quantity: 3, unit: "ton" },
+      { id: "c", material: "cement", cementType: "OPC53", tier: "branded", quantity: 200, unit: "bag" },
+    ];
+    const { t, as, orderId, dealer } = await setup({ items: OTHER, creditDaysWanted: undefined });
+    await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: [dealer.agarwal, dealer.omsai, dealer.bajrang] });
+    await runAll(t);
+    const { order, calls, quotes } = await snapshot(t, orderId);
+    expect(order.status).toBe("ready");
+    const haggles = calls.filter((c) => c.round === "haggle");
+    expect(haggles.length).toBeGreaterThan(0);
+    expect(haggles.length).toBeLessThanOrEqual(2);
+    for (const h of haggles) {
+      const cited = quotes.find((q) => q._id === h.citedQuoteId)!;
+      const own = quotes.find((q) => q.callId === h._id)!;
+      const before = quotes.filter((q) => q.dealerId === h.dealerId && q._creationTime < own._creationTime).at(-1)!;
+      expect(cited.dealerId).not.toBe(h.dealerId);
+      expect(cited.citable).toBe(true);
+      expect(cited.landed.total).toBeLessThan(before.landed.total);
+      expect(own.landed.total).toBeLessThan(before.landed.total);
+    }
+    // Om Sai (perton_gst_incl) says his haggle as one all-in figure on orders other than the demo one.
+    const omsaiHaggle = quotes.find((q) => q.dealerId === dealer.omsai && q.round === "haggle");
+    expect(omsaiHaggle).toMatchObject({ totalSource: "stated", comparable: true });
+    // The match call cites the best citable total heard so far.
+    const match = calls.find((c) => c.round === "match")!;
+    const best = Math.min(...quotes.filter((q) => q.citable && q.dealerId !== dealer.balaji && q._creationTime < match._creationTime).map((q) => q.landed.total));
+    expect(quotes.find((q) => q._id === match.citedQuoteId)!.landed.total).toBe(best);
+    const balaji = quotes.find((q) => q.dealerId === dealer.balaji)!;
+    expect(balaji.firstTotal).toBeGreaterThanOrEqual(balaji.landed.total);
+    // The winner is the cheapest (no credit asked for) and the ranking runs cheapest first.
+    const ranked = order.ranking!.map((id) => quotes.find((q) => q._id === id)!.landed.total);
+    expect(ranked).toEqual([...ranked].sort((a, b) => a - b));
+    expect(order.winningQuoteId).toBe(order.ranking![0]);
+  });
+
+  test("haggle.skipped with a single citable quote and no regular dealer", async () => {
+    const { t, as, orderId, contractorId, dealer } = await setup();
+    await removeRegularDealer(t, contractorId);
+    await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: [dealer.jain, dealer.rathore] });
+    await runAll(t);
+    const { order, calls, quotes } = await snapshot(t, orderId);
+    expect(order).toMatchObject({ status: "ready", haggleSkipped: true });
+    expect(calls.filter((c) => c.round !== "quote")).toHaveLength(0);
+    const jain = quotes.find((q) => q.dealerId === dealer.jain)!;
+    expect(jain.citable).toBe(true);
+    expect(order.ranking).toEqual([jain._id]);
+    expect(order.winningQuoteId).toBe(jain._id);
+  });
+
+  test("with nothing citable the regular dealer gets a plain quote call, and it counts as his first rate", async () => {
+    const { t, as, orderId, dealer } = await setup();
+    await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: [dealer.rathore, dealer.gupta] });
+    await runAll(t);
+    const { order, calls, quotes } = await snapshot(t, orderId);
+    expect(order).toMatchObject({ status: "ready", haggleSkipped: true });
+    const balajiCall = calls.find((c) => c.dealerId === dealer.balaji)!;
+    expect(balajiCall).toMatchObject({ round: "quote", status: "completed", outcome: "quoted" });
+    expect(balajiCall.citedQuoteId).toBeUndefined();
+    const balaji = quotes.find((q) => q.dealerId === dealer.balaji)!;
+    expect(balaji).toMatchObject({ round: "quote", firstTotal: 20430000, firstComparable: true });
+    expect(order.winningQuoteId).toBe(balaji._id);
+  });
+
+  test("a sim call stuck past its deadline is failed by the watchdog and the round moves on", async () => {
+    const { t, as, orderId, dealer } = await setup();
+    await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: [dealer.agarwal] });
+    await runAll(t, MON_11 + 1_000);
+    const callId = (await snapshot(t, orderId)).calls[0]._id;
+    // Its end never comes (as if finishCall were lost); the deadline passes.
+    await t.run(async (ctx) => {
+      const fns = await ctx.db.system.query("_scheduled_functions").collect();
+      for (const f of fns.filter((x) => x.name.includes("finishCall") && x.state.kind === "pending")) await ctx.scheduler.cancel(f._id);
+    });
+    await runAll(t);
+    const after = await snapshot(t, orderId);
+    expect(after.calls.find((c) => c._id === callId)).toMatchObject({ status: "failed", statusRank: 10, terminationReason: "sim_watchdog" });
+    expect(after.order.status).toBe("ready");
   });
 });
