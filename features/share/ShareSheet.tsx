@@ -34,7 +34,7 @@ export function ShareSheet({ orderId, open, onClose }: { orderId: Id<"orders">; 
       const publicId = await create({ orderId, mode: m });
       const url = `${window.location.origin}/p/${publicId}`;
       // Fetch the PNG now, so the share happens inside the next tap (navigator.share needs a fresh gesture).
-      const png = await fetch(`/p/${publicId}/opengraph-image`).then((r) => (r.ok ? r.blob() : null)).catch(() => null);
+      const png = await fetch(`/p/${publicId}/parchi.png`).then((r) => (r.ok ? r.blob() : null)).catch(() => null);
       setLink({ url, file: png ? new File([png], "molbhav-parchi.png", { type: "image/png" }) : null });
     } finally {
       setBusy(false);

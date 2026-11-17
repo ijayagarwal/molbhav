@@ -16,7 +16,7 @@ Every decision here is traced in `docs/DECISIONS.md` (codes like B3, F3). Re-che
 | TTS | Sarvam Bulbul v4 Flash (fallback: browser `speechSynthesis` `hi-IN`) | |
 | LLM | Gemini Flash via `@google/genai`, JSON schema output, lowest thinking level | Billed key for anything real (§7) |
 | Calls | Bolna: outbound agents, webhooks, `report_quote` custom function | |
-| Share images | `@vercel/og` **1.0.3** (pinned exactly), Node runtime, static TTFs | The Satori bundled in Next 16.4 breaks Hindi conjuncts (F5). 1.0.3 ships Satori 0.33.5, the version patched for the September 2026 RCE advisory (GHSA-wx4j-mvgx-mqwp). Never use an older `@vercel/og`. |
+| Share images | `@vercel/og` **1.0.3** (pinned exactly, installed as the npm alias `vercel-og` and loaded as a server-external package), Node runtime, static TTFs | The Satori bundled in Next 16.4 breaks Hindi conjuncts (F5), and Next aliases the import `@vercel/og` to that bundled copy in production builds, hence the alias name. 1.0.3 ships Satori 0.33.5, the version patched for the September 2026 RCE advisory (GHSA-wx4j-mvgx-mqwp). Never use an older `@vercel/og`. |
 | Bot check | **Vercel BotID**, Basic level (free on every plan, no keys, no extra account) on `POST /api/voice/order`, `POST /api/tts` and the sandbox | G3, T6 |
 | Tests | Vitest (`node` + `edge-runtime` with `convex-test`), Playwright (fake audio, Pixel 7), `size-limit` | F9 |
 
@@ -60,7 +60,8 @@ app/
     dealer/page.tsx            Hindi dealer opt-in (/dealer)
     privacy/page.tsx           privacy notice (/privacy)
     p/[publicId]/page.tsx      shared parchi (fetchQuery)
-    p/[publicId]/opengraph-image.tsx   PNG via @vercel/og 1.0.3 (Node)
+    p/[publicId]/opengraph-image.tsx   PNG via @vercel/og 1.0.3 (Node); the URL is hashed in production
+    p/[publicId]/parchi.png/route.ts   the same PNG at a fixed URL, for navigator.share
   (product)/
     layout.tsx                 ConvexAuthNextjsProvider + ConvexClientProvider
     app/page.tsx               home (/app)
@@ -453,7 +454,7 @@ export default defineSchema({
 The route `POST /api/voice/order?sandbox=1` calls `checkBotId()` and refuses bots. The mic is behind a tap, and the request is made with `fetch` from the `/try` page, so BotID's challenge headers are attached. Limits: `sbx:device` 3/h, `sbx:ip` 10/h, `sbx:global` 500/day, plus a daily ₹ kill switch (`SANDBOX_DAILY_INR_CAP`), on a separate billed Gemini key. Then `sandbox.createDraft` (server secret) creates `kind: "sandbox"`, forced to sim mode, with `expiresAt` 24 h. Sandbox orders never get `publicId` and never go live. A cron deletes expired sandbox orders. The landing-page hero board runs on client-side fixtures only.
 
 ### 6.10 Shared parchi (G4)
-`share.create({ orderId, mode })` makes a revocable 22-character (128-bit) `publicId`. `share.get({ publicId })` (named `get` because `public` is a reserved word in JS modules) returns only: dealer name, items (no rates in `savings` mode), total, saving vs the first rate, delivery window, and a DEMO watermark flag. **Never** site, date, phone numbers, recordings or losing prices. The page is `noindex`. `opengraph-image.tsx` renders the same data with `@vercel/og` 1.0.3 and static TTFs. The client prefetches it when Result settles and calls `navigator.share({ files })` inside the tap, falling back to a wa.me link to `/p/...`.
+`share.create({ orderId, mode })` makes a revocable 22-character (128-bit) `publicId`. `share.get({ publicId })` (named `get` because `public` is a reserved word in JS modules) returns only: dealer name, items (no rates in `savings` mode), total, saving vs the first rate, delivery window, and a DEMO watermark flag. **Never** site, date, phone numbers, recordings or losing prices. The page is `noindex`. `opengraph-image.tsx` renders the same data with `@vercel/og` 1.0.3 and static TTFs; `parchi.png` serves that image at a fixed URL (the og:image URL is hashed in production). The client fetches `parchi.png` when a share mode is picked and calls `navigator.share({ files })` inside the tap, falling back to a wa.me link to `/p/...`.
 
 ### 6.11 Recordings and retention (B6, S4)
 - `media.copyRecording` (media pool) follows Bolna's recording URL (a 24 h presigned redirect) and saves the file to Convex storage.

@@ -35,7 +35,7 @@ Molbhav is a voice-first buying agent for small building contractors (thekedars)
   - Free-tier key: fixtures and demo data only.
   - Billed key: anything real.
 - **Calls:** Bolna (outbound agents, webhooks to Convex HTTP actions, the `report_quote` custom function).
-- **Other services:** `@vercel/og` **1.0.3** for share images; **Vercel BotID** (free Basic level, no keys) on the voice, read-back and sandbox routes.
+- **Other services:** `@vercel/og` **1.0.3** for share images (installed as the npm alias `vercel-og`, because Next aliases `@vercel/og` to its own HarfBuzz-less copy; see `next.config.ts`); **Vercel BotID** (free Basic level, no keys) on the voice, read-back and sandbox routes.
 - **Tooling:**
   - Package manager: pnpm.
   - Tests: Vitest (+ `convex-test`), Playwright (Pixel 7 profile, fake audio).

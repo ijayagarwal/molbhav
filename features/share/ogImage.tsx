@@ -1,7 +1,7 @@
 // The shared parchi's preview image (G4, DESIGN §21.3): 1200×630, the same facts as /p/[publicId]. Built
 // with @vercel/og 1.0.3, whose HarfBuzz shaping draws Devanagari conjuncts and matras correctly (its missing
 // dist/hb.wasm is supplied by scripts/og-wasm.mjs), and the static TTFs in assets/og. Server-only.
-import { ImageResponse } from "@vercel/og";
+import { ImageResponse } from "vercel-og";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { LIGHT } from "@/lib/tokens";
@@ -64,7 +64,15 @@ export async function parchiOgImage(f: OgFacts): Promise<ImageResponse> {
           ) : null}
           {f.dealer ? <div style={{ display: "flex", fontFamily: "Anek", fontWeight: 700, fontSize: 38, color: LIGHT.ink, marginTop: 48 }}>{f.dealer}</div> : null}
           {f.total ? <div style={{ display: "flex", fontFamily: "AnekWide", fontWeight: 800, fontSize: 64, color: LIGHT.ink }}>{f.total}</div> : null}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, borderTop: `2px dashed ${LIGHT.rule}`, paddingTop: 14 }}>
+          {/* Savings mode has no dealer or total: the item lines then start below the stamp, with no rule above. */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              ...(f.dealer || f.total ? { borderTop: `2px dashed ${LIGHT.rule}`, paddingTop: 14 } : { marginTop: f.demoLabel ? 64 : 0 }),
+            }}
+          >
             {f.items.map((line) => (
               <div key={line} style={{ display: "flex", fontSize: 28, color: LIGHT.ink }}>
                 {line}

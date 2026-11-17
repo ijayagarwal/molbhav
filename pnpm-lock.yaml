@@ -162,6 +162,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@vercel/og@1.0.3': 494a954d146e88574261fd6c57e833e42ff6f6dd4095ddcd540c18f723d29f81
+
 importers:
 
   .:
@@ -184,9 +187,6 @@ importers:
       '@phosphor-icons/react':
         specifier: ^2.1.10
         version: 2.1.10(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@vercel/og':
-        specifier: 1.0.3
-        version: 1.0.3(@types/node@24.19.2)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -214,6 +214,9 @@ importers:
       tailwind-merge:
         specifier: ^3.7.0
         version: 3.7.0
+      vercel-og:
+        specifier: npm:@vercel/og@1.0.3
+        version: '@vercel/og@1.0.3(patch_hash=494a954d146e88574261fd6c57e833e42ff6f6dd4095ddcd540c18f723d29f81)(@types/node@24.19.2)'
     devDependencies:
       '@edge-runtime/vm':
         specifier: ^5.0.0
@@ -4352,7 +4355,7 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.13.0':
     optional: true
 
-  '@vercel/og@1.0.3(@types/node@24.19.2)':
+  '@vercel/og@1.0.3(patch_hash=494a954d146e88574261fd6c57e833e42ff6f6dd4095ddcd540c18f723d29f81)(@types/node@24.19.2)':
     dependencies:
       '@resvg/resvg-wasm': 2.4.1
       satori: 0.33.5

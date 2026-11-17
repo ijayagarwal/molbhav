@@ -3,3 +3,5 @@ allowBuilds:
   protobufjs: false
   sharp: false
   unrs-resolver: false
+patchedDependencies:
+  '@vercel/og@1.0.3': patches/@vercel__og@1.0.3.patch

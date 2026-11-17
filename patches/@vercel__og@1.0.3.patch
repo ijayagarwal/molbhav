@@ -1,0 +1,15 @@
+diff --git a/dist/index.node.js b/dist/index.node.js
+index 4f360de7f45abe8b89697a6f3c20b6b8f1a7548a..e9d10ce776b984ff946796262b3afd552e7297a7 100644
+--- a/dist/index.node.js
++++ b/dist/index.node.js
+@@ -3764,8 +3764,8 @@ var require_hb = __commonJS({
+         }
+         var readAsync, readBinary;
+         if (ENVIRONMENT_IS_NODE) {
+-          var fs3 = __require("fs");
+-          scriptDirectory = __dirname + "/";
++          var fs3 = fs2;
++          scriptDirectory = fileURLToPath(new URL("./", import.meta.url));
+           readBinary = (filename) => {
+             filename = isFileURI(filename) ? new URL(filename) : filename;
+             var ret = fs3.readFileSync(filename);

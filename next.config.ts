@@ -8,10 +8,17 @@ const nextConfig: NextConfig = {
   // Phone testing through the cloudflared tunnel (CLAUDE.md, F9).
   allowedDevOrigins: ["*.trycloudflare.com"],
   poweredByHeader: false,
-  // The shared parchi's preview image needs @vercel/og's HarfBuzz wasm (supplied by scripts/og-wasm.mjs) and
-  // the static TTFs; both are read at runtime by path, so tracing can't find them on its own.
+  // The shared parchi's image (/p/<id>/opengraph-image-<hash> and /p/<id>/parchi.png) needs @vercel/og 1.0.3's
+  // HarfBuzz shaping for Devanagari. Two traps, both of which silently render unshaped Hindi ("अग्‌रवाल"):
+  // - Next.js aliases the import "@vercel/og" to its own bundled copy (1.0.1, no HarfBuzz), so 1.0.3 is
+  //   installed under the npm alias "vercel-og" (package.json) and imported by that name.
+  // - harfbuzzjs reads hb.wasm from its own package folder at runtime (scripts/og-wasm.mjs puts it there), so
+  //   the package loads unbundled from node_modules (serverExternalPackages). Its CommonJS glue (require("fs"),
+  //   __dirname) fails as an ES module, so patches/@vercel__og@1.0.3.patch swaps in the module's own fs import
+  //   and import.meta.url. Tracing can't see the wasm read, nor the static TTFs, so both are included here.
+  serverExternalPackages: ["vercel-og"],
   outputFileTracingIncludes: {
-    "/p/[publicId]/opengraph-image": ["./node_modules/@vercel/og/dist/hb.wasm", "./assets/og/*.ttf"],
+    "/p/**": ["./node_modules/vercel-og/dist/hb.wasm", "./assets/og/*.ttf"],
   },
   async headers() {
     return [
