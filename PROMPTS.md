@@ -159,7 +159,7 @@ Build (server components only, no Convex client on these pages):
    - Form: shop name, area, materials, WhatsApp number, consent to AI quote calls. It writes waitlist role "dealer" with consentAiCalls.
    - It does NOT make the number callable (S2).
 4. Analytics (G6): the /api/e route plus events.track (server secret, allow-listed names only, no personal data), (built in 6B; extend the allow-list). Fire waitlist_submit and dealer_optin now.
-5. Privacy page /privacy (plain Hindi + English): what we store, where (Convex production in AWS EU, Ireland, R16; Vercel functions in Mumbai, bom1; the Team test's teammate data on the dev deployment in AWS US East; Sarvam, Gemini and Bolna as processors, with Bolna's actual residency setting), for how long, recordings, erasure on request.
+5. Privacy page /privacy (plain Hindi + English): what we store, where (Convex production in AWS EU, Ireland, R16; Vercel functions in Mumbai, bom1; the Team test's teammate data on the dev deployment in AWS US East; Sarvam, OpenAI and Bolna as processors, with Bolna's actual residency setting), for how long, recordings, erasure on request.
 6a. robots: replace the pre-launch app/robots.ts (disallow everything) with the rules in item 6.
 6. SEO: metadata and a static OG image for `/`. robots allows `/`, `/dealer` and `/privacy`, and disallows /app, /try, /p, /present and /styleguide.
 7. Deploy (R12): the pipeline exists since Phase 1A. Generate CONVEX_SERVER_SECRET and HASH_SECRET if they don't exist yet (`openssl rand -hex 32`, the same value everywhere), set every env var this phase needs on Vercel and with `npx convex env set --prod` yourself, deploy, and check the production URL. Show me the list of what you set (names only, never values).
@@ -288,12 +288,12 @@ Done when: all tests pass and `npx convex run seed:reset` populates the dev depl
 ## Phase 4: Voice order (mic to Confirm)
 
 **Before this phase (you):**
-- Give Claude a Sarvam API key, a free Gemini API key (Google AI Studio) and a billed Gemini key (a Google Cloud project with billing, a budget alert and a daily quota). Claude puts them in `.env.local` and Vercel, picks the current model ids and a Hindi speaker from the vendors' docs, and generates `HASH_SECRET`.
+- Give Claude a Sarvam API key and an OpenAI API key (a project with billing and a monthly budget limit; DECISIONS R19). Claude puts them in `.env.local` and Vercel, picks the current model ids and a Hindi speaker from the vendors' docs, and generates `HASH_SECRET`.
 - Record the demo line in Voice Memos and drop it in `~/Downloads/demo.m4a`; Claude converts it to `e2e/demo.wav` (16 kHz mono).
 - Have a real phone ready for the HTTPS test (Claude starts the tunnel).
 
 ```
-Phase 4 of Molbhav. Read docs/DESIGN.md §12.1–§12.3, §13, §20; docs/ARCHITECTURE.md §6.1, §7 (Sarvam, Gemini), §8.1; DECISIONS.md V1–V5, V7, F3, F4, F9, S3, S4, R7, R8, R10. Use the Sarvam speech-to-text skill and the sarvam-docs MCP server to confirm the current endpoint, headers, model ids and limits before writing the integration.
+Phase 4 of Molbhav. Read docs/DESIGN.md §12.1–§12.3, §13, §20; docs/ARCHITECTURE.md §6.1, §7 (Sarvam, OpenAI), §8.1; DECISIONS.md V1–V5, V7, F3, F4, F9, S3, S4, R7, R8, R10. Use the Sarvam speech-to-text skill and the sarvam-docs MCP server to confirm the current endpoint, headers, model ids and limits before writing the integration.
 
 Build:
 1. The real recorder (lib/client/recorder.ts):
@@ -309,10 +309,10 @@ Build:
    - Vercel BotID: `pnpm i botid`; initBotId in instrumentation-client.ts protecting POST /api/voice/order and POST /api/tts; checkBotId() first in both routes (403 when isBot; no keys needed; always passes in local dev);
    - checks the Convex Auth token, a per-user and per-IP-hash rate limit, and a global daily ₹ cap (VOICE_DAILY_INR_CAP, shared with /api/tts);
    - Sarvam STT (mode codemix), streaming the transcript to the client first;
-   - Gemini parse with the §8.1 schema (nullable, never null in type or enum), lowest thinking level, zod validation, null → undefined;
+   - OpenAI parse with the §8.1 schema (strict JSON Schema via lib/llm/openai.ts), lowest reasoning effort, zod validation, null → undefined;
    - then orders.createDraft as the user.
 
-   Key choice: in production use GEMINI_API_KEY_BILLED only; in development fall back to the free GEMINI_API_KEY (team test speech only). Audio is never stored. Log the timing of each step.
+   Key: OPENAI_API_KEY in every environment (R19). Audio is never stored. Log the timing of each step.
 4. Onboarding (§12.1, max 3 steps, with a consent notice), Home (§12.2) and Confirm (§12.3):
    - the site area picked from CITY_AREAS (speech matched in code, confirmed with a chip; R7);
    - editable chips and TierChips (remembered per contractor): steel asked if unspoken, cement pre-selected (R8), "दोनों" asks which tier (R10);
@@ -335,7 +335,7 @@ Done when: on my phone over HTTPS (a tunnel or Vercel preview, never a LAN IP), 
 
 ## Phase 5: Dealer pick and the sim sweep
 
-**Before this phase:** nothing from you. Claude sets the dev Convex env itself: `GEMINI_API_KEY`, `GEMINI_MODEL`, `SIM_PACE=demo`, `SIM_EXTRACT=groundtruth` and `HASH_SECRET` (the same value as `.env.local`).
+**Before this phase:** nothing from you. Claude sets the dev Convex env itself: `OPENAI_API_KEY`, `OPENAI_MODEL` (optional), `SIM_PACE=demo`, `SIM_EXTRACT=groundtruth` and `HASH_SECRET` (the same value as `.env.local`).
 
 ```
 Phase 5 of Molbhav. Read docs/ARCHITECTURE.md §6.2, §6.3, §6.4, §6.5, §8.2, §9, §10; docs/DESIGN.md §12.4, §12.5, §19; DECISIONS.md P1, P4, B4, B5, D5, D7, C4, S5, R1, R2, R4.
@@ -356,9 +356,9 @@ Build:
    - a deterministic script per persona, seeded by hash(persona, items, round), written ONCE as callEvents with atMs;
    - the client reveals lines by server time; SIM_PACE is demo or realistic;
    - it writes the transcript in Bolna's "assistant: … / user: …" format, then enqueues the SAME extraction job live will use;
-   - with SIM_EXTRACT=groundtruth, that job takes the persona's ground-truth quote instead of calling Gemini, but still runs every code check.
+   - with SIM_EXTRACT=groundtruth, that job takes the persona's ground-truth quote instead of calling OpenAI, but still runs every code check.
 5. Extraction (§6.5):
-   - Gemini with the §8.2 schema, through extractCache;
+   - OpenAI with the §8.2 schema, through extractCache;
    - then the code checks: the disclosure ("AI" and "रिकॉर्ड") appears in the assistant turns before the dealer's first rate (S5); every rate and any stated all-in figure found in a dealer turn; a dealer "हाँ" after the read-back sets readBackConfirmed;
    - then lib/pricing.ts, calls.outcome (R4) and orders.advance;
    - if extraction fails after retries: "रेट समझ नहीं आया · रिकॉर्डिंग सुनिए".
@@ -373,7 +373,7 @@ Build:
    It keeps running if I leave and recovers on return. On desktop it is the ledger table with the docked call panel (D5).
    Notes from the Phase 3 review: mark an order as the demo order from the isDemo contractor (not only isDemoOrder's item match) and show a warning on /present if they disagree; sim citing uses each persona's own always-fresh band (§9), not the database bands.
 Already built in 8A (R18), to use here: `lib/transcript.ts` (`parseTurns`, `disclosureMade` for S5), `lib/i18n/reasons.ts` (a cancelled call's `dial.*` reason on its row), `dealerRefusal` in `lib/liveGuards.ts` (the Choose screen's callable dealers), `consumeLiveSweep` and `settings.liveAvailable` (live startSweep and the LIVE toggle, 8A item 3).
-8. evals/extract.golden.json with 10 transcripts (8 generated from personas, plus one per-quintal quote with GST unclear, and a dealer who corrects his own number), and `pnpm eval:extract` (always uses Gemini, i.e. SIM_EXTRACT=llm).
+8. evals/extract.golden.json with 10 transcripts (8 generated from personas, plus one per-quintal quote with GST unclear, and a dealer who corrects his own number), and `pnpm eval:extract` (always uses OpenAI, i.e. SIM_EXTRACT=llm).
 
 Done when:
 - With SIM_PACE=demo, from Confirm, the demo order's default selection rings 4 dealers in about 1 minute (2–4 minutes realistic): Agarwal ₹2,00,610 and Om Sai ₹2,00,750 stamp, Rathore shows "जाँच बाकी", Gupta doesn't answer, and Shree Balaji is held for the match call.
@@ -443,7 +443,7 @@ Done when:
 ## Phase 7: Sandbox, landing hero board and presenter
 
 **Before this phase (you):**
-- Give Claude a billed Gemini key from a second Google Cloud project, for the sandbox (its own budget alert and quota).
+- Nothing for the sandbox key: /try uses the same OPENAI_API_KEY, bounded by SANDBOX_DAILY_INR_CAP (R19).
 - Open `/app` on the presenter laptop once, so Claude can add that session's user id to `ADMIN_USER_IDS` (`START_HERE.md` C2).
 
 ```
@@ -454,7 +454,7 @@ Build:
    - Sample-order chips come first; the mic sits behind a tap.
    - /api/voice/order?sandbox=1 calls checkBotId() (Vercel BotID, already set up in Phase 4) and refuses bots. The request is a fetch from the /try page.
    - 15 s cap. Limits: 3/h per device, 10/h per IP hash, 500/day globally.
-   - The daily ₹ kill switch is SANDBOX_DAILY_INR_CAP. It uses GEMINI_API_KEY_SANDBOX. No audio is stored.
+   - The daily ₹ kill switch is SANDBOX_DAILY_INR_CAP. It uses OPENAI_API_KEY (R19). No audio is stored.
    - sandbox.createDraft (server secret) creates kind "sandbox", sim only, with expiresAt 24 h, plus a cron that deletes expired orders.
    - It never creates /p links or live sweeps.
    - The parchi is watermarked "DEMO · काल्पनिक dealers" with no savings tally, and ends with "अपने असली dealers का रेट चाहिए?" + WhatsApp join.
@@ -469,7 +469,7 @@ Build:
    - On the right: the pipeline lights (Mic → STT → Samjha → Calls → Rates → Molbhav → Match → Result) from that session's orders only, the event log (Plex Mono, newest first) and the stats.
    - Cost and readiness views need the admin role.
    - "Reset demo" (admin.resetDemo).
-4. A canned parse for the exact demo line, used only when STT or Gemini fails during a demo (clearly logged).
+4. A canned parse for the exact demo line, used only when STT or the OpenAI parse fails during a demo (clearly logged).
 5. The presenter opens the landing hero at `/?home` (proxy.ts never redirects it to /app).
 6. Voice confirm on Result passes only comparable quotes' dealers to lib/commands.ts parseCommand (Phase 3 review).
 
@@ -530,13 +530,13 @@ Build:
 3. POST /bolna/report-quote (C8): verify the secret, update calls.slots and calls.provisionalTotal, reply in under 100 ms. For the Match agent's "first" stage, compute his first total from the rates he said in lib/pricing.ts and reply cite: true|false (his first total vs the best citable total; false if it can't be computed, R1).
 4. `pnpm bolna:check`: verifies the key, prints the wallet and concurrency from GET /user/me, lists the four agents and their webhook URLs and headers. Read-only.
 5. `pnpm bolna:sync` (R12): bolna/agents/{quote,haggle,match,confirm}.json built from CALL_SCRIPT.md (welcomes, prompts, settings, report_quote pointing at https://<deployment>.convex.site/bolna/report-quote, the webhook https://<deployment>.convex.site/bolna/webhook with the x-molbhav-secret header, retries off, no other tools). It creates or updates the four agents through Bolna's agent API, prints their ids, and never dials. Then set the four agent-id env vars yourself. Point the welcome-disclosure test in lib/transcript.test.ts at these synced configs too (R18). Also write docs/BOLNA_SETUP.md: what bolna:sync does, how to check the agents in the dashboard, and the manual fallback if the API refuses something.
-6. Set the dev Convex env yourself: BOLNA_API_KEY, BOLNA_WEBHOOK_SECRET (generate it), BOLNA_TRIAL=true, TEST_PHONE_HASHES (returned by admin:addDealer, or admin:phoneHash), GEMINI_API_KEY_BILLED, REC_TOKEN_SECRET (generate it). Show me the names you set, never the values.
+6. Set the dev Convex env yourself: BOLNA_API_KEY, BOLNA_WEBHOOK_SECRET (generate it), BOLNA_TRIAL=true, TEST_PHONE_HASHES (returned by admin:addDealer, or admin:phoneHash), OPENAI_API_KEY, REC_TOKEN_SECRET (generate it). Show me the names you set, never the values.
 
 Do not place any real call yourself. When the code is ready, ask me before setting LIVE_CALLS_ENABLED=true on dev, then tell me exactly how to start the first test sweep to two verified teammate phones from the app, watch the Convex logs while it runs, and know how to roll back (LIVE_CALLS_ENABLED=false).
 
 Done when:
 - A live sweep to 2 verified teammate phones completes (docs/TEAM_TEST.md Run 1), and webhooks update the board in real time.
-- The quote is extracted from the real transcript with the billed Gemini key.
+- The quote is extracted from the real transcript with OPENAI_API_KEY.
 - A duplicated and an out-of-order webhook change nothing.
 - Killing the dial job mid-way does not double-dial.
 ```
@@ -563,7 +563,7 @@ Done when: the recording of a live test call plays with seeking in CallDetail on
 After the first real calls:
 
 ```
-Copy the transcripts of our live calls into evals/extract.golden.json after replacing dealer names, numbers and personal details with placeholders. I will check the expected outputs. Run eval:extract with the billed Gemini key only. Then suggest changes to the agent prompts in docs/CALL_SCRIPT.md based on where dealers were confused, and report the go/no-go numbers from DECISIONS.md §D so far. Show me the diff before applying.
+Copy the transcripts of our live calls into evals/extract.golden.json after replacing dealer names, numbers and personal details with placeholders. I will check the expected outputs. Run eval:extract with OPENAI_API_KEY. Then suggest changes to the agent prompts in docs/CALL_SCRIPT.md based on where dealers were confused, and report the go/no-go numbers from DECISIONS.md §D so far. Show me the diff before applying.
 ```
 
 ---
@@ -581,7 +581,7 @@ Phase 9 of Molbhav. Read docs/ARCHITECTURE.md §13–§15, docs/DEMO.md, DECISIO
    Live calls stay off in production until ARCHITECTURE.md §11 can pass for real. List every env var per deployment.
 2. Failure drills, each with a test or a written manual check:
    - Sarvam down (typed fallback, browser TTS);
-   - Gemini 429 (workpool backoff, a friendly message);
+   - OpenAI 429 (workpool backoff, a friendly message);
    - a webhook twice and out of order;
    - a call stuck in ringing (the watchdog closes it);
    - the phone network drops mid-sweep (state recovers);
