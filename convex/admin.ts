@@ -110,14 +110,58 @@ export const agentsStatus = adminQuery({
   },
 });
 
+/** The presenter tools work only on the separate demo deployment (B8, DEMO.md), never on production. */
+function requireDemoDeployment(): void {
+  if (process.env.DEMO_DEPLOYMENT !== "true") throw new ConvexError({ code: "not_demo_deployment" });
+}
+
 /**
- * "Reset demo" (B8, §6.12): wipes and re-creates the demo rows only. Price bands are refreshed only on the
- * demo deployment (DEMO_DEPLOYMENT=true), never on production, where they hold real field data.
+ * "Reset demo" (B8, §6.12) on /present: wipes and re-creates the demo rows only (the isDemo contractor, his
+ * sites, orders, calls, quotes and dealer book; demo dealers are updated in place) and refreshes the seed-owned
+ * price bands. Admins only, and only on the demo deployment (DEMO_DEPLOYMENT=true). The demo contractor keeps
+ * the session that claimed it, so the presenter's iframe stays signed in as him.
  */
 export const resetDemo = adminMutation({
   args: {},
   handler: async (ctx) => {
-    return await resetDemoData(ctx, { refreshBands: process.env.DEMO_DEPLOYMENT === "true" });
+    requireDemoDeployment();
+    const result = await resetDemoData(ctx, { refreshBands: true });
+    await audit(ctx, `admin:${ctx.adminUserId}`, "demo.reset", result.contractorId, { deleted: result.deleted });
+    return result;
+  },
+});
+
+/**
+ * B8, §6.12: anonymous sign-in always makes a new user, so the presenter laptop's session (an admin) takes over
+ * the seeded demo contractor: his `userId`, and the owner of his orders, become the caller. Admins only, demo
+ * deployment only, and only `isDemo` rows: no other contractor can be claimed, and there is no public way to
+ * switch identity. Refused when the caller already has a contractor profile of their own (a session holds one
+ * contractor). Run once from /present; idempotent.
+ */
+export const claimDemoContractor = adminMutation({
+  args: {},
+  handler: async (ctx) => {
+    requireDemoDeployment();
+    const demo = (await ctx.db.query("contractors").collect()).filter((c) => c.isDemo === true);
+    if (demo.length === 0) throw new ConvexError({ code: "no_demo_contractor", hint: "npx convex run seed:reset" });
+    if (demo.length > 1) throw new ConvexError({ code: "many_demo_contractors", hint: "npx convex run seed:reset" });
+    const contractor = demo[0];
+    if (contractor.userId === ctx.adminUserId) return { contractorId: contractor._id, alreadyClaimed: true, ordersMoved: 0 };
+    const own = await ctx.db
+      .query("contractors")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.adminUserId))
+      .collect();
+    if (own.length > 0) throw new ConvexError({ code: "has_contractor" });
+
+    const previousUserId = contractor.userId;
+    await ctx.db.patch(contractor._id, { userId: ctx.adminUserId });
+    const orders = await ctx.db
+      .query("orders")
+      .withIndex("by_contractor", (q) => q.eq("contractorId", contractor._id))
+      .collect();
+    for (const o of orders) await ctx.db.patch(o._id, { ownerUserId: ctx.adminUserId });
+    await audit(ctx, `admin:${ctx.adminUserId}`, "demo.claim", contractor._id, { from: previousUserId, ordersMoved: orders.length });
+    return { contractorId: contractor._id, alreadyClaimed: false, ordersMoved: orders.length };
   },
 });
 
