@@ -167,6 +167,13 @@ export function DealersScreen({ orderId }: { orderId: string }) {
           ))}
         </div>
       ) : null}
+      {/* A verified contractor on a live-ready deployment hears why live is off for now (daily limit, call hours);
+          everyone else sees nothing (live_off and not_verified are checked first, so they say nothing personal). */}
+      {liveStatus && !liveStatus.available && (liveStatus.reason === "daily_cap" || liveStatus.reason === "call_hours") ? (
+        <p role="status" className="rounded-card border border-rule bg-card px-4 py-3 text-meta text-ink-2">
+          {t(REFUSAL[liveStatus.reason])}
+        </p>
+      ) : null}
       {mode === "live" ? (
         <p className="rounded-card border-2 border-lal bg-card px-4 py-3 text-label text-lal">{t("dealers.liveNote")}</p>
       ) : (
