@@ -1,8 +1,12 @@
 // The presenter tools (B8, ARCHITECTURE §6.12): admin.claimDemoContractor and admin.resetDemo (admins only, the
 // demo deployment only, isDemo rows only, no public identity switch) and presenter.status (admins only; booleans
-// and the latest order's live cost, never setting values).
+// and the latest order's live cost, never setting values). Plus lib/presenter.ts on a real sim run.
+import workpoolTest from "@convex-dev/workpool/test";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { DEMO_ITEMS, DEMO_TRANSCRIPT } from "../lib/fixtures/demoOrder";
+import { formatPaise } from "../lib/numbers";
+import { buildPresenter } from "../lib/presenter";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
@@ -132,5 +136,82 @@ describe("presenter.status (admin-only readiness and cost)", () => {
       }
     });
     expect(await asAdmin.query(api.presenter.status, {})).toMatchObject({ claimed: true, latestOrder: { mode: "live", liveCalls: 2, liveCostUsdCents: 42 } });
+  });
+});
+
+describe("lib/presenter.ts on a real sim run (the pipeline lights, the log and the stats)", () => {
+  test("the demo order: lights move with the order, the log is newest first, and the stats land on the DEMO.md numbers", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.UTC(2026, 10, 16, 5, 30));
+    try {
+      const t = convexTest(schema, modules);
+      workpoolTest.register(t, "llmPool");
+      workpoolTest.register(t, "dialPool");
+      workpoolTest.register(t, "mediaPool");
+      await t.mutation(internal.seed.reset, {});
+      const { userId, orderId, book } = await t.run(async (ctx) => {
+        const demo = (await ctx.db.query("contractors").collect()).find((c) => c.isDemo === true)!;
+        const site = (await ctx.db.query("sites").withIndex("by_contractor", (q) => q.eq("contractorId", demo._id)).collect()).find((s) => s.isDefault)!;
+        const orderId = await ctx.db.insert("orders", {
+          ownerUserId: demo.userId, contractorId: demo._id, kind: "app", siteId: site._id, mode: "sim", roundSeq: 0, transcript: DEMO_TRANSCRIPT.hi,
+          items: DEMO_ITEMS.map((i) => ({ ...i })), deliverBy: "tomorrow_morning", creditDaysWanted: 15, missing: [], status: "confirmed", selectedDealerIds: [],
+        });
+        const personas = ["perkg_gst_extra", "perton_gst_incl", "whatsapp_dodger", "no_answer"];
+        const book = (await ctx.db.query("dealers").collect()).filter((d) => d.isDemo && personas.includes(d.simPersona ?? "")).map((d) => d._id);
+        return { userId: demo.userId, orderId, book };
+      });
+      const as = t.withIdentity({ subject: `${userId}|s` });
+      await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: book });
+
+      const view = async (now: number) => {
+        const data = await as.query(api.board.get, { orderId });
+        const order = await as.query(api.orders.get, { orderId });
+        return buildPresenter(
+          {
+            _creationTime: order._creationTime, status: order.status, transcript: order.transcript, itemCount: order.items.length, winningQuoteId: order.winningQuoteId,
+            ranking: order.ranking, haggleSkipped: order.haggleSkipped, matchDealerId: order.matchDealerId, wantsCredit: true,
+          },
+          { status: data.order.status, dealers: data.dealers, calls: data.calls, events: data.events, quotes: data.quotes },
+          now,
+          {
+            items: () => "2 items",
+            money: formatPaise,
+            dealer: (id) => data.dealers.find((d) => d._id === id)?.name ?? "?",
+            round: (r) => r,
+            status: (s) => s,
+          },
+        );
+      };
+
+      await t.finishInProgressScheduledFunctions();
+      vi.advanceTimersByTime(1500);
+      await t.finishInProgressScheduledFunctions();
+      const early = await view(Date.now());
+      expect(early.steps.map((s) => s.state)).toEqual(["done", "done", "done", "active", "active", "waiting", "waiting", "waiting"]);
+      expect(early.firstQuoteMs).toBeNull();
+
+      for (let i = 0; i < 5000 && vi.getTimerCount() > 0; i++) {
+        await t.finishInProgressScheduledFunctions();
+        vi.advanceTimersToNextTimer();
+      }
+      await t.finishInProgressScheduledFunctions();
+      const end = await view(Date.now() + 60_000);
+      expect(end.steps.every((s) => s.state === "done")).toBe(true);
+      expect(end.steps.at(-1)!.detail).toMatchObject({ key: "present.logResult", vars: { dealer: "Agarwal Steels", total: "₹1,98,830" } });
+      expect(end.savedVsFirst).toBe(547_000); // ₹5,470 below Balaji's first rate (DEMO.md)
+      expect(end.firstQuoteMs).toBeGreaterThan(0);
+      // Newest first, with the result on top and the order's own lines at the bottom.
+      expect(end.log.map((l) => l.at)).toEqual([...end.log.map((l) => l.at)].sort((a, b) => b - a));
+      expect(end.log[0]).toMatchObject({ tone: "result", line: { key: "present.logResult" } });
+      expect(end.log.at(-1)).toMatchObject({ line: { key: "present.logHeard" } });
+      expect(end.log.map((l) => l.line.key)).toContain("present.logFlag"); // Rathore: not comparable
+      expect(end.log.filter((l) => l.tone === "drop").length).toBeGreaterThanOrEqual(2); // the haggle drops and the match
+      expect(end.log.find((l) => l.line.key === "present.logFirst")).toMatchObject({ line: { vars: { dealer: "Shree Balaji Traders", first: "₹2,04,300", total: "₹2,00,100" } } });
+      expect(end.log.find((l) => l.line.key === "present.logHeld")).toMatchObject({ line: { vars: { dealer: "Shree Balaji Traders" } } });
+      // Nothing in it a judge mustn't see: no phone numbers or hashes.
+      expect(JSON.stringify(end)).not.toMatch(/\+91|phoneHash/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
