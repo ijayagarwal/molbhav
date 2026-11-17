@@ -57,9 +57,11 @@ interface Props {
   returnFocusRef?: RefObject<HTMLElement | null>;
   /** A confirm or place action is on screen: Space stays a normal key (V6). */
   hasCommitAction?: boolean;
+  /** The order's mode, for the top bar's badge: DEMO in sim, LIVE when real calls go out (never DEMO on a live order). */
+  mode?: "sim" | "live";
 }
 
-export function AppFrame({ children, back, title, phoneDock, deskDock = true, panel, panelOpen = false, onClosePanel, panelLabel, returnFocusRef, hasCommitAction = false }: Props) {
+export function AppFrame({ children, back, title, phoneDock, deskDock = true, panel, panelOpen = false, onClosePanel, panelLabel, returnFocusRef, hasCommitAction = false, mode = "sim" }: Props) {
   const { t, lang } = useT();
   const router = useRouter();
   const pathname = usePathname();
@@ -143,7 +145,7 @@ export function AppFrame({ children, back, title, phoneDock, deskDock = true, pa
             {title ? <span className="min-w-0 truncate font-display text-title-2">{title}</span> : <Wordmark label={t("brand.name")} height={26} />}
           </span>
           <span className="flex shrink-0 items-center gap-2">
-            <ModeBadge mode="sim" label={t("badge.demo")} />
+            <ModeBadge mode={mode} label={mode === "live" ? t("badge.live") : t("badge.demo")} />
             {back ? null : <LangSwitch label={t("home.langSwitch")} />}
             {back || pathname === "/app/settings" ? null : (
               <Link href="/app/settings" aria-label={t("home.settings")} className="flex size-14 items-center justify-center rounded-card">

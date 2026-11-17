@@ -85,7 +85,7 @@ export function PlacedScreen({ orderId }: { orderId: string }) {
   ) : null;
 
   return (
-    <AppFrame back={back} title={title} deskDock={false} hasCommitAction phoneDock={null}>
+    <AppFrame back={back} title={title} deskDock={false} hasCommitAction phoneDock={null} mode={data.order.mode}>
       {placed ? (
         <section className="flex flex-col items-center gap-3 py-4 text-center" role="status">
           <span className="flex size-24 items-center justify-center rounded-full bg-hara text-paper">

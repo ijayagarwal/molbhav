@@ -19,11 +19,12 @@ export const listForCity = contractorQuery({
 /**
  * The Choose screen (DESIGN §12.4) for one of the caller's orders: the regular dealer pinned (held for the
  * match call unless askFirst, P1), the dealer book ("saved", on by default, R13), then the other dealers in
- * the city, same area first. In sim mode only DEMO dealers (personas); live comes with Phase 8B.
+ * the city, same area first. Sim (the default): only DEMO dealers (personas). Live: only real dealers who may get
+ * AI calls (consent test_ok in trial, opted_in later; DESIGN §12.4); claimDial still checks every guard per call.
  */
 export const forOrder = contractorQuery({
-  args: { orderId: v.id("orders") },
-  handler: async (ctx, { orderId }) => {
+  args: { orderId: v.id("orders"), mode: v.optional(v.union(v.literal("sim"), v.literal("live"))) },
+  handler: async (ctx, { orderId, mode }) => {
     const order = await requireOwnedOrder(ctx, orderId);
     const site = order.siteId ? await ctx.db.get(order.siteId) : null;
     const city = site?.city ?? "Jaipur";
@@ -32,7 +33,10 @@ export const forOrder = contractorQuery({
       .withIndex("by_contractor", (q) => q.eq("contractorId", ctx.contractor._id))
       .collect();
     const callable = (d: Doc<"dealers"> | null): d is Doc<"dealers"> =>
-      d !== null && d.city === city && d.consent !== "opted_out" && (order.mode === "sim" ? d.isDemo === true : true);
+      d !== null &&
+      d.city === city &&
+      d.consent !== "opted_out" &&
+      ((mode ?? order.mode) === "sim" ? d.isDemo === true : d.isDemo !== true && (d.consent === "test_ok" || d.consent === "opted_in"));
     // The contractor's own dealers always show, read by id; the rest of the city is capped for the list.
     const own = (await Promise.all(relations.map((r) => ctx.db.get(r.dealerId)))).filter(callable);
     const ownIds = new Set(own.map((d) => d._id as string));

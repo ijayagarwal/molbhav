@@ -153,7 +153,7 @@ export function ResultScreen({ orderId }: { orderId: string }) {
   ) : null;
 
   return (
-    <AppFrame back={back} title={t("result.title")} deskDock={false} hasCommitAction phoneDock={confirmButton}>
+    <AppFrame back={back} title={t("result.title")} deskDock={false} hasCommitAction phoneDock={confirmButton} mode={data.order.mode}>
       {data.order.termsChangedQuoteIds.length > 0 ? (
         <p role="alert" className="rounded-card border-[1.5px] border-lal bg-card px-4 py-3 text-label text-lal">
           {t(SET_ASIDE_NOTICE[data.order.setAsideReason ?? "terms_changed"])}

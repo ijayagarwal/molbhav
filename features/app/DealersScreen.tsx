@@ -4,6 +4,7 @@
 // call unless "पहले भी पूछिए", P1), the dealer book on by default (R13), more dealers in the city (same
 // area first), the AI-disclosure footer and "कॉल शुरू कीजिए". Sim mode: DEMO dealers only, no real calls.
 import { useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PrimaryButton } from "@/components/mb/Buttons";
@@ -13,11 +14,22 @@ import { ModeBadge } from "@/components/mb/ModeBadge";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { CITY_AREAS } from "@/lib/config";
+import type { DictKey } from "@/lib/i18n/getDict";
 import { useT } from "@/lib/i18n/useT";
 import { initials } from "@/lib/initials";
 import { AppFrame } from "./AppFrame";
 import { OrderLoading, OrderMissing } from "./OrderStates";
+import { useNow } from "./useNow";
 import { useOrderScreen } from "./useOrderScreen";
+
+/** Why a live start was refused, in the contractor's words (grouped reasons only, R18). */
+const REFUSAL: Record<string, DictKey> = {
+  live_off: "dial.liveOff",
+  not_verified: "dial.notVerified",
+  daily_cap: "dial.dailyCap",
+  call_hours: "dial.callHours",
+  dealer_unavailable: "dial.dealerUnavailable",
+};
 
 interface DealerView {
   _id: Id<"dealers">;
@@ -59,13 +71,19 @@ export function DealersScreen({ orderId }: { orderId: string }) {
   const { t, lang } = useT();
   const router = useRouter();
   const order = useOrderScreen(orderId, "dealers");
-  const view = useQuery(api.dealers.forOrder, order ? { orderId: order._id } : "skip");
+  // Live calls are offered only when the server says this contractor may start one right now (settings.liveAvailable;
+  // sweep.start and claimDial check everything again). Sim stays the default for every order (hard rule 1).
+  const minute = Math.floor(useNow(30_000) / 60_000);
+  const liveStatus = useQuery(api.settings.liveAvailable, order ? { at: minute } : "skip");
+  const [chosenMode, setChosenMode] = useState<"sim" | "live">("sim");
+  const mode = liveStatus?.available === true ? chosenMode : "sim";
+  const view = useQuery(api.dealers.forOrder, order ? { orderId: order._id, mode } : "skip");
   const setAskFirst = useMutation(api.dealers.setAskFirst);
   const start = useMutation(api.sweep.start);
   // null = the default selection (the book); a Set once the contractor changes it.
   const [picked, setPicked] = useState<Set<string> | null>(null);
   const [starting, setStarting] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<DictKey | null>(null);
 
   // Home, not Confirm: the order is already "confirmed", so /confirm would bounce straight back here.
   const back = { href: "/app", label: t("rail.home") };
@@ -96,13 +114,14 @@ export function DealersScreen({ orderId }: { orderId: string }) {
   const go = async () => {
     if (selected.size === 0 && !view.regular) return;
     setStarting(true);
-    setError(false);
+    setError(null);
     try {
       const ids = [...selected, ...(view.regular ? [view.regular._id] : [])] as Id<"dealers">[];
-      await start({ orderId: order._id, mode: "sim", dealerIds: ids });
+      await start({ orderId: order._id, mode, dealerIds: ids });
       router.push(`/app/order/${order._id}/sweep`);
-    } catch {
-      setError(true);
+    } catch (e) {
+      const data = e instanceof ConvexError ? (e.data as { code?: string; reason?: string }) : {};
+      setError(REFUSAL[data.reason ?? data.code ?? ""] ?? "session.error");
       setStarting(false);
     }
   };
@@ -112,7 +131,7 @@ export function DealersScreen({ orderId }: { orderId: string }) {
       <p className="text-center text-meta text-ink-2">{t("dealers.footer", { n: callCount })}</p>
       {error ? (
         <p role="alert" className="text-center text-label text-lal">
-          {t("session.error")}
+          {t(error)}
         </p>
       ) : null}
       <PrimaryButton icon={<PhoneBold className="size-6" />} onClick={go} disabled={callCount === 0 || starting} aria-busy={starting}>
@@ -122,13 +141,40 @@ export function DealersScreen({ orderId }: { orderId: string }) {
   );
 
   return (
-    <AppFrame back={back} title={t("dealers.title")} deskDock={false} phoneDock={footer} hasCommitAction>
+    <AppFrame back={back} title={t("dealers.title")} deskDock={false} phoneDock={footer} hasCommitAction mode={mode}>
       {/* Phone: the top bar carries the title and DEMO; the heading stays for screen readers. */}
       <div className="flex items-center justify-between gap-3 max-lg:sr-only">
         <h1 className="font-display text-title-1">{t("dealers.title")}</h1>
-        <ModeBadge mode="sim" label={t("badge.demo")} />
+        <ModeBadge mode={mode} label={mode === "live" ? t("badge.live") : t("badge.demo")} />
       </div>
-      <p className="rounded-card bg-cement px-4 py-3 text-meta">{t("dealers.demo")}</p>
+      {liveStatus?.available ? (
+        <div role="radiogroup" aria-label={t("dealers.modeLabel")} className="grid grid-cols-2 gap-2">
+          {(["sim", "live"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={mode === m}
+              onClick={() => {
+                setChosenMode(m);
+                setPicked(null);
+                setError(null);
+              }}
+              className={`flex min-h-14 items-center justify-center rounded-card border-2 px-3 text-label ${mode === m ? (m === "live" ? "border-lal bg-lal text-paper" : "border-ink bg-ink text-paper") : "border-ink bg-card text-ink"}`}
+            >
+              {m === "live" ? t("dealers.modeLive") : t("dealers.modeDemo")}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {mode === "live" ? (
+        <p className="rounded-card border-2 border-lal bg-card px-4 py-3 text-label text-lal">{t("dealers.liveNote")}</p>
+      ) : (
+        <p className="rounded-card bg-cement px-4 py-3 text-meta">{t("dealers.demo")}</p>
+      )}
+      {mode === "live" && !view.regular && view.saved.length === 0 && view.others.length === 0 ? (
+        <p className="text-body text-ink-2">{t("dealers.liveEmpty")}</p>
+      ) : null}
 
       {view.regular ? (
         <section className="overflow-hidden rounded-card border-2 border-ink bg-card" aria-label={t("badge.regular")}>

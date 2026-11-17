@@ -30,6 +30,11 @@ export const en: Record<DictKey, string> = {
 
   "dealers.footer": "We'll call {n} dealers · every call says it's an AI",
   "dealers.matchLater": "Gets a chance to match at the end",
+  "dealers.modeLabel": "How to call",
+  "dealers.modeDemo": "Demo",
+  "dealers.modeLive": "Live calls",
+  "dealers.liveNote": "LIVE · real calls will go out. Every call says first that it's an AI and that it's recorded.",
+  "dealers.liveEmpty": "No dealer is ready for live calls yet.",
   "dealers.askFirst": "Ask them first too",
 
   "sweep.title": "Bargaining in progress",

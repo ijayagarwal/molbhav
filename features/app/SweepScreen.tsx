@@ -210,6 +210,7 @@ export function SweepScreen({ orderId }: { orderId: string }) {
 
   return (
     <AppFrame
+      mode={order.mode}
       back={back}
       title={title}
       panel={panel}

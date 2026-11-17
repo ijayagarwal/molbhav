@@ -31,6 +31,11 @@ export const hi = {
 
   "dealers.footer": "{n} dealers को call करेंगे · हर call में बताएँगे कि ये AI है",
   "dealers.matchLater": "आख़िर में match का मौका",
+  "dealers.modeLabel": "कॉल कैसे",
+  "dealers.modeDemo": "डेमो",
+  "dealers.modeLive": "असली कॉल",
+  "dealers.liveNote": "LIVE · असली कॉल जाएँगी। हर कॉल की पहली बात: ये AI है और रिकॉर्ड हो रही है।",
+  "dealers.liveEmpty": "अभी कोई dealer असली कॉल के लिए तैयार नहीं है।",
   "dealers.askFirst": "पहले भी पूछिए",
 
   "sweep.title": "मोलभाव चल रहा है",

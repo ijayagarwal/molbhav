@@ -121,6 +121,22 @@ describe("the Choose screen (DESIGN §12.4)", () => {
     await as.mutation(api.dealers.setAskFirst, { dealerId: view.regular!._id, askFirst: true });
     expect((await as.query(api.dealers.forOrder, { orderId })).regular?.askFirst).toBe(true);
   });
+  test("live lists only real dealers who may get AI calls (test_ok, opted_in), never DEMO ones", async () => {
+    const { t, as } = await onboarded();
+    const orderId = await as.mutation(api.orders.createExampleDraft, {});
+    await t.run(async (ctx) => {
+      const base = { city: "Jaipur", area: "mansarovar", materials: ["tmt_steel" as const], phoneE164: "+919800000001", phoneHash: "h1", isDemo: false, source: "admin" as const };
+      await ctx.db.insert("dealers", { ...base, name: "Teammate One", consent: "test_ok" } as never);
+      await ctx.db.insert("dealers", { ...base, name: "Opted In", phoneE164: "+919800000002", phoneHash: "h2", consent: "opted_in" } as never);
+      await ctx.db.insert("dealers", { ...base, name: "Never Asked", phoneE164: "+919800000003", phoneHash: "h3", consent: "unknown" } as never);
+      await ctx.db.insert("dealers", { ...base, name: "Said Stop", phoneE164: "+919800000004", phoneHash: "h4", consent: "opted_out" } as never);
+    });
+    const live = await as.query(api.dealers.forOrder, { orderId, mode: "live" });
+    const names = [live.regular?.name, ...live.saved.map((d) => d.name), ...live.others.map((d) => d.name)].filter(Boolean).sort();
+    expect(names).toEqual(["Opted In", "Teammate One"]);
+    const sim = await as.query(api.dealers.forOrder, { orderId, mode: "sim" });
+    expect([...sim.saved, ...sim.others].every((d) => d.isDemo)).toBe(true);
+  });
 });
 
 describe("orders.getOrNull (screens' loader)", () => {

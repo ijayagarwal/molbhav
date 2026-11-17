@@ -267,7 +267,7 @@ An active sweep shows a banner above the mic: "Molbhav chal raha hai · 3/4 rate
 Tier: if the steel tier wasn't spoken, `TierChips` appear inside the item card (one tap or one spoken word: "ब्रांडेड", "लोकल"); if "दोनों" was said, the same chips ask which tier to bargain for (R10). Cement shows its tier pre-selected (R8); `design/reference/Confirm.html` still shows unanswered cement chips, and this spec wins. "Suta" sizes are never mapped: ask with [12mm] [16mm] chips (P7); an unsaid size gets the common sizes as chips. An unsaid steel grade is asked with [Fe500] [Fe500D] [Fe550D] and an unsaid cement type with [OPC43] [OPC53] [PPC] [PSC] (PRODUCT §4), one question at a time. A brand the contractor named shows as a chip. Confirm is blocked until every item has quantity, unit, size (steel), grade (steel) or type (cement), and tier.
 
 ### 12.4 Choose dealers
-Dealers in the site's city, same area first (no distances until P1). The contractor's dealer book (`saved`) is on by default, 4 to 6 (R13). The regular dealer is pinned at the top with the "आपके dealer" badge and the line **"आख़िर में match का मौका"**; a toggle "पहले भी पूछिए" switches him to a normal quote call (remembered per dealer, P1). Footer: "{n} dealers को call करेंगे · हर call में बताएँगे कि ये AI है". Primary: "Call शुरू कीजिए". Live mode shows a lal-outlined "LIVE" note ("असली calls जाएँगी") and lists only opted-in or test_ok dealers.
+Dealers in the site's city, same area first (no distances until P1). The contractor's dealer book (`saved`) is on by default, 4 to 6 (R13). The regular dealer is pinned at the top with the "आपके dealer" badge and the line **"आख़िर में match का मौका"**; a toggle "पहले भी पूछिए" switches him to a normal quote call (remembered per dealer, P1). Footer: "{n} dealers को call करेंगे · हर call में बताएँगे कि ये AI है". Primary: "Call शुरू कीजिए". Live mode shows a lal-outlined "LIVE" note ("असली calls जाएँगी") and lists only opted-in or test_ok dealers. The Demo / Live choice (two radio buttons, Demo selected by default) appears only when `settings.liveAvailable` says live calls are possible for this contractor right now; the top bar's badge always shows the order's real mode.
 
 ### 12.5 Sweep board (hero screen)
 Shown in sim mode; see `design/reference/Sweep.html` for the animated version.
@@ -460,6 +460,11 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `logout.cancel` | रहने दीजिए | Stay logged in |
 | `confirm.askGrade` | कौन सा ग्रेड? | Which grade? |
 | `confirm.askCementType` | सीमेंट का टाइप? | Which cement type? |
+| `dealers.modeLabel` | कॉल कैसे | How to call |
+| `dealers.modeDemo` | डेमो | Demo |
+| `dealers.modeLive` | असली कॉल | Live calls |
+| `dealers.liveNote` | LIVE · असली कॉल जाएँगी। हर कॉल की पहली बात: ये AI है और रिकॉर्ड हो रही है। | LIVE · real calls will go out. Every call says first that it's an AI and that it's recorded. |
+| `dealers.liveEmpty` | अभी कोई dealer असली कॉल के लिए तैयार नहीं है। | No dealer is ready for live calls yet. |
 | `badge.regular` | आपके dealer | Your dealer |
 | `badge.demo` | DEMO | DEMO |
 | `demo.watermark` | DEMO · काल्पनिक dealers | DEMO · fictional dealers |
