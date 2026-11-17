@@ -7,9 +7,11 @@ export interface Prefs {
   sound: boolean;
   spokenResult: boolean;
   shortcuts: boolean;
+  /** Confirm's read-back plays by itself after a voice order (V3); the mute on Confirm turns it off (V7). */
+  readBack: boolean;
 }
 
-export const DEFAULT_PREFS: Prefs = { sound: true, spokenResult: true, shortcuts: true };
+export const DEFAULT_PREFS: Prefs = { sound: true, spokenResult: true, shortcuts: true, readBack: true };
 const KEY = "molbhav:prefs";
 const listeners = new Set<() => void>();
 let cache: Prefs | null = null;
