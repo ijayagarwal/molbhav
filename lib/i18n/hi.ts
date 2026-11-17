@@ -427,6 +427,38 @@ export const hi = {
   "item.cement": "सीमेंट",
   "item.cementOf": "{type} सीमेंट",
   "item.type": "टाइप",
+
+  // Phase 4, the voice order on the client: the mic primer (§12.1, V5), errors per route code (V5), and
+  // Confirm's questions, fix and read-back controls (§12.3, V3, V7, P7, R10). Need the native speaker's review.
+  "primer.title": "Mic चाहिए",
+  "primer.body": "बोलके ऑर्डर देने के लिए mic चाहिए। हम सिर्फ़ तब सुनते हैं जब आप बटन दबाते हैं।",
+  "primer.allow": "Mic चालू कीजिए",
+  "primer.ready": "Mic चालू है। अब दबाइए और बोलिए।",
+  "error.noMic": "इस फ़ोन में mic नहीं मिला। लिख के बताइए।",
+  "error.micBusy": "Mic अभी कोई और ऐप चला रहा है। उसे बंद करके फिर से कोशिश कीजिए।",
+  "error.insecure": "इस लिंक पर mic नहीं चल सकता (लिंक सुरक्षित नहीं है)। लिख के बताइए।",
+  "error.unsupported": "इस browser में आवाज़ रिकॉर्ड नहीं हो सकती। Chrome में खोलिए, या लिख के बताइए।",
+  "voice.errBot": "ये अनुरोध पूरा नहीं हो पाया। पेज दोबारा खोलकर फिर से कोशिश कीजिए।",
+  "voice.errSession": "आपका सत्र नहीं मिला। पेज दोबारा खोलकर फिर से कोशिश कीजिए।",
+  "voice.errTooLong": "ऑर्डर बहुत लंबा है। छोटा करके फिर से बोलिए या लिखिए।",
+  "voice.errBusy": "अभी बहुत जल्दी-जल्दी ऑर्डर आए। थोड़ी देर बाद फिर से कोशिश कीजिए।",
+  "voice.errCap": "आज ऑर्डर समझने की सीमा पूरी हो गई। कल फिर से कोशिश कीजिए, या उदाहरण वाले ऑर्डर से शुरू कीजिए।",
+  "voice.errStt": "आवाज़ साफ़ समझ नहीं आई। फिर से बोलिए, या लिख दीजिए।",
+  "voice.errParse": "इसमें ऑर्डर समझ नहीं आया। सामान, मात्रा और साइज़ बोलिए, जैसे: 2 टन 12mm सरिया।",
+  "voice.errServer": "हमारी तरफ़ से कुछ गड़बड़ हुई। फिर से कोशिश कीजिए।",
+  "voice.errNetwork": "नेटवर्क नहीं मिला। नेटवर्क आने पर फिर से कोशिश कीजिए।",
+  "confirm.tierBoth": "दोनों में से किसका रेट लें?",
+  "confirm.stop": "रोकिए",
+  "confirm.mute": "अपने-आप न सुनाएँ",
+  "confirm.fixHint": "जो ग़लत है, बदलकर भेजिए। नया ऑर्डर इसकी जगह ले लेगा।",
+  "confirm.sayAgain": "फिर से बोलिए",
+  "confirm.typeFix": "लिख के ठीक कीजिए",
+  "confirm.askQuantity": "कितना चाहिए, ये सुनाई नहीं दिया।",
+  "confirm.askUnit": "टन, क्विंटल, किलो या बोरी? ये सुनाई नहीं दिया।",
+  "confirm.askSize": "सरिया का साइज़ (mm) सुनाई नहीं दिया।",
+  "confirm.askSuta": "साइज़ ‘सूत’ में बताया था। mm में बताइए, जैसे 12mm या 16mm।",
+  "confirm.heard": "सुना: “{text}”",
+  "confirm.yourSite": "{site} · आपकी साइट",
 } as const;
 
 export type DictKey = keyof typeof hi;

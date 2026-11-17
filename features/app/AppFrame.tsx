@@ -3,29 +3,43 @@
 // The frame around every /app screen (DESIGN §18, §19): the phone top bar, the Munshi desk rail, the Bahi
 // order list from 1536 px, the voice dock, and the call panel slot. Screens pass their content in.
 //
-// Until Phase 4 (real speech, needs the Sarvam and Gemini keys) the mic runs on the fake recorder and says
-// honestly that voice orders are coming; it never pretends to understand speech.
+// The voice order (Phase 4, ARCHITECTURE §6.1): the mic records with the real recorder (loaded on first
+// use) after the permission primer, the phone shows the listening sheet with the transcript as it streams
+// in, the desk shows the take in its dock, and both the desk composer and the phone's "लिख के बताइए" send
+// typed text instead. Every failure says what went wrong (V5); "voice.soon" shows only when the server
+// isn't configured for voice yet.
 import { useConvexAuth, useQuery } from "convex/react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
-import { AppShell, IconRail, useMedia } from "@/components/mb/AppShell";
-import { BackBold, SettingsBold } from "@/components/mb/icons";
+import { useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
+import { AppShell, BottomSheet, IconRail, useMedia } from "@/components/mb/AppShell";
+import { SecondaryButton } from "@/components/mb/Buttons";
+import { BackBold, KeyboardBold, SettingsBold } from "@/components/mb/icons";
+import { ListeningSheet } from "@/components/mb/ListeningSheet";
 import { MicButton } from "@/components/mb/MicButton";
 import { ModeBadge } from "@/components/mb/ModeBadge";
 import { DeskVoiceDock, PhoneVoiceDock } from "@/components/mb/VoiceDock";
 import { Wordmark } from "@/components/mb/Wordmark";
 import { api } from "@/convex/_generated/api";
 import { LangSwitch } from "@/features/i18n/LangSwitch";
-import { useMic } from "@/features/voice/useMic";
 import { usePushToTalk } from "@/features/voice/usePushToTalk";
+import { useVoiceOrder } from "@/features/voice/useVoiceOrder";
+import { countdownSeconds, MIC } from "@/lib/client/micGesture";
 import { composerKeyLabel } from "@/lib/client/pushToTalk";
 import { usePrefs } from "@/lib/client/prefs";
-import { createFakeRecorder } from "@/lib/client/recorder";
+import { problemCopy } from "@/lib/client/voiceErrors";
 import { useT } from "@/lib/i18n/useT";
 import { formatDate } from "@/lib/i18n/format";
 import { itemsLabel } from "@/lib/orderLabel";
 import { ORDER_STATUS_KEY, orderPath, RUNNING } from "@/lib/orderRoute";
+
+// Loaded only when opened, so /app's first render doesn't carry them (DESIGN §20).
+const MicPrimer = dynamic(() => import("@/components/mb/MicPrimer").then((m) => m.MicPrimer));
+const TypedOrderSheet = dynamic(() => import("@/features/voice/TypedOrderSheet").then((m) => m.TypedOrderSheet));
+
+/** Primer errors where asking the browser again can't help: the card offers typing only. */
+const NO_ASK: ReadonlySet<string> = new Set(["mic_blocked", "no_device", "insecure", "unsupported"]);
 
 interface Props {
   children: ReactNode;
@@ -54,9 +68,10 @@ export function AppFrame({ children, back, title, phoneDock, deskDock = true, pa
   // listMine needs a session; a signed-out visitor (fresh browser) would otherwise crash the frame.
   const { isAuthenticated } = useConvexAuth();
   const orders = useQuery(api.orders.listMine, isAuthenticated ? {} : "skip");
-  const recorder = useMemo(() => createFakeRecorder(), []);
-  const [notice, setNotice] = useState<string | null>(null);
+  const voice = useVoiceOrder();
+  const mic = voice.mic;
   const [composer, setComposer] = useState("");
+  const [typed, setTyped] = useState(false);
   const dockRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const composerKey = useSyncExternalStore(
@@ -65,11 +80,11 @@ export function AppFrame({ children, back, title, phoneDock, deskDock = true, pa
     () => "⌘K",
   );
 
-  const soon = () => {
-    setNotice(t("voice.soon"));
-    window.setTimeout(() => setNotice(null), 6000);
+  // Typing: the desk composer from 1024 px, the typed sheet below it.
+  const openTyping = () => {
+    if (isDesk) inputRef.current?.focus();
+    else setTyped(true);
   };
-  const mic = useMic({ recorder, onClip: soon });
 
   usePushToTalk({
     dockRef,
@@ -78,22 +93,40 @@ export function AppFrame({ children, back, title, phoneDock, deskDock = true, pa
     onStart: mic.pttStart,
     onStop: mic.pttStop,
     onCancel: mic.cancel,
-    onComposer: () => (isDesk ? inputRef.current?.focus() : soon()),
+    onComposer: openTyping,
   });
 
   const running = orders?.find((o) => RUNNING.has(o.status));
   const micButton = (size: "lg" | "md") => (
-    <MicButton view={mic.view} ariaLabel={mic.view === "locked" ? t("listen.send") : t("mic.aria")} size={size} bind={mic.bind} />
+    <MicButton view={mic.view} armed={mic.armed} ariaLabel={mic.view === "locked" ? t("listen.send") : t("mic.aria")} size={size} bind={mic.bind} />
   );
   const listening = mic.view !== "idle" && mic.view !== "disabled";
+  const countdown = countdownSeconds(mic.machine, mic.now);
 
-  const noticeBar = notice ? (
+  // What the last order attempt says (V5), or "the mic is on" after the primer. Polite for the ready note,
+  // assertive for a failure.
+  const error = voice.error;
+  const noticeBar = error ? (
+    <div role="alert" className={`flex flex-col gap-3 rounded-card border-[1.5px] bg-card px-4 py-3 ${error.soon ? "border-neel" : "border-lal"}`}>
+      <p className={`text-label ${error.soon ? "text-neel" : "text-lal"}`}>{t(error.key)}</p>
+      {error.soon ? null : (
+        <div className="flex flex-wrap gap-2">
+          {error.retry === "reload" || (error.retry === "resend" && error.resendable) ? <SecondaryButton onClick={voice.retry}>{t("error.retry")}</SecondaryButton> : null}
+          <SecondaryButton className="lg:hidden" icon={<KeyboardBold className="size-5" />} onClick={() => setTyped(true)}>
+            {t("home.typeInstead")}
+          </SecondaryButton>
+        </div>
+      )}
+    </div>
+  ) : voice.ready ? (
     <p role="status" className="rounded-card border-[1.5px] border-neel bg-card px-4 py-3 text-label text-neel">
-      {notice}
+      {t("primer.ready")}
     </p>
   ) : null;
+  const primerError = voice.primer.error ? t(problemCopy(voice.primer.error).key) : null;
 
   return (
+    <>
     <AppShell
       navLabel={t("brand.name")}
       topBar={
@@ -170,7 +203,7 @@ export function AppFrame({ children, back, title, phoneDock, deskDock = true, pa
         phoneDock === undefined ? (
           <div className="flex flex-col gap-2">
             {noticeBar}
-            <PhoneVoiceDock mic={micButton("lg")} micHint={t("home.micHint")} typeLabel={t("home.typeInstead")} onType={soon} />
+            <PhoneVoiceDock mic={micButton("lg")} micHint={t("home.micHint")} typeLabel={t("home.typeInstead")} onType={() => setTyped(true)} />
           </div>
         ) : (
           phoneDock
@@ -192,8 +225,8 @@ export function AppFrame({ children, back, title, phoneDock, deskDock = true, pa
               value={composer}
               onChange={setComposer}
               onSubmit={() => {
+                voice.submitText(composer);
                 setComposer("");
-                soon();
               }}
               inputRef={inputRef}
               take={
@@ -201,6 +234,8 @@ export function AppFrame({ children, back, title, phoneDock, deskDock = true, pa
                   ? {
                       status: mic.view === "processing" ? t("listen.processing") : `${t("listen.listening")} ${Math.floor(mic.elapsedMs / 1000)}s`,
                       levels: mic.levels,
+                      transcript: mic.view === "processing" ? voice.transcript : undefined,
+                      armed: mic.view === "processing" || mic.armed,
                       locked: mic.view === "locked",
                       cancelLabel: t("listen.cancel"),
                       sendLabel: t("listen.send"),
@@ -222,5 +257,57 @@ export function AppFrame({ children, back, title, phoneDock, deskDock = true, pa
     >
       {children}
     </AppShell>
+
+    {/* The listening sheet on phone and tablet (Listening.html); the desk dock shows the take inline. */}
+    {listening ? (
+      <div className="lg:hidden">
+        <ListeningSheet
+          mode={mic.view === "locked" ? "locked" : mic.view === "processing" ? "processing" : "hold"}
+          elapsedMs={mic.elapsedMs}
+          levels={mic.levels}
+          drag={mic.drag}
+          armed={mic.armed}
+          transcript={mic.view === "processing" ? voice.transcript : undefined}
+          labels={{
+            listening: t("listen.listening"),
+            capHint: t("listen.capHint", { s: MIC.capMs / 1000 }),
+            countdown: countdown === null ? null : t("listen.countdown", { s: countdown }),
+            calm: t("listen.calm"),
+            calmMode: mic.view === "locked" ? t("listen.calmLocked") : t("listen.calmHold"),
+            slideCancel: t("listen.cancelHint"),
+            lock: t("listen.lock"),
+            release: t("listen.holdRelease"),
+            tapToSend: t("listen.lockedSend"),
+            cancel: t("listen.cancel"),
+            send: t("listen.send"),
+            processing: t("listen.processing"),
+          }}
+          mic={micButton("lg")}
+          onCancel={mic.cancel}
+          onSend={mic.send}
+        />
+      </div>
+    ) : null}
+
+    <BottomSheet open={voice.primer.open} title={t("primer.title")} onClose={voice.closePrimer} closeLabel={t("panel.close")}>
+      {voice.primer.open ? (
+        <MicPrimer
+          body={t("primer.body")}
+          error={primerError}
+          allowLabel={t("primer.allow")}
+          typeLabel={t("home.typeInstead")}
+          busy={voice.primer.busy}
+          onAllow={voice.primer.error && NO_ASK.has(voice.primer.error) ? undefined : () => void voice.allowMic()}
+          onType={() => {
+            voice.closePrimer();
+            // After the sheet has handed focus back to the mic, so the composer keeps it.
+            window.setTimeout(openTyping, 60);
+          }}
+        />
+      ) : null}
+    </BottomSheet>
+
+    {typed ? <TypedOrderSheet title={t("home.typeInstead")} onClose={() => setTyped(false)} /> : null}
+    </>
   );
 }
