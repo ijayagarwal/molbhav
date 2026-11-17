@@ -4,7 +4,6 @@
 // call unless "पहले भी पूछिए", P1), the dealer book on by default (R13), more dealers in the city (same
 // area first), the AI-disclosure footer and "कॉल शुरू कीजिए". Sim mode: DEMO dealers only, no real calls.
 import { useMutation, useQuery } from "convex/react";
-import { makeFunctionReference } from "convex/server";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PrimaryButton } from "@/components/mb/Buttons";
@@ -18,9 +17,6 @@ import { initials } from "@/lib/initials";
 import { AppFrame } from "./AppFrame";
 import { OrderLoading, OrderMissing } from "./OrderStates";
 import { useOrderScreen } from "./useOrderScreen";
-
-// The engine's sweep.start (Phase 5 backend). Referenced by name until its module lands on main.
-const startSweepRef = makeFunctionReference<"mutation", { orderId: Id<"orders">; mode: "sim"; dealerIds: Id<"dealers">[] }, unknown>("sweep:start");
 
 interface DealerView {
   _id: Id<"dealers">;
@@ -64,7 +60,7 @@ export function DealersScreen({ orderId }: { orderId: string }) {
   const order = useOrderScreen(orderId, "dealers");
   const view = useQuery(api.dealers.forOrder, order ? { orderId: order._id } : "skip");
   const setAskFirst = useMutation(api.dealers.setAskFirst);
-  const start = useMutation(startSweepRef);
+  const start = useMutation(api.sweep.start);
   // null = the default selection (the book); a Set once the contractor changes it.
   const [picked, setPicked] = useState<Set<string> | null>(null);
   const [starting, setStarting] = useState(false);

@@ -6,7 +6,6 @@
 // the stamp sound and haptic and is announced to screen readers ("rate mila", §15). D7: captions are
 // labelled DEMO and appear in sim only; live rows show status, timer and the slot checklist.
 import { useMutation, useQuery } from "convex/react";
-import { makeFunctionReference } from "convex/server";
 import { useEffect, useRef, useState } from "react";
 import { BestSoFarRibbon } from "@/components/mb/BestSoFarRibbon";
 import { CallDetail } from "@/components/mb/CallDetail";
@@ -14,7 +13,6 @@ import { DealerRow, type DealerRowProps, type RowState } from "@/components/mb/D
 import { ModeBadge } from "@/components/mb/ModeBadge";
 import { StopAllButton } from "@/components/mb/StatusPill";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import { buildBoard, type BoardRow, type BoardData } from "@/lib/board";
 import { earcons } from "@/lib/client/earcons";
 import { haptics } from "@/lib/client/haptics";
@@ -29,9 +27,6 @@ import { parseTurns } from "@/lib/transcript";
 import { AppFrame } from "./AppFrame";
 import { OrderLoading, OrderMissing } from "./OrderStates";
 import { useOrderScreen } from "./useOrderScreen";
-
-// The engine's sweep.stopAll (Phase 5 backend). Referenced by name until its module lands on main.
-const stopAllRef = makeFunctionReference<"mutation", { orderId: Id<"orders"> }, unknown>("sweep:stopAll");
 
 const KIND: Record<BoardRow["kind"], { state: RowState; label: DictKey }> = {
   queued: { state: "queued", label: "status.queued" },
@@ -65,7 +60,7 @@ export function SweepScreen({ orderId }: { orderId: string }) {
   const { t, lang } = useT();
   const order = useOrderScreen(orderId, "sweep");
   const data = useQuery(api.board.get, order ? { orderId: order._id } : "skip");
-  const stopAll = useMutation(stopAllRef);
+  const stopAll = useMutation(api.sweep.stopAll);
   const prefs = usePrefs();
   const now = useNow();
   const [selected, setSelected] = useState<string | null>(null);

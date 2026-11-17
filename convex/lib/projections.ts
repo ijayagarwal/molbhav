@@ -64,6 +64,7 @@ export function publicQuote(q: Doc<"quotes">) {
     citable: q.citable,
     flags: q.flags,
     firstTotal: q.firstTotal,
+    firstComparable: q.firstComparable,
     creditDays: q.creditDays,
     deliveryBy: q.deliveryBy,
     deliveryEtaText: q.deliveryEtaText,
