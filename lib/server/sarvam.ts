@@ -18,9 +18,12 @@ export const SARVAM_BASE_URL = "https://api.sarvam.ai";
 export const SARVAM_DEFAULTS = {
   sttModel: "saaras:v4",
   ttsModel: "bulbul:v4-flash",
-  /** Hindi customer-care persona (Sarvam's voices page and the text-to-speech skill, checked November 2026). */
-  ttsSpeakerHi: "aparna_hi_customer",
-  ttsSpeakerEn: "simran_en_customer",
+  /**
+   * A calm, mature male voice (the founders' choice, R20): Sarvam's docs rank `ashutosh` among the best male
+   * Hindi voices; `dev` is the male English conversational persona. Checked against the live list, 17 Nov 2026.
+   */
+  ttsSpeakerHi: "ashutosh_hi_conversational",
+  ttsSpeakerEn: "dev_en_conversational",
 } as const;
 export const STT_TIMEOUT_MS = 8_000;
 export const TTS_TIMEOUT_MS = 8_000;

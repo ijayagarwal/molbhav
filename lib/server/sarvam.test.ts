@@ -87,7 +87,7 @@ describe("synthesize (Bulbul v4 Flash)", () => {
       text: "सही हो तो शुरू कीजिए।",
       language_code: "hi-IN",
       model: "bulbul:v4-flash",
-      speaker: "aparna_hi_customer",
+      speaker: "ashutosh_hi_conversational",
       output_audio_codec: "mp3",
       speech_sample_rate: 24000,
     });

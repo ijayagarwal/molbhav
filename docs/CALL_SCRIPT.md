@@ -27,7 +27,7 @@ Four Bolna agents, one job each. Decisions behind every rule here are in `docs/D
 | Online check | after 8 s of silence: "जी, आप लाइन पे हैं?" |
 | Silence hangup | 20 s (so "रुकिए, देखके बताता हूँ" isn't dropped); on "रुकिए": "जी, आराम से।" |
 | Max length | as in the table above (`call_terminate`) |
-| Transcriber / voice | Try Sarvam first for both. Compare one alternative on the same 5 test calls. Pick the cheapest that passes the number test (below). |
+| Transcriber / voice | Try Sarvam first for both. Voice: a calm, mature **male** voice (R20): Sarvam Bulbul v4 Flash `ashutosh_hi_conversational` by default; compare an ElevenLabs male Hindi voice on the same 5 test calls (the founders have credits on both). Pick the one that passes the number test (below) and sounds most natural to dealers. |
 | Webhook | `https://<deployment>.convex.site/bolna/webhook`, secret in the header `x-molbhav-secret` |
 | Data residency | India, if available on the account |
 | Retries / rescheduling | **Off** in Bolna. Every retry is a new call through `claimDial` (R2). |
