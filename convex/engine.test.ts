@@ -239,6 +239,15 @@ async function errorCode(p: Promise<unknown>): Promise<string> {
   return "no error";
 }
 
+const removeRegularDealer = (t: T, contractorId: Id<"contractors">) =>
+  t.run(async (ctx) => {
+    const rows = await ctx.db
+      .query("contractorDealers")
+      .withIndex("by_contractor", (q) => q.eq("contractorId", contractorId))
+      .collect();
+    for (const r of rows.filter((x) => x.relation === "regular")) await ctx.db.delete(r._id);
+  });
+
 describe("sweep.start: who may start what", () => {
   test("refuses another user and a signed-out caller, and changes nothing", async () => {
     const { t, orderId, dealer } = await setup();
@@ -421,5 +430,210 @@ describe("extraction", () => {
     expect(q("bajrang")).toMatchObject({ billType: "pakka", comparable: true });
     expect(calls.find((c) => c.dealerId === dealer.krishna)).toMatchObject({ status: "completed", outcome: "callback_requested", callbackWhenText: "एक घंटे बाद" });
     expect(q("krishna")).toBeUndefined();
+  });
+});
+
+describe("haggle and match", () => {
+  test("on any order: cites only another dealer's lower citable total, drops only go down, a stated all-in counts (R1)", async () => {
+    const OTHER: OrderItem[] = [
+      { id: "s", material: "tmt_steel", diameterMm: 16, grade: "Fe550D", tier: "branded", quantity: 3, unit: "ton" },
+      { id: "c", material: "cement", cementType: "OPC53", tier: "branded", quantity: 200, unit: "bag" },
+    ];
+    const { t, as, orderId, dealer } = await setup({ items: OTHER, creditDaysWanted: undefined });
+    await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: [dealer.agarwal, dealer.omsai, dealer.bajrang] });
+    await runAll(t);
+    const { order, calls, quotes } = await snapshot(t, orderId);
+    expect(order.status).toBe("ready");
+    const haggles = calls.filter((c) => c.round === "haggle");
+    expect(haggles.length).toBeGreaterThan(0);
+    expect(haggles.length).toBeLessThanOrEqual(2);
+    for (const h of haggles) {
+      const cited = quotes.find((q) => q._id === h.citedQuoteId)!;
+      const own = quotes.find((q) => q.callId === h._id)!;
+      const before = quotes.filter((q) => q.dealerId === h.dealerId && q._creationTime < own._creationTime).at(-1)!;
+      expect(cited.dealerId).not.toBe(h.dealerId);
+      expect(cited.citable).toBe(true);
+      expect(cited.landed.total).toBeLessThan(before.landed.total);
+      expect(own.landed.total).toBeLessThan(before.landed.total);
+    }
+    // Om Sai (perton_gst_incl) says his haggle as one all-in figure on orders other than the demo one.
+    const omsaiHaggle = quotes.find((q) => q.dealerId === dealer.omsai && q.round === "haggle");
+    expect(omsaiHaggle).toMatchObject({ totalSource: "stated", comparable: true });
+    // The match call cites the best citable total heard so far.
+    const match = calls.find((c) => c.round === "match")!;
+    const best = Math.min(...quotes.filter((q) => q.citable && q.dealerId !== dealer.balaji && q._creationTime < match._creationTime).map((q) => q.landed.total));
+    expect(quotes.find((q) => q._id === match.citedQuoteId)!.landed.total).toBe(best);
+    const balaji = quotes.find((q) => q.dealerId === dealer.balaji)!;
+    expect(balaji.firstTotal).toBeGreaterThanOrEqual(balaji.landed.total);
+    // The winner is the cheapest (no credit asked for) and the ranking runs cheapest first.
+    const ranked = order.ranking!.map((id) => quotes.find((q) => q._id === id)!.landed.total);
+    expect(ranked).toEqual([...ranked].sort((a, b) => a - b));
+    expect(order.winningQuoteId).toBe(order.ranking![0]);
+  });
+
+  test("haggle.skipped with a single citable quote and no regular dealer", async () => {
+    const { t, as, orderId, contractorId, dealer } = await setup();
+    await removeRegularDealer(t, contractorId);
+    await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: [dealer.jain, dealer.rathore] });
+    await runAll(t);
+    const { order, calls, quotes } = await snapshot(t, orderId);
+    expect(order).toMatchObject({ status: "ready", haggleSkipped: true });
+    expect(calls.filter((c) => c.round !== "quote")).toHaveLength(0);
+    const jain = quotes.find((q) => q.dealerId === dealer.jain)!;
+    expect(jain.citable).toBe(true);
+    expect(order.ranking).toEqual([jain._id]);
+    expect(order.winningQuoteId).toBe(jain._id);
+  });
+
+  test("with nothing citable the regular dealer gets a plain quote call, and it counts as his first rate", async () => {
+    const { t, as, orderId, dealer } = await setup();
+    await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: [dealer.rathore, dealer.gupta] });
+    await runAll(t);
+    const { order, calls, quotes } = await snapshot(t, orderId);
+    expect(order).toMatchObject({ status: "ready", haggleSkipped: true });
+    const balajiCall = calls.find((c) => c.dealerId === dealer.balaji)!;
+    expect(balajiCall).toMatchObject({ round: "quote", status: "completed", outcome: "quoted" });
+    expect(balajiCall.citedQuoteId).toBeUndefined();
+    const balaji = quotes.find((q) => q.dealerId === dealer.balaji)!;
+    expect(balaji).toMatchObject({ round: "quote", firstTotal: 20430000, firstComparable: true });
+    expect(order.winningQuoteId).toBe(balaji._id);
+  });
+
+  test("a sim call stuck past its deadline is failed by the watchdog and the round moves on", async () => {
+    const { t, as, orderId, dealer } = await setup();
+    await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: [dealer.agarwal] });
+    await runAll(t, MON_11 + 1_000);
+    const callId = (await snapshot(t, orderId)).calls[0]._id;
+    // Its end never comes (as if finishCall were lost); the deadline passes.
+    await t.run(async (ctx) => {
+      const fns = await ctx.db.system.query("_scheduled_functions").collect();
+      for (const f of fns.filter((x) => x.name.includes("finishCall") && x.state.kind === "pending")) await ctx.scheduler.cancel(f._id);
+    });
+    await runAll(t);
+    const after = await snapshot(t, orderId);
+    expect(after.calls.find((c) => c._id === callId)).toMatchObject({ status: "failed", statusRank: 10, terminationReason: "sim_watchdog" });
+    expect(after.order.status).toBe("ready");
+  });
+});
+
+describe("place and confirm (§6.7)", () => {
+  async function readyDemo() {
+    const s = await setup();
+    await s.as.mutation(api.sweep.start, { orderId: s.orderId, mode: "sim", dealerIds: BOOK.map((p) => s.dealer[p]) });
+    await runAll(s.t);
+    const { order } = await snapshot(s.t, s.orderId);
+    return { ...s, winner: order.winningQuoteId!, runnerUp: order.ranking![1] };
+  }
+
+  test("place → 5 s undo window → confirm call → placed", async () => {
+    const { t, as, orderId, winner, dealer } = await readyDemo();
+    const placedAt = Date.now();
+    const { undoUntil } = await as.mutation(api.placing.place, { orderId, expectedQuoteId: winner });
+    // 5 s at demo pace (convex-test ticks the clock a millisecond per transaction).
+    expect(undoUntil - placedAt).toBeGreaterThanOrEqual(5_000);
+    expect(undoUntil - placedAt).toBeLessThan(5_010);
+    const placing = await snapshot(t, orderId);
+    expect(placing.order).toMatchObject({ status: "placing", undoUntil });
+    expect(placing.calls.filter((c) => c.round === "confirm")).toHaveLength(0);
+    await runAll(t);
+    const { order, calls } = await snapshot(t, orderId);
+    const confirm = calls.filter((c) => c.round === "confirm");
+    expect(confirm).toHaveLength(1);
+    expect(confirm[0]).toMatchObject({ dealerId: dealer.agarwal, confirmQuoteId: winner, status: "completed", outcome: "confirmed", attempt: 1 });
+    expect(confirm[0].startedAt! - placedAt).toBeGreaterThanOrEqual(5_000);
+    // The confirm call relays the approved all-in total, never a new one.
+    expect(confirm[0].transcript).toContain("एक लाख अट्ठानवे हज़ार आठ सौ तीस रुपये");
+    expect(order.status).toBe("placed");
+    expect(order.placeJobId).toBeUndefined();
+  });
+
+  test("place refuses a winner that isn't the order's, and anything but ready", async () => {
+    const { as, orderId, winner, runnerUp } = await readyDemo();
+    expect(await errorCode(as.mutation(api.placing.place, { orderId, expectedQuoteId: runnerUp }))).toBe("winner_changed");
+    await as.mutation(api.placing.place, { orderId, expectedQuoteId: winner });
+    expect(await errorCode(as.mutation(api.placing.place, { orderId, expectedQuoteId: winner }))).toBe("not_ready");
+  });
+
+  test("undo inside the window cancels: no confirm call, back at ready; after the window it's too late", async () => {
+    const { t, as, orderId, winner } = await readyDemo();
+    await as.mutation(api.placing.place, { orderId, expectedQuoteId: winner });
+    vi.advanceTimersByTime(3_000);
+    expect(await as.mutation(api.placing.undoPlace, { orderId })).toBe(true);
+    await runAll(t);
+    let snap = await snapshot(t, orderId);
+    expect(snap.order).toMatchObject({ status: "ready", winningQuoteId: winner });
+    expect(snap.order.placeJobId).toBeUndefined();
+    expect(snap.calls.filter((c) => c.round === "confirm")).toHaveLength(0);
+    expect(await as.mutation(api.placing.undoPlace, { orderId })).toBe(false);
+
+    // Place again and let the window pass: undo no longer works.
+    await as.mutation(api.placing.place, { orderId, expectedQuoteId: winner });
+    await runAll(t, Date.now() + 5_500);
+    expect(await as.mutation(api.placing.undoPlace, { orderId })).toBe(false);
+    await runAll(t);
+    snap = await snapshot(t, orderId);
+    expect(snap.order.status).toBe("placed");
+  });
+
+  test("terms changed on the confirm call (seed flag): back to ready, the runner-up offered", async () => {
+    vi.stubEnv("SIM_REPRICE_AT_CONFIRM", "true");
+    const { t, as, orderId, winner, dealer } = await readyDemo();
+    await as.mutation(api.placing.place, { orderId, expectedQuoteId: winner });
+    await runAll(t);
+    const { order, calls, quotes } = await snapshot(t, orderId);
+    expect(calls.find((c) => c.round === "confirm")).toMatchObject({ outcome: "terms_changed", status: "completed" });
+    expect(order.status).toBe("ready");
+    expect(order.termsChangedQuoteIds).toEqual([winner]);
+    // The ranking stays frozen. Among the rest, Om Sai (₹1,99,400, cash) and Balaji (₹2,00,100, 15 days)
+    // are within 0.5%, and the contractor asked for credit: Balaji is offered.
+    expect(order.ranking![0]).toBe(winner);
+    const runnerUp = quotes.find((q) => q._id === order.winningQuoteId)!;
+    expect(runnerUp).toMatchObject({ dealerId: dealer.balaji, round: "match" });
+    // The contractor can place the runner-up; this time the dealer confirms.
+    vi.stubEnv("SIM_REPRICE_AT_CONFIRM", "false");
+    await as.mutation(api.placing.place, { orderId, expectedQuoteId: runnerUp._id });
+    await runAll(t);
+    const after = await snapshot(t, orderId);
+    expect(after.order.status).toBe("placed");
+    expect(after.calls.filter((c) => c.round === "confirm").map((c) => c.dealerId)).toEqual([dealer.agarwal, dealer.balaji]);
+  });
+
+  test("the reprice_at_confirm persona changes terms; with no runner-up there is no winner left", async () => {
+    const { t, as, orderId, contractorId, dealer } = await setup();
+    await removeRegularDealer(t, contractorId);
+    await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: [dealer.jain] });
+    await runAll(t);
+    const ready = (await snapshot(t, orderId)).order;
+    await as.mutation(api.placing.place, { orderId, expectedQuoteId: ready.winningQuoteId! });
+    await runAll(t);
+    const { order, calls } = await snapshot(t, orderId);
+    expect(calls.find((c) => c.round === "confirm")).toMatchObject({ dealerId: dealer.jain, outcome: "terms_changed" });
+    expect(order).toMatchObject({ status: "ready", termsChangedQuoteIds: [ready.winningQuoteId] });
+    expect(order.winningQuoteId).toBeUndefined();
+  });
+
+  test("a confirm call that doesn't connect leaves the order placing; retryConfirm places one more (R15, R18)", async () => {
+    const { t, as, orderId, winner } = await readyDemo();
+    await as.mutation(api.placing.place, { orderId, expectedQuoteId: winner });
+    expect(await as.mutation(api.placing.retryConfirm, { orderId })).toBe(false); // still inside the undo window
+    await runAll(t, Date.now() + 6_000);
+    // The dealer doesn't pick up (as a live webhook would report it).
+    const first = (await snapshot(t, orderId)).calls.find((c) => c.round === "confirm")!;
+    await t.run(async (ctx) => ctx.db.patch(first._id, { status: "no_answer", statusRank: 10, endedAt: Date.now() }));
+    await runAll(t);
+    let snap = await snapshot(t, orderId);
+    expect(snap.order.status).toBe("placing");
+
+    expect(await as.mutation(api.placing.retryConfirm, { orderId })).toBe(true);
+    const second = (await snapshot(t, orderId)).calls.filter((c) => c.round === "confirm")[1];
+    expect(second).toMatchObject({ attempt: 2, confirmQuoteId: winner });
+    // The retry doesn't connect either: the confirm call and one retry is all an order gets.
+    await runAll(t, Date.now() + 500);
+    await t.run(async (ctx) => ctx.db.patch(second._id, { status: "busy", statusRank: 10, endedAt: Date.now() }));
+    await runAll(t);
+    expect(await as.mutation(api.placing.retryConfirm, { orderId })).toBe(false);
+    snap = await snapshot(t, orderId);
+    expect(snap.order.status).toBe("placing");
+    expect(snap.calls.filter((c) => c.round === "confirm")).toHaveLength(2);
   });
 });

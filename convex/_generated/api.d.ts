@@ -27,6 +27,7 @@ import type * as lib_projections from "../lib/projections.js";
 import type * as limits from "../limits.js";
 import type * as llm from "../llm.js";
 import type * as orders from "../orders.js";
+import type * as placing from "../placing.js";
 import type * as pools from "../pools.js";
 import type * as quotes from "../quotes.js";
 import type * as seed from "../seed.js";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   limits: typeof limits;
   llm: typeof llm;
   orders: typeof orders;
+  placing: typeof placing;
   pools: typeof pools;
   quotes: typeof quotes;
   seed: typeof seed;
