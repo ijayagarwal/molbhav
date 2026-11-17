@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { DEMO_ITEMS } from "./fixtures/demoOrder";
-import { readBackText } from "./readback";
+import { readBackText, resultSummaryText } from "./readback";
 
 describe("readBackText (V3)", () => {
   test("Hindi: what and how much with the tier, then time and credit, then the closing statement", () => {
@@ -17,3 +17,15 @@ describe("readBackText (V3)", () => {
     );
   });
 });
+
+describe("resultSummaryText (V7)", () => {
+  const demo = { winnerName: "अग्रवाल स्टील्स", totalPaise: 19_883_000, saved: 547_000, basis: "first_rate" as const, regularIsCheapest: false };
+  test("Hindi: the winner and total, then the saving and its basis, spoken exactly", () => {
+    expect(resultSummaryText(demo, "hi")).toBe("सबसे सस्ता: अग्रवाल स्टील्स, एक लाख अट्ठानवे हज़ार आठ सौ तीस रुपये, सब मिलाके। पाँच हज़ार चार सौ सत्तर रुपये कम, आपके dealer के पहले रेट से।");
+  });
+  test("English, and the regular-dealer-is-cheapest case", () => {
+    expect(resultSummaryText({ ...demo, winnerName: "Agarwal Steels" }, "en")).toBe("Cheapest: Agarwal Steels, ₹1,98,830 all in. ₹5,470 less than your dealer's first rate.");
+    expect(resultSummaryText({ ...demo, regularIsCheapest: true }, "hi")).toContain("आपके dealer ही सबसे सस्ते हैं।");
+  });
+});
+

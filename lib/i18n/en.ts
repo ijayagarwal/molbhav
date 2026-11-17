@@ -345,4 +345,11 @@ export const en: Record<DictKey, string> = {
   "call.noCallYet": "Not called yet",
   "call.cash": "No credit, cash",
   "call.delivery": "Delivery",
+
+  "result.moreBy": "₹{x} more",
+  "result.placing": "Placing…",
+  "result.statedTotal": "The dealer gave one all-in figure",
+  "result.empty": "No confirmed quote came in",
+  "result.emptyHint": "Quotes that need checking are below. You can try again.",
+  "result.newOrder": "New order",
 };

@@ -350,6 +350,14 @@ export const hi = {
   "call.noCallYet": "अभी कॉल नहीं हुई",
   "call.cash": "उधार नहीं, कैश",
   "call.delivery": "डिलीवरी",
+
+  // Result.
+  "result.moreBy": "₹{x} ज़्यादा",
+  "result.placing": "पक्का कर रहे हैं…",
+  "result.statedTotal": "dealer ने सब मिलाके एक रकम बताई",
+  "result.empty": "कोई पक्का रेट नहीं मिला",
+  "result.emptyHint": "जाँच बाकी वाले रेट नीचे हैं। चाहें तो फिर से कोशिश कीजिए।",
+  "result.newOrder": "नया ऑर्डर",
 } as const;
 
 export type DictKey = keyof typeof hi;

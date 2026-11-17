@@ -405,3 +405,18 @@ describe("standing quotes", () => {
     expect(standingQuotes([q, bq, h, bad]).map((s) => s.quoteId).sort()).toEqual(["bq", "h"]);
   });
 });
+
+describe("lineBreakdown (the parchi's lines)", () => {
+  test("the demo winner's lines add up to the same subtotal and GST as priceQuote", async () => {
+    const { lineBreakdown } = await import("./pricing");
+    const { DEMO_ITEMS } = await import("./fixtures/demoOrder");
+    const lines = [
+      { orderItemId: "steel", rate: 56.5, rateUnit: "kg" as const, gstMode: "extra" as const, inStock: "yes" as const },
+      { orderItemId: "cement", rate: 370, rateUnit: "bag" as const, gstMode: "extra" as const, inStock: "yes" as const },
+    ];
+    const out = lineBreakdown(DEMO_ITEMS, lines, false);
+    expect(out.map((l) => l.subtotal)).toEqual([11_300_000, 5_550_000]);
+    expect(out.reduce((s, l) => s + l.gst, 0)).toBe(3_033_000);
+  });
+});
+

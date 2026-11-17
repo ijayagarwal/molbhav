@@ -4,7 +4,7 @@
 // (speechSynthesis hi-IN); Phase 4's POST /api/tts builds the same text on the server for Bulbul.
 import { DELIVER_BY } from "./config";
 import type { DeliverBy, OrderItem } from "./domain";
-import { hindiNumberWords, spokenOrder } from "./numbers";
+import { hindiNumberWords, hindiRupees, spokenOrder } from "./numbers";
 
 export interface ReadBackInput {
   items: OrderItem[];
@@ -42,4 +42,23 @@ export function readBackText(input: ReadBackInput, lang: "hi" | "en"): string {
     sentences.push("If that's right, start.");
   }
   return sentences.join(" ");
+}
+
+/**
+ * The spoken result (DESIGN §12.7, V7): 2–3 sentences, money spoken exactly in lakh and hazaar. Off when the
+ * contractor turned the spoken result off. `saved` is in paise; 0 or null leaves the saving sentence out.
+ */
+export function resultSummaryText(input: { winnerName: string; totalPaise: number; saved: number | null; basis: "first_rate" | "median" | "none"; regularIsCheapest: boolean }, lang: "hi" | "en"): string {
+  const rupees = (p: number) => Math.round(p / 100);
+  if (lang === "hi") {
+    const out = [`सबसे सस्ता: ${input.winnerName}, ${hindiRupees(rupees(input.totalPaise))}, सब मिलाके।`];
+    if (input.regularIsCheapest) out.push("आपके dealer ही सबसे सस्ते हैं।");
+    else if (input.saved && input.basis !== "none") out.push(`${hindiRupees(rupees(input.saved))} कम, ${input.basis === "first_rate" ? "आपके dealer के पहले रेट से" : "बीच वाले रेट से"}।`);
+    return out.join(" ");
+  }
+  const fmt = (p: number) => `₹${new Intl.NumberFormat("en-IN").format(rupees(p))}`;
+  const out = [`Cheapest: ${input.winnerName}, ${fmt(input.totalPaise)} all in.`];
+  if (input.regularIsCheapest) out.push("Your own dealer is the cheapest.");
+  else if (input.saved && input.basis !== "none") out.push(`${fmt(input.saved)} less than ${input.basis === "first_rate" ? "your dealer's first rate" : "the middle quote"}.`);
+  return out.join(" ");
 }

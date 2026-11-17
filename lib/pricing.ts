@@ -195,6 +195,22 @@ function lineMath(item: OrderItem, line: QuoteLine, useCreditRate: boolean): Lin
   return { subtotal, gst, perUnitPaise, unitMismatch };
 }
 
+/**
+ * Per-item amounts for display (the parchi's lines), from the same math as priceQuote, so the lines can
+ * never disagree with the total. Only for a computed total: when the dealer's own all-in figure is the
+ * total (totalSource "stated", R1), the per-item lines no longer add up to it and are not shown.
+ */
+export function lineBreakdown(items: OrderItem[], lines: QuoteLine[], wantsCredit: boolean) {
+  return items.flatMap((item) => {
+    const line = lines.find((l) => l.orderItemId === item.id);
+    if (line === undefined || item.quantity === undefined || item.unit === undefined || line.inStock === "no") return [];
+    const m = lineMath(item, line, wantsCredit);
+    if (m.unitMismatch) return [];
+    const rate = wantsCredit && line.creditRate !== undefined ? line.creditRate : line.rate;
+    return [{ itemId: item.id, rate, rateUnit: line.rateUnit, gstMode: line.gstMode, subtotal: m.subtotal, gst: m.gst }];
+  });
+}
+
 function bandFor(bands: PriceBand[], material: Material): PriceBand | undefined {
   return bands.find((b) => b.material === material);
 }
