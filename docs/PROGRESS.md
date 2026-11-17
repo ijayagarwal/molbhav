@@ -65,7 +65,7 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 | 5 / 6A / 6B engine | Sim sweep, extraction job, haggle, match, ranking, place + undo + confirm call | Done in sim (live dial waits for 8B; the extraction golden set is ready to run with the OpenAI key) | `f571ea4`, `b06d39a`, `10fb8c7`, `a701ce6` |
 | App screens | Onboarding, Home, Settings (language switch), Confirm | Done (sim; voice and typed parsing come with Phase 4) | `6caaa21` |
 | App screens 2 | Choose dealers, Sweep board, Result, Placed, Share, landing, PWA | Done in sim; reviewed (17 defects fixed); verified on production | `f32e70f` … `8781d88` |
-| 4 | Real voice: recorder, Sarvam STT, OpenAI parse (R19), read-back TTS | Server half merged; keys in; client half and the OpenAI swap in progress | `5f8ba5a` … `c997e98` |
+| 4 | Real voice: recorder, Sarvam STT, OpenAI parse (R19), read-back TTS | Built; works end to end on local dev with real speech; deployed. Real-phone test pending | `5f8ba5a` … `286269e` |
 | 8B / 8C | Bolna dial, webhooks, report_quote; recordings and retention | Later (needs a Bolna account) | — |
 | Team test | Real AI calls to teammates' verified phones | Later | — |
 | 1C, 7, 9, 10 | Landing and waitlist; sandbox and presenter; hardening; go-live | Later | — |
@@ -95,8 +95,21 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
   10.8 s of spoken Hindi → transcript streamed at 1.2 s → draft at 3.1 s → Confirm shows 12mm Fe500D 2 ton
   (tier asked), PPC 150 bags ("कोई भी" pre-selected), Mansarovar, कल सुबह, 15 days. Typed fallback: draft at
   2.6 s. Server-built read-back from Sarvam: 3.5 s.
-- **In progress (an agent):** the phone side of voice (real recorder, mic permission primer, live transcript,
-  typed fallback in the UI, Confirm's chips asked one at a time, the read-back autoplay).
+- **Phase 4 client half merged; real voice works end to end on local dev.** Chrome's fake microphone plays the
+  demo line (e2e/demo.wav, Bulbul's synthetic voice for now) into the real mic button: listening sheet with a
+  live level meter → send → Sarvam STT → OpenAI parse → Confirm with 12mm Fe500D 2 ton, PPC 150 bags,
+  Mansarovar, tomorrow morning, 15 days. Also: the mic permission primer, every route error in plain words,
+  the typed fallback (phone sheet and desk composer), Confirm asking one thing at a time, the Sarvam read-back
+  (auto-plays once, can be stopped and muted, falls back to the browser's voice).
+  - Fixed on the way: Saaras spells areas in different ways ("Manasarovar", "Manas Sarovar"); the area match
+    now compares consonants on whole words. Bar size is asked with mm chips (suta → 12 or 16 mm, P7), and the
+    server refuses steel without a size.
+  - `E2E_LIVE_VOICE=1 pnpm e2e` runs the spoken and typed order tests (real API calls; local dev only, because
+    production's BotID correctly refuses automated browsers).
+  - /app's first load on production: 195 KB of JS (budget 200 KB): watch it.
+- **Still to do in Phase 4:** a test on a real phone over HTTPS (production refuses automated browsers, so only
+  a person can check it), the founders' own recording, voice "हाँ, शुरू कीजिए" on Confirm (needs a
+  speech-only route), and the "change site" sheet listing more than the home site.
 
 ### 17 Nov 2026 (evening): the whole sim flow works end to end
 - **What a contractor can do now (sim, DEMO dealers, zero call cost):** onboard → tap the example order →
@@ -241,7 +254,7 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 | ~~Sarvam API key~~ | Received 17 Nov 2026; set in `.env.local` and Vercel production | Done. Rotate it once things run (it was pasted in chat). |
 | ~~OpenAI API key~~ (replaces both Gemini keys, R19) | Received 17 Nov 2026; set in `.env.local`, Vercel production and both Convex deployments | Done. Rotate it once things run (it was pasted in chat). Set a monthly budget limit in the OpenAI dashboard. |
 | `~/Downloads/demo.m4a` | A real human voice for the voice test (the automated test can use Bulbul's synthetic voice meanwhile) | Record the demo line from docs/DEMO.md in Voice Memos and save it to Downloads |
-| A real phone for HTTPS tests | Mic and voice checks (Claude starts the tunnel) | Any Android in Chrome |
+| A real phone for HTTPS tests | The last Phase 4 check: speak an order on https://molbhav-weld.vercel.app/app (automated browsers are refused there by design) | Any Android in Chrome: open the link, onboard, tap the mic, say the demo line, and tell Claude what Confirm showed |
 | Later: Bolna account + teammates' phone numbers | The Team test (real AI calls to teammates only) | START_HERE.md Part C5 |
 | Later: the team's WhatsApp Business number | The landing page's main call to action (Phase 1C) | WhatsApp Business app on a team phone; send the number |
 | Later: a lawyer's read of /privacy and the consent text | Before the landing link is shared publicly (Phase 1C, DPDP) | Claude drafts both; the lawyer reviews |
