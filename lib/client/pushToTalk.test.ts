@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { keyIntent, type FocusInfo, type KeyInfo, type PttContext } from "./pushToTalk";
+import { composerKeyLabel, keyIntent, type FocusInfo, type KeyInfo, type PttContext } from "./pushToTalk";
 
 const SPACE: KeyInfo = { key: " ", code: "Space", repeat: false, isComposing: false, metaKey: false, ctrlKey: false, altKey: false, shiftKey: false };
 const BODY: FocusInfo = { onBodyOrDock: true, inTextField: false, onButton: false };
@@ -33,5 +33,19 @@ describe("⌘K / Ctrl+K", () => {
     expect(keyIntent({ ...k, metaKey: true }, { onBodyOrDock: false, inTextField: true, onButton: false }, { ...ON, shortcutsOn: false })).toBe("composer");
     expect(keyIntent({ ...k, ctrlKey: true }, BODY, ON)).toBe("composer");
     expect(keyIntent(k, BODY, ON)).toBeNull();
+  });
+});
+
+describe("review of 2B", () => {
+  test("Safari's IME keyCode 229 is ignored like isComposing", () => {
+    expect(keyIntent({ ...SPACE, keyCode: 229 }, BODY, ON)).toBeNull();
+  });
+  test("⌘K works on non-Latin layouts through the physical key code", () => {
+    expect(keyIntent({ ...SPACE, key: "क", code: "KeyK", metaKey: true }, BODY, ON)).toBe("composer");
+  });
+  test("the hint shows Ctrl K off Apple devices", () => {
+    expect(composerKeyLabel("MacIntel")).toBe("⌘K");
+    expect(composerKeyLabel("Win32")).toBe("Ctrl K");
+    expect(composerKeyLabel("Linux armv8l")).toBe("Ctrl K");
   });
 });

@@ -20,6 +20,8 @@ export interface ComparisonRow {
 
 export interface ComparisonLabels {
   caption: string;
+  /** The winner's word, so it isn't marked by colour alone ("सबसे सस्ता"). */
+  best: string;
   dealer: string;
   total: string;
   rate: string;
@@ -70,6 +72,7 @@ export function ComparisonTable({ rows, labels }: { rows: ComparisonRow[]; label
                 <th scope="row" className="sticky left-0 z-10 max-w-[160px] bg-card px-3 py-3 text-left">
                   {r.winner ? <span aria-hidden="true" className="absolute inset-0 bg-haldi/30" /> : null}
                   <span className="relative block truncate text-label">{r.name}</span>
+                  {r.winner ? <span className="relative inline-flex items-center gap-1 text-meta font-ui-semibold">{labels.best}</span> : null}
                   {r.badge ? <span className="relative text-meta text-ink-2">{r.badge}</span> : null}
                 </th>
                 <td className={`${cell} text-right`}>

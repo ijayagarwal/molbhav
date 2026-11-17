@@ -29,7 +29,7 @@ export function Parchi({ heading, status, dealerName, totalPaise, allInLabel, li
       {watermark ? (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute right-3 top-3.5 z-10 -rotate-6 whitespace-nowrap rounded-parchi border-[1.5px] border-lal bg-card px-2 py-0.5 font-mono text-[13px] font-semibold leading-5 tracking-[0.04em] text-lal opacity-90"
+          className="pointer-events-none absolute right-3 top-3.5 z-10 -rotate-6 whitespace-nowrap rounded-parchi border-[1.5px] border-lal bg-card px-2 py-0.5 font-mono text-meta font-semibold tracking-[0.04em] text-lal opacity-90"
         >
           {watermark}
         </span>

@@ -10,6 +10,7 @@ Molbhav is a voice-first buying agent for small building contractors (thekedars)
 6. The contractor confirms by voice.
 
 ## Read before any substantial work, in this order
+0. `docs/PROGRESS.md`: the living status page (what is built, what is next, what the founders still need to give). **Update it whenever a phase or a session's work lands.**
 1. `docs/DECISIONS.md`: the expert panel's decisions (codes like P1, V1, B2) and §R, the review changes (R1–R18), which override older rows. **If any doc disagrees with it, DECISIONS.md wins.**
 2. `docs/PRODUCT.md`: users, scope, flows, edge cases, domain, metrics.
 3. `docs/DESIGN.md`: design system, screens, voice UX, copy deck. **Design decisions live here; do not invent new ones.**

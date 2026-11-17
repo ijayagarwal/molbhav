@@ -144,6 +144,7 @@ Desktop (≥1024 px): `price-hero` 56/60, `title-1` 32/40, `title-2` 24/32; body
 - **Depth:** borders, not shadows. Cards get a 1 px `--rule` border. The only shadow is the **painted shadow**, a hard offset with 0 blur: `--paint-sm 2px 2px 0`, `--paint 3px 3px 0`, `--paint-lg 5px 5px 0`, in ink on paper. It is used on the mic, primary buttons, the best-price ribbon and the winner parchi. The wordmark uses a 0.08em haldi offset.
 - Pressed: the painted shadow collapses and the element moves 2 px down-right ("presses into paper").
 - Ledger texture: lists use 1 px `--rule` horizontal lines like a ruled notebook.
+- **Scrims:** ink at 50% behind drawers and bottom sheets; ink at 90% behind the listening sheet (a focus mode, as in `Listening.html`). No blur.
 - Lint-ban shadcn defaults that fight this look: `shadow-sm/md/lg/xl/2xl`, `rounded-md`, `ring-offset-*` (our own painted-shadow tokens stay allowed). Focus rings use `outline` + `outline-offset`, not `ring-offset-*`.
 
 ## 8. Icons

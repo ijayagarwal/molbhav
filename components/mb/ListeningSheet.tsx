@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useRef, type ReactNode } from "react";
 import { BackBold, LockBold } from "./icons";
 import { PrimaryButton, SecondaryButton } from "./Buttons";
 
@@ -46,10 +48,18 @@ function clock(ms: number) {
 }
 
 export function ListeningSheet({ mode, elapsedMs, levels, drag = { dx: 0, dy: 0 }, labels, mic, onCancel, onSend, inline = false, transcript }: Props) {
+  // While the finger is down the sheet is a status overlay (the pointer is still captured by the mic, so
+  // nothing may become inert). Once locked, the finger has lifted: it becomes a modal dialog and focus
+  // moves to रद्द (review of 2B). Esc cancels a take everywhere (features/voice/useMic.ts).
+  const modal = !inline && mode === "locked";
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (modal) cancelRef.current?.focus();
+  }, [modal]);
   const cancelling = drag.dx <= -40;
   const locking = drag.dy <= -50;
   return (
-    <div className={inline ? "relative flex h-[640px] flex-col overflow-hidden rounded-card bg-ink" : "fixed inset-0 z-40 flex flex-col bg-ink/90"} role="dialog" aria-modal={!inline} aria-label={labels.listening}>
+    <div className={inline ? "relative flex h-[640px] flex-col overflow-hidden rounded-card bg-ink" : "fixed inset-0 z-40 flex flex-col bg-ink/90"} role={modal ? "dialog" : undefined} aria-modal={modal || undefined} aria-label={labels.listening}>
       <div className="flex-1" />
       <div className="flex flex-col items-center gap-3 rounded-t-sheet bg-paper px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 [overscroll-behavior:contain]">
         <span aria-hidden="true" className="h-1.5 w-11 rounded-full bg-rule" />
@@ -99,8 +109,10 @@ export function ListeningSheet({ mode, elapsedMs, levels, drag = { dx: 0, dy: 0 
           </div>
         ) : mode === "locked" ? (
           <div className="grid w-full grid-cols-2 gap-3 pt-2">
-            <SecondaryButton onClick={onCancel}>{labels.cancel}</SecondaryButton>
-            <PrimaryButton onClick={onSend} className="h-14 text-label">
+            <SecondaryButton ref={cancelRef} onClick={onCancel}>
+              {labels.cancel}
+            </SecondaryButton>
+            <PrimaryButton size="md" onClick={onSend}>
               {labels.send}
             </PrimaryButton>
           </div>

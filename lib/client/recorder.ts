@@ -15,7 +15,10 @@ export interface Recorder {
   start(): Promise<void>;
   /** Ends the take. Returns null when it had under 0.6 s of speech (discarded silently, V1). */
   stop(): Promise<RecordedClip | null>;
-  /** Ends the take and throws it away; tracks are stopped either way. */
+  /**
+   * Ends the take and throws it away; tracks are stopped either way. If start() is still pending
+   * (permission prompt), cancel() makes it reject with Error("cancelled") and releases the mic.
+   */
   cancel(): void;
   /** Current input level, 0–1, for the level bars. */
   getLevel(): number;
