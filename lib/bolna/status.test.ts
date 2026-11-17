@@ -72,8 +72,9 @@ describe("deadlines and the watchdog (B5, R15)", () => {
     expect(watchdogDecision({ status: "dialing", now, hasExecution: true, claimedAt: now - 61_000 })).toEqual({ kind: "fail", reason: "watchdog_dialing" });
   });
 
-  test("ringing and in-progress past their deadline fail", () => {
-    expect(watchdogDecision({ status: "ringing", now, hasExecution: true }).kind).toBe("fail");
+  test("ringing gets until 90 s after the claim (networks ring up to a minute); in progress past its deadline fails", () => {
+    expect(watchdogDecision({ status: "ringing", now, hasExecution: true, claimedAt: now - 50_000 })).toEqual({ kind: "extend", deadlineAt: now + 40_000 });
+    expect(watchdogDecision({ status: "ringing", now, hasExecution: true, claimedAt: now - 90_000 })).toEqual({ kind: "fail", reason: "watchdog_ringing" });
     expect(watchdogDecision({ status: "in_progress", now, hasExecution: true }).kind).toBe("fail");
   });
 

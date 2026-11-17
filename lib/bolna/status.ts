@@ -145,6 +145,12 @@ export const CALL_TERMINATE_SEC: Record<Round, number> = { quote: 150, haggle: 9
 export const IN_PROGRESS_GRACE_MS = 30_000;
 /** A dial Bolna confirmed but still holds as queued/initiated gets this long in all before it is failed (R15 + grace). */
 export const DIALING_CONFIRMED_LIMIT_MS = 60_000;
+/**
+ * A call Bolna confirms is still ringing at the 45 s deadline (B5) gets until this long after the claim: Indian
+ * networks ring for up to about a minute before giving up, and failing a call the dealer then picks up would
+ * drop his quote. Bolna can't stop a ringing call, so failing it early buys nothing.
+ */
+export const RINGING_CONFIRMED_LIMIT_MS = 90_000;
 /** Bolna's post-processing after the line drops can take 2–3 minutes; the slot is held at most this long. */
 export const DISCONNECTED_LIMIT_MS = 5 * 60_000;
 /** Each re-arm of the disconnected watchdog while Bolna is still post-processing. */
@@ -177,7 +183,8 @@ export type WatchdogDecision =
  * and applied whatever Bolna said (B5, R15). Never a redial: an unconfirmed dial is failed, not retried (B2).
  * - dialing, no execution found at Bolna: failed (a hung or lost dial must not hold a slot).
  * - dialing, Bolna holds it as queued/initiated: up to DIALING_CONFIRMED_LIMIT_MS from the claim, then failed.
- * - ringing past 45 s, in progress past call_terminate + 30 s: failed.
+ * - ringing past 45 s: up to RINGING_CONFIRMED_LIMIT_MS from the claim while Bolna says it still rings, then failed.
+ * - in progress past call_terminate + 30 s: failed.
  * - disconnected: re-armed while Bolna post-processes, up to DISCONNECTED_LIMIT_MS after the line dropped.
  */
 export function watchdogDecision(i: {
@@ -195,8 +202,10 @@ export function watchdogDecision(i: {
       const limit = (i.claimedAt ?? i.now) + DIALING_CONFIRMED_LIMIT_MS;
       return i.now < limit ? { kind: "extend", deadlineAt: limit } : { kind: "fail", reason: "watchdog_dialing" };
     }
-    case "ringing":
-      return { kind: "fail", reason: "watchdog_ringing" };
+    case "ringing": {
+      const limit = (i.claimedAt ?? i.now) + RINGING_CONFIRMED_LIMIT_MS;
+      return i.hasExecution && i.now < limit ? { kind: "extend", deadlineAt: limit } : { kind: "fail", reason: "watchdog_ringing" };
+    }
     case "in_progress":
       return { kind: "fail", reason: "watchdog_in_progress" };
     case "disconnected": {
