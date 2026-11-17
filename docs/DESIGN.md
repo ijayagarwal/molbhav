@@ -444,6 +444,14 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `result.setAsideNotReached` | dealer से बात नहीं हो पाई · अगला सबसे सस्ता देखिए | Couldn't reach the dealer · see the next cheapest |
 | `placed.chooseAnother` | अगला सबसे सस्ता देखिए | See the next cheapest |
 | `result.placeFailed` | ऑर्डर नहीं हो पाया · फिर से कोशिश कीजिए | Couldn't place this order · please try again |
+| `error.pageTitle` | ये पेज नहीं खुल पाया | This page couldn't open |
+| `error.pageHint` | हमारी तरफ़ से कुछ गड़बड़ हुई। फिर से कोशिश कीजिए, या होम पे जाइए। | Something went wrong on our side. Try again, or go home. |
+| `error.retry` | फिर से कोशिश कीजिए | Try again |
+| `badge.live` | LIVE | LIVE |
+| `item.steel` | TMT सरिया | TMT steel |
+| `item.cement` | सीमेंट | Cement |
+| `item.cementOf` | {type} सीमेंट | {type} cement |
+| `item.type` | टाइप | Type |
 | `badge.regular` | आपके dealer | Your dealer |
 | `badge.demo` | DEMO | DEMO |
 | `demo.watermark` | DEMO · काल्पनिक dealers | DEMO · fictional dealers |

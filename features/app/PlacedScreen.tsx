@@ -40,14 +40,14 @@ export function PlacedScreen({ orderId }: { orderId: string }) {
   const back = { href: "/app", label: t("rail.home") };
   if (order === undefined || (order && data === undefined)) {
     return (
-      <AppFrame back={back} title={t("placed.confirming")} phoneDock={null}>
+      <AppFrame back={back} title={t("order.placing")} phoneDock={null}>
         <OrderLoading />
       </AppFrame>
     );
   }
   if (order === null || !data) {
     return (
-      <AppFrame back={back} title={t("placed.confirming")} phoneDock={null}>
+      <AppFrame back={back} title={t("order.placing")} phoneDock={null}>
         <OrderMissing />
       </AppFrame>
     );
@@ -69,7 +69,7 @@ export function PlacedScreen({ orderId }: { orderId: string }) {
   const canRetry = notReached && call !== undefined && call.cancelReason !== "opted_out" && confirms.filter((c) => c.dealerId === call.dealerId).length < CALLS.maxConfirmCallsPerOrderPerDealer;
   const when = quote?.deliveryBy ? DELIVER_BY[quote.deliveryBy as DeliverBy][lang] : null;
 
-  const title = placed ? t("placed.title") : t("placed.confirming");
+  const title = placed ? t("placed.title") : t("order.placing");
 
   const parchi = quote ? (
     <Parchi

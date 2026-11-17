@@ -166,7 +166,7 @@ export function ResultScreen({ orderId }: { orderId: string }) {
       ) : null}
       <div className="flex items-center justify-between gap-3">
         <h1 className="font-display text-title-1">{s?.regularIsCheapest ? t("result.regularCheapest") : view.onlyOne ? t("result.onlyOne") : t("result.title")}</h1>
-        <ModeBadge mode={data.order.mode} label={data.order.mode === "sim" ? t("badge.demo") : "LIVE"} />
+        <ModeBadge mode={data.order.mode} label={data.order.mode === "sim" ? t("badge.demo") : t("badge.live")} />
       </div>
 
       {winner && wq ? (
