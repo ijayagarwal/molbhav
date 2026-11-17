@@ -15,7 +15,7 @@ Convex Auth (`@convex-dev/auth` 0.0.98, Anonymous provider) is set up on dev (`S
 
 Other Convex env (names only):
 - dev: `HASH_SECRET`; `ADMIN_USER_IDS` (a headless test browser's anonymous user, used to check `/app/admin` in Phase 8A; replace it with a founder's session id when one is needed). No live-call settings, so `claimDial` refuses everything (`live_off`).
-- prod: no live-call settings either. `HASH_SECRET` and `ADMIN_USER_IDS` get set before the first prod admin or live step.
+- prod: no live-call settings either. `HASH_SECRET` is set (generated 17 Nov 2026; it must never change, because stored phone and IP hashes depend on it; when Next.js server code needs it, copy it into the Vercel production env with `npx convex env get HASH_SECRET --prod` piped straight into `vercel env add`, never printed). `ADMIN_USER_IDS` gets set before the first prod admin step.
 
 ## Vercel (team `ganges1`, Hobby; project `molbhav`)
 - Production URL: **https://molbhav-weld.vercel.app**

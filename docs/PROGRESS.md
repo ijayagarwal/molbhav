@@ -62,15 +62,37 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 | 2A | The 20-second money shot (design gate) | Done, approved by the user | `phase-2A` |
 | 8A | Live-call guards (`claimDial`), CLI-only admin, disclosure check (pulled forward) | Done, reviewed | `phase-8A` |
 | 2B | Component library, phone shell, Munshi desk, mic gestures, Space push-to-talk | Done, reviewed | `phase-2B` |
-| 5 / 6A / 6B engine | Sim sweep, extraction, haggle, match, ranking, place + confirm (backend) | In progress (a parallel agent, own branch) | — |
-| App screens | Onboarding, Home, Settings (language switch), Confirm | Done (sim; voice and typed parsing come with Phase 4) | see log |
-| App screens 2 | Choose dealers, Sweep board, Result, Placed | In progress (wired to the engine branch) | — |
+| 5 / 6A / 6B engine | Sim sweep, extraction job, haggle, match, ranking, place + undo + confirm call | Done in sim (live dial waits for 8B; the extraction golden set waits for a Gemini key) | `f571ea4`, `b06d39a`, `10fb8c7`, `a701ce6` |
+| App screens | Onboarding, Home, Settings (language switch), Confirm | Done (sim; voice and typed parsing come with Phase 4) | `6caaa21` |
+| App screens 2 | Choose dealers, Sweep board, Result, Placed, Share, landing, PWA | Done in sim; full flow verified in a browser | `f32e70f` … `17ead0b` |
 | 4 | Real voice: recorder, Sarvam STT, Gemini parse, read-back TTS | Waiting for keys (see §6) | — |
 | 8B / 8C | Bolna dial, webhooks, report_quote; recordings and retention | Later (needs a Bolna account) | — |
 | Team test | Real AI calls to teammates' verified phones | Later | — |
 | 1C, 7, 9, 10 | Landing and waitlist; sandbox and presenter; hardening; go-live | Later | — |
 
 ## 4. Session log (what happened, newest first)
+
+### 17 Nov 2026 (evening): the whole sim flow works end to end
+- **What a contractor can do now (sim, DEMO dealers, zero call cost):** onboard → tap the example order →
+  confirm it → choose dealers → watch the live sweep board (calls ring, captions, a stamp per rate, the
+  haggle and the regular dealer's match) → Result (winner parchi, "₹5,470 कम" tally, the regular dealer's
+  card, the comparison) → place with a 5 s undo → the confirm call → "ऑर्डर पक्का" → share the parchi.
+- **Verified in a real browser:** 360 px in English (placed at 113 s) and 1440 px in Hindi, no console errors.
+  Numbers match TEAM_TEST: winner अग्रवाल स्टील्स ₹1,98,830, ₹5,470 below the regular dealer's first rate
+  ₹2,04,300; Balaji came down ₹4,200 and stays ₹1,270 dearer.
+- **Engine (Phases 5, 6A, 6B backend), merged from the parallel agent:**
+  - sweep with sim personas, the extraction job, advance and watchdog;
+  - haggle the best two, give the regular dealer the match, freeze the ranking;
+  - place with an undo window, the sim confirm call, "not reached" with one retry, terms changed → back to Result with the runner-up;
+  - the extraction golden set and `pnpm eval:extract` (not run yet: needs a Gemini key).
+- **Screens:** Choose dealers, the Sweep board, Result, Placed; the shared parchi at `/p/<id>` in three modes
+  (full, savings only, munshi) with a Hindi-correct preview image; the landing page in pilot wording (G2);
+  PWA icon, manifest and an offline page.
+- **Fixes found while testing:** "उन्हीं से लीजिए" (choosing the own dealer on Result) was refused by the
+  engine, which only accepted the cheapest; it now takes any standing ranked offer. The DEMO stamp no longer
+  covers the parchi's status line.
+- **Next:** deploy and seed production; an independent review of the new screens and backends; a Playwright
+  test for the full sim flow; then Phase 4 once the keys arrive.
 
 ### 17 Nov 2026
 - **The user asked for:**
@@ -103,9 +125,6 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
   - The language toggle is also in the phone top bar. The desk has the rail and the Bahi list of recent orders.
   - Until Phase 4 the mic and the typed composer say honestly that voice orders are coming soon.
   - Verified in a browser at 360 and 1440 px, in hi and en: no overflow; the whole path from onboarding to confirm works.
-- **In progress:**
-  - A parallel agent builds the sim call engine (Phases 5, 6A and 6B backend) on its own branch.
-  - The real app screens are being built against the schema contract (ARCHITECTURE §4).
 
 ### 15–16 Nov 2026
 - **Setup and plan:**
@@ -184,5 +203,7 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 
 - **Install and check:** `pnpm install`, then `pnpm typecheck`, `pnpm lint`, `pnpm test`.
 - **App:** `pnpm dev`. **Convex:** `npx convex dev --once` after changes in `convex/`.
-- **Seed demo data:** `npx convex run seed:reset`.
+- **Seed demo data:** `npx convex run seed:reset` (touches only DEMO rows; add `--prod` for production).
+- **End-to-end test:** `pnpm e2e` runs the whole sim order (onboarding → placed, with an undo) at 360 px in English
+  and 1440 px in Hindi against the dev deployment. It needs `.env.local` and seeded demo dealers; CI doesn't run it.
 - **Deploy:** `npx vercel@65.16.0 deploy --prod --yes --scope ganges1`. Details are in `docs/DEPLOYMENTS.md`.

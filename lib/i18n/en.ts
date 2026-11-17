@@ -30,7 +30,7 @@ export const en: Record<DictKey, string> = {
 
   "dealers.footer": "We'll call {n} dealers · every call says it's an AI",
   "dealers.matchLater": "Gets a chance to match at the end",
-  "dealers.askFirst": "Ask him first too",
+  "dealers.askFirst": "Ask them first too",
 
   "sweep.title": "Bargaining in progress",
   "sweep.progress": "{done}/{total} quotes in",
@@ -74,7 +74,7 @@ export const en: Record<DictKey, string> = {
   "result.savedVsFirst": "₹{x} less than your dealer's first rate (₹{y})",
   "result.savedVsMedian": "₹{x} less than the middle quote",
   "result.regularDropped": "{dealer} (your dealer) also came down ₹{z}",
-  "result.chooseRegular": "Buy from him",
+  "result.chooseRegular": "Buy from them",
   "result.regularCheapest": "Your dealer is the cheapest",
   "result.onlyOne": "Only one quote came in",
   "result.notComparable": "Needs checking; can't win",
@@ -354,7 +354,7 @@ export const en: Record<DictKey, string> = {
   "result.newOrder": "New order",
 
   "shared.saved": "{name} ji saved ₹{x}",
-  "shared.savedVsFirst": "against his own dealer's first rate",
+  "shared.savedVsFirst": "against their own dealer's first rate",
   "shared.savedVsMedian": "against the middle quote",
   "shared.found": "Cheapest found",
   "shared.munshiTitle": "Delivery slip",

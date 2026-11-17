@@ -386,7 +386,7 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `confirm.start` | हाँ, मोलभाव शुरू कीजिए | Yes, start bargaining |
 | `dealers.footer` | {n} dealers को call करेंगे · हर call में बताएँगे कि ये AI है | We'll call {n} dealers · every call says it's an AI |
 | `dealers.matchLater` | आख़िर में match का मौका | Gets a chance to match at the end |
-| `dealers.askFirst` | पहले भी पूछिए | Ask him first too |
+| `dealers.askFirst` | पहले भी पूछिए | Ask them first too |
 | `sweep.title` | मोलभाव चल रहा है | Bargaining in progress |
 | `sweep.progress` | {done}/{total} रेट मिले | {done}/{total} quotes in |
 | `sweep.best` | अभी तक सबसे सस्ता | Cheapest so far |
@@ -428,7 +428,7 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `result.savedVsFirst` | ₹{x} कम · आपके dealer के पहले रेट (₹{y}) से | ₹{x} less than your dealer's first rate (₹{y}) |
 | `result.savedVsMedian` | ₹{x} कम · बीच वाले रेट से | ₹{x} less than the middle quote |
 | `result.regularDropped` | {dealer} (आपके dealer) ने भी ₹{z} कम किया | {dealer} (your dealer) also came down ₹{z} |
-| `result.chooseRegular` | उन्हीं से लीजिए | Buy from him |
+| `result.chooseRegular` | उन्हीं से लीजिए | Buy from them |
 | `result.regularCheapest` | आपके dealer ही सबसे सस्ते | Your dealer is the cheapest |
 | `result.onlyOne` | सिर्फ 1 रेट मिला | Only one quote came in |
 | `result.notComparable` | जाँच बाकी, जीत नहीं सकता | Needs checking; can't win |
