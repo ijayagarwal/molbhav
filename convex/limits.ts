@@ -7,6 +7,7 @@
 // pass.
 import { DAY, HOUR, RateLimiter, calculateRateLimit } from "@convex-dev/rate-limiter";
 import { ConvexError, v } from "convex/values";
+import { sandboxDailyCapPaise } from "../lib/sandbox";
 import { IST_MIDNIGHT_EPOCH_MS, dailyCapPaise, voiceCostPaise } from "../lib/voiceCost";
 import { components } from "./_generated/api";
 import { userMutation } from "./lib/functions";
@@ -30,6 +31,14 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // events.track (POST /api/e and the server-side events, G6) per IP hash (generous for CGNAT), and overall.
   eventsIp: { kind: "token bucket", rate: 300, period: HOUR, capacity: 60 },
   eventsAll: { kind: "token bucket", rate: 30000, period: HOUR, capacity: 3000 },
+  // The /try sandbox (G3, ARCHITECTURE §6.9). Spoken and typed orders (POST /api/voice/order?sandbox=1, which
+  // spends on STT and the parse): 3 an hour per device (the anonymous session) and 10 an hour per IP hash.
+  // Sample chips (no vendor spend) have their own per-device bucket. Both count towards 500 sandbox orders a
+  // day across the deployment (fixed IST days); the paid path also counts towards SANDBOX_DAILY_INR_CAP.
+  "sbx:device": { kind: "token bucket", rate: 3, period: HOUR, capacity: 3 },
+  "sbx:ip": { kind: "token bucket", rate: 10, period: HOUR, capacity: 10 },
+  "sbx:sample": { kind: "token bucket", rate: 6, period: HOUR, capacity: 6 },
+  "sbx:global": { kind: "fixed window", rate: 500, period: DAY, start: IST_MIDNIGHT_EPOCH_MS },
 });
 
 /**
@@ -42,9 +51,9 @@ const SPEND = "voiceSpendPaise";
 const SPEND_BUCKET = 1e12;
 const SPEND_CONFIG = { kind: "fixed window" as const, rate: SPEND_BUCKET, capacity: SPEND_BUCKET, period: DAY, start: IST_MIDNIGHT_EPOCH_MS };
 
-/** Paise spent today (IST) by the voice routes. */
-async function spentToday(ctx: Parameters<typeof rateLimiter.limit>[0], now: number): Promise<number> {
-  const state = await rateLimiter.getValue(ctx, SPEND, { key: "all", config: SPEND_CONFIG });
+/** Paise spent today (IST) by the voice routes (or, with `name`, by the sandbox). */
+async function spentToday(ctx: Parameters<typeof rateLimiter.limit>[0], now: number, name: string = SPEND): Promise<number> {
+  const state = await rateLimiter.getValue(ctx, name, { key: "all", config: SPEND_CONFIG });
   const left = calculateRateLimit({ value: state.value, ts: state.ts }, SPEND_CONFIG, now).value;
   return Math.max(0, SPEND_BUCKET - left);
 }
@@ -118,6 +127,51 @@ export const consumeVoice = userMutation({
     for (const name of perUser) await rateLimiter.limit(ctx, name, { key: ctx.userId, throws: true });
     if (kind !== "tts") await rateLimiter.limit(ctx, "voiceIp", { key: ipHash, throws: true });
     await rateLimiter.limit(ctx, SPEND, { key: "all", count, config: SPEND_CONFIG, throws: true });
+    return { ok: true };
+  },
+});
+
+/** The sandbox's own daily spend (SANDBOX_DAILY_INR_CAP), kept apart from the app's VOICE_DAILY_INR_CAP. */
+const SANDBOX_SPEND = "sbx:spendPaise";
+
+/**
+ * POST /api/voice/order?sandbox=1, before any paid call (G3, ARCHITECTURE §6.9): `sbx:device` (3 an hour per
+ * anonymous session), `sbx:ip` (10 an hour per IP hash), `sbx:global` (500 sandbox orders a day, shared with
+ * the sample chips) and the sandbox's daily ₹ kill switch SANDBOX_DAILY_INR_CAP (unset = ₹100; 0 turns the
+ * paid path off; malformed fails closed). Called AS THE USER with CONVEX_SERVER_SECRET, like consumeVoice;
+ * every check passes or nothing is consumed. Throws `unauthenticated` or `forbidden`; otherwise a VoiceBudget.
+ */
+export const consumeSandbox = userMutation({
+  args: {
+    serverSecret: v.string(),
+    kind: v.union(v.literal("order_audio"), v.literal("order_text")),
+    ipHash: v.string(),
+  },
+  handler: async (ctx, { serverSecret, kind, ipHash }): Promise<VoiceBudget> => {
+    const secret = serverSecretMatches(serverSecret);
+    if (secret === null) return { ok: false, code: "not_configured" };
+    if (!secret) throw new ConvexError({ code: "forbidden" });
+    if (!/^[0-9a-f]{64}$/.test(ipHash)) throw new ConvexError({ code: "invalid_ip_hash" });
+
+    const capPaise = sandboxDailyCapPaise(process.env.SANDBOX_DAILY_INR_CAP);
+    if (capPaise === null) return { ok: false, code: "not_configured" };
+    if (capPaise === 0) return { ok: false, code: "cap_reached" };
+    const count = voiceCostPaise(kind);
+    const now = Date.now();
+
+    // Check everything first, then consume, so a refusal spends nothing.
+    const device = await rateLimiter.check(ctx, "sbx:device", { key: ctx.userId });
+    if (!device.ok) return { ok: false, code: "rate_limited", retryAfterMs: Math.ceil(device.retryAfter) };
+    const ip = await rateLimiter.check(ctx, "sbx:ip", { key: ipHash });
+    if (!ip.ok) return { ok: false, code: "rate_limited", retryAfterMs: Math.ceil(ip.retryAfter) };
+    const global = await rateLimiter.check(ctx, "sbx:global", { key: "all" });
+    if (!global.ok) return { ok: false, code: "cap_reached", retryAfterMs: Math.ceil(global.retryAfter) };
+    if ((await spentToday(ctx, now, SANDBOX_SPEND)) + count > capPaise) return { ok: false, code: "cap_reached", retryAfterMs: untilIstMidnight(now) };
+
+    await rateLimiter.limit(ctx, "sbx:device", { key: ctx.userId, throws: true });
+    await rateLimiter.limit(ctx, "sbx:ip", { key: ipHash, throws: true });
+    await rateLimiter.limit(ctx, "sbx:global", { key: "all", throws: true });
+    await rateLimiter.limit(ctx, SANDBOX_SPEND, { key: "all", count, config: SPEND_CONFIG, throws: true });
     return { ok: true };
   },
 });
