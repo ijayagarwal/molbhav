@@ -13,6 +13,8 @@ import { pickWinner, rankStanding, standingQuotes, type Contender, type PriceBan
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { kickWaitingDials } from "./lib/liveCalls";
+import { dialPool } from "./pools";
 import { PACES, type SimPaceKey } from "./sim/script";
 
 type Ctx = QueryCtx | MutationCtx;
@@ -58,8 +60,12 @@ export function roundOpen(order: Doc<"orders">, call: Doc<"calls">): boolean {
   return call.round === "confirm" ? order.status === "placing" : SWEEP_STATUSES.has(order.status);
 }
 
-/** A call is settled when it reached a final status and, if it completed, its extraction is over. */
-export const settled = (c: Doc<"calls">) => isFinal(c.status) && (c.status !== "completed" || c.extract === "done" || c.extract === "failed");
+/**
+ * A call is settled when it reached a final status, its extraction (if it completed) is over, and no retry of
+ * it is scheduled (live only: a no-answer or callback retry keeps the round waiting, at most 30 minutes, R15).
+ */
+export const settled = (c: Doc<"calls">) =>
+  isFinal(c.status) && (c.status !== "completed" || c.extract === "done" || c.extract === "failed") && c.retryAt === undefined;
 
 // ── Reading an order's round ───────────────────────────────────────────────────────────
 
@@ -176,9 +182,10 @@ export interface NewCall {
 }
 
 /**
- * Creates a queued call row in the order's current round and starts it: sim calls get `sim.runCall`;
- * live calls wait for Phase 8B's dial job (claimDial), and until then the watchdog cancels them at their
- * 10-minute queue deadline (fail closed). Every retry is a new row, attempt + 1 (R4).
+ * Creates a queued call row in the order's current round and starts it: sim calls get `sim.runCall`; live
+ * calls get a dial job (convex/bolna.ts dialJob), which goes through internal.calls.claimDial before anything
+ * reaches Bolna, and the watchdog cancels them at their 10-minute queue deadline if no slot frees (R2).
+ * Every retry is a new row, attempt + 1 (R4).
  */
 export async function createCall(ctx: MutationCtx, order: Doc<"orders">, c: NewCall): Promise<Id<"calls">> {
   const now = Date.now();
@@ -224,6 +231,7 @@ export async function createCall(ctx: MutationCtx, order: Doc<"orders">, c: NewC
     ...(c.confirmQuoteId === undefined ? {} : { confirmQuoteId: c.confirmQuoteId }),
   });
   if (order.mode === "sim") await ctx.scheduler.runAfter(c.delayMs, internal.sim.runCall, { callId, roundSeq: order.roundSeq });
+  else await dialPool.enqueueAction(ctx, internal.bolna.dialJob, { callId, backstop: true });
   await ctx.scheduler.runAt(deadlineAt, internal.engine.watchdog, { callId });
   return callId;
 }
@@ -420,11 +428,17 @@ export async function afterCallSettled(ctx: MutationCtx, call: Doc<"calls">): Pr
 export async function stopOrder(ctx: MutationCtx, order: Doc<"orders">): Promise<boolean> {
   if (!isSweeping(order.status)) return false;
   const calls = await roundCalls(ctx, order);
+  let liveStopped = false;
   for (const c of calls) {
-    // Live calls past claimDial are stopped through Bolna by Phase 8B; sim calls just end.
-    if (!isFinal(c.status)) await closeCall(ctx, c, "cancelled", { cancelReason: "stopped" });
+    if (isFinal(c.status)) continue;
+    await closeCall(ctx, c, "cancelled", { cancelReason: "stopped" });
+    // A live call Bolna already has is stopped there too (Bolna can stop it only while it is still queued
+    // at its end; one in progress ends on its own at call_terminate).
+    if (c.mode === "live" && c.providerExecutionId !== undefined) await ctx.scheduler.runAfter(0, internal.bolna.stopCall, { executionId: c.providerExecutionId });
+    if (c.mode === "live") liveStopped = true;
   }
   await freezeReady(ctx, order, await roundQuotes(ctx, order, calls));
+  if (liveStopped) await kickWaitingDials(ctx);
   return true;
 }
 
@@ -434,8 +448,8 @@ export async function stopOrder(ctx: MutationCtx, order: Doc<"orders">): Promise
  * Runs at a call's deadline. Whoever moves `deadlineAt` schedules a new run, so an early run does
  * nothing. A queued call past its deadline is cancelled (queue_timeout, or round_closed when its round
  * is over); a sim call still running is failed; a completed call whose extraction never finished is
- * marked extract failed. Live calls past claimDial are left to Phase 8B's Bolna watchdog, which polls
- * Bolna first (R15).
+ * marked extract failed. A live call past claimDial goes to convex/bolna.ts watchdog, which polls Bolna
+ * first (and looks the dial up in the agent's executions when it has no execution id, R15).
  */
 export const watchdog = internalMutation({
   args: { callId: v.id("calls") },
@@ -447,11 +461,15 @@ export const watchdog = internalMutation({
     if (call.status === "queued") {
       await closeCall(ctx, call, "cancelled", { cancelReason: open ? "queue_timeout" : "round_closed" });
     } else if (!isFinal(call.status)) {
-      if (call.mode !== "sim") return;
+      if (call.mode !== "sim") {
+        await ctx.scheduler.runAfter(0, internal.bolna.watchdog, { callId });
+        return;
+      }
       if (open) await closeCall(ctx, call, "failed", { terminationReason: "sim_watchdog" });
       else await closeCall(ctx, call, "cancelled", { cancelReason: "round_closed" });
     } else if (call.status === "completed" && (call.extract === "pending" || call.extract === "running")) {
-      await ctx.db.patch(call._id, { extract: "failed" });
+      // A provisional outcome from report_quote isn't confirmed without extraction; an opt-out stands (R15).
+      await ctx.db.patch(call._id, { extract: "failed", outcome: call.outcome === "opted_out" ? "opted_out" : undefined });
     } else {
       return;
     }

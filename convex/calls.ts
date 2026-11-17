@@ -39,6 +39,11 @@ const ROUND_STATUSES: Record<Round, ReadonlySet<Doc<"orders">["status"]>> = {
   confirm: new Set(["placing"]),
 };
 
+/** Whether a call of this round may dial while the order is in this status (claimDial, and the dial job's re-check, R18). */
+export function roundFitsOrder(round: Round, status: Doc<"orders">["status"]): boolean {
+  return ROUND_STATUSES[round].has(status);
+}
+
 export type ClaimResult =
   /** Dial now. `from` is null on the Bolna trial (its own caller ID, B9). Never returned to a client. */
   | { kind: "ok"; to: string; from: string | null }
@@ -114,7 +119,11 @@ export const claimDial = internalMutation({
       contractorId: contractor._id,
       opensSlot: opensDealerSlot(call.round, counts.dealerOpenedThisOrder),
     });
-    await ctx.db.patch(call._id, { status: "dialing", statusRank: 1, deadlineAt: now + CALLS.dialingDeadlineMs });
+    const deadlineAt = now + CALLS.dialingDeadlineMs;
+    await ctx.db.patch(call._id, { status: "dialing", statusRank: 1, deadlineAt });
+    // The dialing watchdog is armed in the same transaction as the claim, so a dial job that dies before or
+    // during POST /call can't hold the slot: at 30 s the watchdog looks the dial up at Bolna, never redials (R15).
+    await ctx.scheduler.runAt(deadlineAt, internal.engine.watchdog, { callId: call._id });
     return { kind: "ok", to: dealer.phoneE164, from: env.trial ? null : env.fromNumber };
   },
 });

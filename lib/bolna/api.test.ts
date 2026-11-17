@@ -4,7 +4,7 @@ import { BolnaError, createBolnaClient, dialDefinitelyRefused, DIAL_ENDPOINTS, S
 const KEY = "bn-test-secret-key";
 
 function fakeFetch(status = 200, body: unknown = { ok: true }) {
-  return vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => new Response(typeof body === "string" ? body : JSON.stringify(body), { status }));
+  return vi.fn<typeof fetch>(async () => new Response(typeof body === "string" ? body : JSON.stringify(body), { status }));
 }
 
 describe("createBolnaClient", () => {

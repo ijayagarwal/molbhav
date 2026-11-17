@@ -11,6 +11,8 @@
 import type * as admin from "../admin.js";
 import type * as auth from "../auth.js";
 import type * as board from "../board.js";
+import type * as bolna from "../bolna.js";
+import type * as bolnaHttp from "../bolnaHttp.js";
 import type * as calls from "../calls.js";
 import type * as contractors from "../contractors.js";
 import type * as dealers from "../dealers.js";
@@ -22,6 +24,7 @@ import type * as lib_domainCheck from "../lib/domainCheck.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_hash from "../lib/hash.js";
 import type * as lib_live from "../lib/live.js";
+import type * as lib_liveCalls from "../lib/liveCalls.js";
 import type * as lib_optOut from "../lib/optOut.js";
 import type * as lib_projections from "../lib/projections.js";
 import type * as limits from "../limits.js";
@@ -49,6 +52,8 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   auth: typeof auth;
   board: typeof board;
+  bolna: typeof bolna;
+  bolnaHttp: typeof bolnaHttp;
   calls: typeof calls;
   contractors: typeof contractors;
   dealers: typeof dealers;
@@ -60,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   "lib/functions": typeof lib_functions;
   "lib/hash": typeof lib_hash;
   "lib/live": typeof lib_live;
+  "lib/liveCalls": typeof lib_liveCalls;
   "lib/optOut": typeof lib_optOut;
   "lib/projections": typeof lib_projections;
   limits: typeof limits;

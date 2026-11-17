@@ -260,10 +260,11 @@ describe("sweep.start: who may start what", () => {
     expect(calls).toHaveLength(0);
   });
 
-  test("refuses live (Phase 8B), unconfirmed orders, incomplete items and dealers it may not call", async () => {
+  test("refuses live while live mode is off, unconfirmed orders, incomplete items and dealers it may not call", async () => {
     const { t, as, orderId, dealer } = await setup();
     const sim = (dealerIds: Id<"dealers">[]) => as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds });
-    expect(await errorCode(as.mutation(api.sweep.start, { orderId, mode: "live", dealerIds: [dealer.agarwal] }))).toBe("live_not_ready");
+    // Live sweeps exist since Phase 8B, but only when settings.liveAvailable would say yes (LIVE_CALLS_ENABLED is unset here).
+    expect(await errorCode(as.mutation(api.sweep.start, { orderId, mode: "live", dealerIds: [dealer.agarwal] }))).toBe("live_unavailable");
 
     await t.run(async (ctx) => ctx.db.patch(orderId, { status: "draft" }));
     expect(await errorCode(sim([dealer.agarwal]))).toBe("not_confirmed");

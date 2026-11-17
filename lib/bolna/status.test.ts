@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { CALLS } from "../config";
 import { BOLNA_STATUSES, deadlineFor, DIALING_CONFIRMED_LIMIT_MS, DISCONNECTED_LIMIT_MS, mapBolnaStatus, STATUS_RANK, watchdogDecision } from "./status";
 
-const status = (s: string, reason?: string) => {
+const status = (s: string, reason?: string | null) => {
   const m = mapBolnaStatus(s, reason);
   return m.kind === "status" ? m.status : m.kind;
 };
