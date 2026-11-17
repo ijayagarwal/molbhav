@@ -1,7 +1,9 @@
 import "server-only";
 import type { City } from "../config";
+import { DEMO_LINE, cannedDemoDraft, isDemoLine } from "../demoLine";
 import type { DeliverBy } from "../domain";
 import type { DraftItem, ParseNote, ParsedDraft } from "../parse";
+import { SANDBOX } from "../sandbox";
 
 // POST /api/voice/order (ARCHITECTURE §6.1; DECISIONS F3, B6, S3, R7): the handler, with its outside world
 // injected so it can be tested without Next, Convex, BotID or the vendors (app/api/voice/order/route.ts wires
@@ -16,6 +18,16 @@ import type { DraftItem, ParseNote, ParsedDraft } from "../parse";
 // Refusals before any work (bot, unauthenticated, bad_request, too_long, not_configured, rate_limited,
 // cap_reached) come as a single error line with a 4xx/5xx status; once the stream starts the status is 200.
 // The audio is passed to STT and dropped; nothing stores it, and the logs carry timings and sizes only.
+//
+// The sandbox (POST /api/voice/order?sandbox=1 from /try, DECISIONS G3, ARCHITECTURE §6.9): the same BotID,
+// session, STT and parse, but a 15 s clip (durationMs required, ≤ 16 s with the encoder's flush; ≤ 320 KB),
+// its own limits and ₹ kill switch (limits.consumeSandbox) and its own draft (sandbox.createDraft: kind
+// "sandbox", sim only, 24 h). Never the canned parse below.
+//
+// The canned parse (PROMPTS Phase 7 item 4, DEMO.md fallback 2): only when `demoFallback()` (DEMO_DEPLOYMENT=true
+// on this server) and only for an app order, STT failing (or hearing nothing) stands in the demo line's fixed
+// draft, and the parse failing on a transcript that IS the demo line (lib/demoLine.ts isDemoLine) does too.
+// Every use is logged on its own line (`evt: "voice_order_fallback"`) and on the draft line (`fallback`).
 
 export type VoiceErrorCode =
   | "bot"
@@ -74,6 +86,20 @@ export interface VoiceOrderDeps {
   createDraft(args: DraftArgs, token: string): Promise<string>;
   log(entry: Record<string, unknown>): void;
   now(): number;
+  /** The sandbox's budget (limits.consumeSandbox). Absent → a sandbox request answers not_configured. */
+  consumeSandbox?(kind: "order_audio" | "order_text", ipHash: string, token: string): Promise<Budget>;
+  /** The sandbox's draft (sandbox.createDraft, server secret + the visitor's session). */
+  createSandboxDraft?(args: SandboxDraftArgs, token: string): Promise<string>;
+  /** True only on the demo deployment (DEMO_DEPLOYMENT=true): the canned demo-line parse may stand in. */
+  demoFallback?(): boolean;
+}
+
+/** A sandbox draft has no site: whatever site was said is dropped. */
+export type SandboxDraftArgs = Omit<DraftArgs, "siteText">;
+
+export interface VoiceOrderOptions {
+  /** POST /api/voice/order?sandbox=1 from /try. */
+  sandbox?: boolean;
 }
 
 /** The `code` of a ConvexError thrown through the HTTP client, if any. */
@@ -98,7 +124,7 @@ type Input = { kind: "audio"; audio: Blob } | { kind: "text"; text: string };
 
 const AUDIO_TYPE = /^(audio\/[\w.+-]+|video\/(webm|mp4))(;.*)?$/i;
 
-async function readInput(req: Request): Promise<Input | { error: VoiceErrorCode }> {
+async function readInput(req: Request, sandbox: boolean): Promise<Input | { error: VoiceErrorCode }> {
   const length = Number(req.headers.get("content-length") ?? "0");
   if (Number.isFinite(length) && length > VOICE_LIMITS.maxBodyBytes) return { error: "too_long" };
   const type = (req.headers.get("content-type") ?? "").toLowerCase();
@@ -111,13 +137,15 @@ async function readInput(req: Request): Promise<Input | { error: VoiceErrorCode 
     }
     const audio = form.get("audio");
     if (!(audio instanceof Blob) || audio.size === 0) return { error: "bad_request" };
-    if (audio.size > VOICE_LIMITS.maxAudioBytes) return { error: "too_long" };
+    if (audio.size > (sandbox ? SANDBOX.maxAudioBytes : VOICE_LIMITS.maxAudioBytes)) return { error: "too_long" };
     if (!AUDIO_TYPE.test(audio.type)) return { error: "bad_request" };
     const duration = form.get("durationMs");
+    // The sandbox's 15 s cap is checked here too: its clips must say how long they are.
+    if (sandbox && (typeof duration !== "string" || duration === "")) return { error: "bad_request" };
     if (typeof duration === "string" && duration !== "") {
       const ms = Number(duration);
       if (!Number.isFinite(ms) || ms < 0) return { error: "bad_request" };
-      if (ms > VOICE_LIMITS.maxDurationMs) return { error: "too_long" };
+      if (ms > (sandbox ? SANDBOX.maxDurationMs : VOICE_LIMITS.maxDurationMs)) return { error: "too_long" };
     }
     return { kind: "audio", audio };
   }
@@ -155,14 +183,18 @@ const STATUS: Record<VoiceErrorCode, number> = {
 /** The city a parse is matched against; one city today (lib/config.ts CITIES). */
 const CITY: City = "Jaipur";
 
-export async function handleVoiceOrder(req: Request, deps: VoiceOrderDeps): Promise<Response> {
+export async function handleVoiceOrder(req: Request, deps: VoiceOrderDeps, opts: VoiceOrderOptions = {}): Promise<Response> {
+  const sandbox = opts.sandbox === true;
   const t0 = deps.now();
   const ms: Record<string, number> = {};
   const mark = (step: string, since: number) => {
     ms[step] = deps.now() - since;
     return deps.now();
   };
-  const log = (outcome: string, extra: Record<string, unknown> = {}) => deps.log({ evt: "voice_order", outcome, ms: { ...ms, total: deps.now() - t0 }, ...extra });
+  const log = (outcome: string, extra: Record<string, unknown> = {}) =>
+    deps.log({ evt: "voice_order", outcome, ms: { ...ms, total: deps.now() - t0 }, ...(sandbox ? { sandbox: true } : {}), ...extra });
+  // The canned demo-line parse: the demo deployment's app orders only, never the sandbox.
+  const canned = !sandbox && deps.demoFallback?.() === true;
 
   let t = t0;
   if (await deps.isBot()) {
@@ -176,7 +208,7 @@ export async function handleVoiceOrder(req: Request, deps: VoiceOrderDeps): Prom
     return refuse(STATUS.unauthenticated, "unauthenticated");
   }
 
-  const input = await readInput(req);
+  const input = await readInput(req, sandbox);
   t = mark("read", t);
   if ("error" in input) {
     log(input.error);
@@ -184,7 +216,8 @@ export async function handleVoiceOrder(req: Request, deps: VoiceOrderDeps): Prom
   }
   const meta = { input: input.kind, bytes: input.kind === "audio" ? input.audio.size : 0 };
 
-  const missing = deps.missingConfig(input.kind);
+  const sandboxDeps = deps.consumeSandbox && deps.createSandboxDraft ? { consume: deps.consumeSandbox, createDraft: deps.createSandboxDraft } : null;
+  const missing = sandbox && sandboxDeps === null ? "SANDBOX" : deps.missingConfig(input.kind);
   const ipHash = deps.ipHash(req);
   if (missing !== null || ipHash === null) {
     log("not_configured", { ...meta, missing: missing ?? "HASH_SECRET" });
@@ -193,7 +226,8 @@ export async function handleVoiceOrder(req: Request, deps: VoiceOrderDeps): Prom
 
   let budget: Budget;
   try {
-    budget = await deps.consume(input.kind === "audio" ? "order_audio" : "order_text", ipHash, token);
+    const kind = input.kind === "audio" ? "order_audio" : "order_text";
+    budget = sandboxDeps !== null && sandbox ? await sandboxDeps.consume(kind, ipHash, token) : await deps.consume(kind, ipHash, token);
   } catch (e) {
     const code = convexCode(e);
     const out: VoiceErrorCode = code === "unauthenticated" ? "unauthenticated" : code === "forbidden" ? "not_configured" : "server_error";
@@ -215,48 +249,72 @@ export async function handleVoiceOrder(req: Request, deps: VoiceOrderDeps): Prom
         send({ type: "error", code });
         log(code, { ...meta, ...extra });
       };
+      // The demo deployment's fallback (item 4): the demo line's fixed draft, announced in the log.
+      const fb: { reason: "stt_failed" | "no_speech" | "parse_failed" | null } = { reason: null };
+      const takeCanned = (reason: "stt_failed" | "no_speech" | "parse_failed", extra: Record<string, unknown> = {}) => {
+        fb.reason = reason;
+        deps.log({ evt: "voice_order_fallback", fallback: "canned_demo_line", reason, ...meta, ...extra });
+        return { draft: cannedDemoDraft(), model: "canned_demo_line" };
+      };
       try {
         let transcript: string;
+        let parsed: Awaited<ReturnType<VoiceOrderDeps["parse"]>> | null = null;
         if (input.kind === "audio") {
+          let heard: string | null = null;
+          let sttError: Record<string, unknown> | null = null;
           try {
-            transcript = (await deps.transcribe(input.audio, lang, req.signal)).replace(/\s+/g, " ").trim();
+            heard = (await deps.transcribe(input.audio, lang, req.signal)).replace(/\s+/g, " ").trim();
           } catch (e) {
-            t = mark("stt", t);
-            return fail("stt_failed", { stt: (e as { kind?: string }).kind ?? "error", status: (e as { status?: number }).status });
+            sttError = { stt: (e as { kind?: string }).kind ?? "error", status: (e as { status?: number }).status };
           }
           t = mark("stt", t);
-          if (transcript === "") return fail("no_speech");
+          if (sttError !== null || heard === "") {
+            if (!canned) return sttError !== null ? fail("stt_failed", sttError) : fail("no_speech");
+            parsed = takeCanned(sttError !== null ? "stt_failed" : "no_speech", sttError ?? {});
+            heard = DEMO_LINE;
+          }
+          transcript = heard ?? DEMO_LINE;
         } else {
           transcript = input.text;
         }
         send({ type: "transcript", text: transcript });
 
-        let parsed: Awaited<ReturnType<VoiceOrderDeps["parse"]>>;
-        try {
-          parsed = await deps.parse(transcript, CITY, req.signal);
-        } catch (e) {
+        if (parsed === null) {
+          let parseError: { code: VoiceErrorCode; extra: Record<string, unknown> } | null = null;
+          try {
+            parsed = await deps.parse(transcript, CITY, req.signal);
+            if (parsed.draft.items.length === 0) parseError = { code: "parse_failed", extra: { parse: "no_items", model: parsed.model } };
+          } catch (e) {
+            const kind = (e as { kind?: string }).kind;
+            parseError = { code: kind === "not_configured" ? "not_configured" : "parse_failed", extra: { parse: kind ?? "error", status: (e as { status?: number }).status } };
+          }
           t = mark("parse", t);
-          const kind = (e as { kind?: string }).kind;
-          return fail(kind === "not_configured" ? "not_configured" : "parse_failed", { parse: kind ?? "error", status: (e as { status?: number }).status });
+          if (parseError !== null) {
+            if (!canned || !isDemoLine(transcript)) return fail(parseError.code, parseError.extra);
+            parsed = takeCanned("parse_failed", parseError.extra);
+          }
         }
-        t = mark("parse", t);
+        if (parsed === null) return fail("parse_failed");
         const { draft } = parsed;
-        if (draft.items.length === 0) return fail("parse_failed", { parse: "no_items", model: parsed.model });
 
+        const args: DraftArgs = {
+          transcript,
+          items: draft.items,
+          siteText: draft.siteText,
+          deliverBy: draft.deliverBy,
+          deliverByText: draft.deliverByText,
+          creditDaysWanted: draft.creditDaysWanted,
+          notes: draft.notes.length > 0 ? draft.notes : undefined,
+        };
         let orderId: string;
         try {
-          orderId = await deps.createDraft(
-            {
-              transcript,
-              items: draft.items,
-              siteText: draft.siteText,
-              deliverBy: draft.deliverBy,
-              deliverByText: draft.deliverByText,
-              creditDaysWanted: draft.creditDaysWanted,
-              notes: draft.notes.length > 0 ? draft.notes : undefined,
-            },
-            token,
-          );
+          if (sandbox && sandboxDeps !== null) {
+            // A sandbox order has no site; what was said about one is dropped.
+            const { transcript: tx, items, deliverBy, deliverByText, creditDaysWanted, notes } = args;
+            orderId = await sandboxDeps.createDraft({ transcript: tx, items, deliverBy, deliverByText, creditDaysWanted, notes }, token);
+          } else {
+            orderId = await deps.createDraft(args, token);
+          }
         } catch (e) {
           t = mark("draft", t);
           const code = convexCode(e);
@@ -266,7 +324,7 @@ export async function handleVoiceOrder(req: Request, deps: VoiceOrderDeps): Prom
         }
         t = mark("draft", t);
         send({ type: "draft", orderId });
-        log("draft", { ...meta, model: parsed.model, items: draft.items.length, missing: draft.missing.length });
+        log("draft", { ...meta, model: parsed.model, items: draft.items.length, missing: draft.missing.length, ...(fb.reason !== null ? { fallback: "canned_demo_line", reason: fb.reason } : {}) });
       } catch {
         // The client went away mid-stream (enqueue on a closed stream), or an unexpected bug: log, never leak.
         log("server_error", meta);
