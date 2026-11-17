@@ -435,6 +435,10 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `result.confirm` | {dealer} को confirm कीजिए | Confirm {dealer} |
 | `result.share` | WhatsApp पे भेजिए | Send on WhatsApp |
 | `result.listen` | रिकॉर्डिंग सुनिए | Play recording |
+| `result.recordings` | रिकॉर्डिंग | Recordings |
+| `result.recordingsNote` | हर रेट की असली कॉल, सबूत के लिए · 30 दिन बाद मिट जाती है | The real call behind each rate, as proof · deleted after 30 days |
+| `rec.loading` | रिकॉर्डिंग खुल रही है… | Opening the recording… |
+| `rec.error` | रिकॉर्डिंग नहीं चल पाई · फिर से चलाइए | The recording didn't play · try again |
 | `share.full` / `share.savings` / `share.munshi` | पूरी पर्ची / सिर्फ बचत / मुंशी के लिए | Full parchi / Savings only / For the munshi |
 | `placed.confirming` | dealer से पक्का कर रहे हैं | Confirming with the dealer |
 | `placed.undo` | रद्द करना है? | Cancel? |

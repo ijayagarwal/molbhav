@@ -1,9 +1,12 @@
-import { PauseBold, PlayBold, WarningBold } from "./icons";
+import type { ReactNode } from "react";
+import { WarningBold } from "./icons";
+import { PlayerBar } from "./PlayerBar";
 
 // CallDetail (DESIGN §11, §19, design/reference/Desk.html right panel). Props only.
 // A recording player (big play button and a scrubber), the transcript with speaker labels, and "What we
 // understood" with "check kijiye" flags, marked "read back and confirmed" when the dealer said yes.
-// Live mode shows the transcript only after the call (D7); the caller decides what to pass.
+// Live mode shows the transcript only after the call (D7); the caller decides what to pass. A live call's
+// stored recording comes in through `recording` (the lazily loaded RecordingPlayer); sim calls have none.
 
 export interface CallPlayer {
   playing: boolean;
@@ -46,11 +49,11 @@ interface Props {
   understood: UnderstoodField[] | null;
   readBackConfirmed: boolean;
   labels: CallDetailLabels;
+  /** Shown where the player goes when `player` is null: a live call's stored recording (Phase 8C). */
+  recording?: ReactNode;
 }
 
-const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-
-export function CallDetail({ meta, title, player, transcript, understood, readBackConfirmed, labels }: Props) {
+export function CallDetail({ meta, title, player, transcript, understood, readBackConfirmed, labels, recording }: Props) {
   return (
     <section className="flex flex-col gap-4" aria-label={title}>
       <header className="flex flex-col gap-0.5">
@@ -59,36 +62,16 @@ export function CallDetail({ meta, title, player, transcript, understood, readBa
       </header>
 
       {player ? (
-        <div className="flex items-center gap-3 rounded-card border border-rule bg-card p-3">
-          <button
-            type="button"
-            onClick={player.onToggle}
-            aria-label={player.playing ? labels.pause : labels.play}
-            className="inline-flex size-14 shrink-0 touch-manipulation items-center justify-center rounded-full border-2 border-ink bg-haldi active:scale-[0.97]"
-          >
-            {player.playing ? <PauseBold className="size-6" /> : <PlayBold className="size-6" />}
-          </button>
-          <div className="relative flex h-10 min-w-0 flex-1 items-center gap-[3px] rounded-parchi has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-ink has-[input:focus-visible]:outline">
-            {player.bars.map((b, i) => {
-              const played = (i + 0.5) / player.bars.length <= player.positionS / Math.max(1, player.durationS);
-              return <span key={i} aria-hidden="true" className={`min-w-0 flex-1 rounded-full ${played ? "bg-ink" : "bg-rule"}`} style={{ height: `${Math.round(20 + b * 80)}%` }} />;
-            })}
-            {/* The real control: a range input over the bars, so seeking works by touch, mouse and keyboard. */}
-            <input
-              type="range"
-              min={0}
-              max={Math.max(1, player.durationS)}
-              step={1}
-              value={Math.min(player.positionS, player.durationS)}
-              onChange={(e) => player.onSeek?.(Number(e.target.value))}
-              aria-label={labels.seek}
-              aria-valuetext={`${mmss(player.positionS)} / ${mmss(player.durationS)}`}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-            />
-          </div>
-          <span className="shrink-0 font-mono text-meta tabular-nums">{mmss(player.durationS - player.positionS)}</span>
-        </div>
-      ) : null}
+        <PlayerBar
+          playing={player.playing}
+          positionS={player.positionS}
+          durationS={player.durationS}
+          bars={player.bars}
+          onToggle={player.onToggle}
+          onSeek={player.onSeek}
+          labels={{ play: labels.play, pause: labels.pause, seek: labels.seek }}
+        />
+      ) : (recording ?? null)}
 
       {transcript.length > 0 ? (
         <ol className="flex flex-col gap-3">

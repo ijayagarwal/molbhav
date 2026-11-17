@@ -6,6 +6,7 @@
 // Special states: "आपके dealer ही सबसे सस्ते" (no tally) and "सिर्फ 1 रेट मिला". The result is spoken once
 // (V7) unless the contractor turned that off. Every number comes from lib/result.ts → lib/pricing.ts.
 import { useMutation, useQuery } from "convex/react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { PrimaryButton, SecondaryButton } from "@/components/mb/Buttons";
@@ -14,6 +15,7 @@ import { ComparisonTable } from "@/components/mb/ComparisonTable";
 import { CheckBold } from "@/components/mb/icons";
 import { ModeBadge } from "@/components/mb/ModeBadge";
 import { Parchi, type ParchiLine } from "@/components/mb/Parchi";
+import { mmss } from "@/components/mb/PlayerBar";
 import { Tally } from "@/components/mb/Tally";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -33,6 +35,9 @@ import { AppFrame } from "./AppFrame";
 import { speak } from "@/lib/client/speak";
 import { OrderLoading, OrderMissing } from "./OrderStates";
 import { useOrderScreen } from "./useOrderScreen";
+
+// The recordings of live calls (Phase 8C, B6; DESIGN §12.7 item 5), loaded only when there are some (§20).
+const CallRecording = dynamic(() => import("./CallRecording").then((m) => m.CallRecording));
 
 const SET_ASIDE_NOTICE: Record<"terms_changed" | "declined" | "not_reached", DictKey> = {
   terms_changed: "placed.termsChanged",
@@ -146,6 +151,15 @@ export function ResultScreen({ orderId }: { orderId: string }) {
   const regular = view.regular;
   const regularStanding = regular ? view.ranked.find((q) => q.dealerId === regular.dealerId) : undefined;
 
+  // §12.7 item 5: every call of a comparable dealer that has a stored recording (live only: sim has none),
+  // in the table's order, each dealer's calls oldest first. Confirm calls belong to Placed.
+  const recordings = view.ranked.flatMap((q) =>
+    data.calls
+      .filter((c) => c.dealerId === q.dealerId && c.mode === "live" && c.hasRecording && c.round !== "confirm")
+      .sort((a, b) => a._creationTime - b._creationTime)
+      .map((c) => ({ call: c, name: nameOf(q.dealerId) })),
+  );
+
   const confirmButton = winner ? (
     <PrimaryButton icon={<CheckBold className="size-6" />} onClick={() => go(winner._id)} disabled={placing !== null} aria-busy={placing === winner._id}>
       {placing === winner._id ? t("result.placing") : t("result.confirm", { dealer: nameOf(winner.dealerId) })}
@@ -248,6 +262,25 @@ export function ResultScreen({ orderId }: { orderId: string }) {
         <section className="flex flex-col gap-1">
           <h2 className="text-label text-lal">{t("result.notComparable")}</h2>
           <p className="text-meta text-ink-2">{view.notComparable.map((q) => `${nameOf(q.dealerId)} (${formatPaise(q.total)})`).join(" · ")}</p>
+        </section>
+      ) : null}
+
+      {recordings.length > 0 ? (
+        <section className="flex flex-col" aria-labelledby="result-recordings">
+          <h2 id="result-recordings" className="font-display text-title-2">
+            {t("result.recordings")}
+          </h2>
+          <p className="pb-1 text-meta text-ink-2">{t("result.recordingsNote")}</p>
+          {recordings.map(({ call, name }) => (
+            <CallRecording
+              key={call._id}
+              callId={call._id}
+              variant="row"
+              durationS={call.durationSec}
+              title={name}
+              meta={[t(`round.${call.round}` as DictKey), call.durationSec ? mmss(call.durationSec) : null].filter(Boolean).join(" · ")}
+            />
+          ))}
         </section>
       ) : null}
 

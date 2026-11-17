@@ -598,6 +598,10 @@ export const hi = {
   "agents.errCapacity": "Bolna की सारी लाइनें व्यस्त हैं, थोड़ी देर में फिर कोशिश कीजिए",
   "agents.errOther": "कॉल नहीं जुड़ पाई, फिर कोशिश कीजिए",
   "agents.back": "एडमिन पर वापस",
+  "result.recordings": "रिकॉर्डिंग",
+  "result.recordingsNote": "हर रेट की असली कॉल, सबूत के लिए · 30 दिन बाद मिट जाती है",
+  "rec.loading": "रिकॉर्डिंग खुल रही है…",
+  "rec.error": "रिकॉर्डिंग नहीं चल पाई · फिर से चलाइए",
 } as const;
 
 export type DictKey = keyof typeof hi;

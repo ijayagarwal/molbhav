@@ -585,4 +585,8 @@ export const en: Record<DictKey, string> = {
   "agents.errCapacity": "All Bolna lines are busy; try again shortly",
   "agents.errOther": "The call couldn't connect; try again",
   "agents.back": "Back to admin",
+  "result.recordings": "Recordings",
+  "result.recordingsNote": "The real call behind each rate, as proof · deleted after 30 days",
+  "rec.loading": "Opening the recording…",
+  "rec.error": "The recording didn't play · try again",
 };
