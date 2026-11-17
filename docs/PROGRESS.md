@@ -67,10 +67,11 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 | App screens 2 | Choose dealers, Sweep board, Result, Placed, Share, landing, PWA | Done in sim; reviewed (17 defects fixed); verified on production | `f32e70f` … `8781d88` |
 | 4 | Real voice: recorder, Sarvam STT, OpenAI parse (R19), read-back TTS | Built; works end to end on local dev with real speech; deployed. Real-phone test pending | `5f8ba5a` … `286269e` |
 | 8B | Bolna dial, webhooks, report_quote, agent sync, admin web calls | Built and deployed (inert); waits for the Bolna key, then a founder's "go" | `6b3dbdd` … `242e9d7` |
-| 8C | Recordings and retention | Next | — |
+| 8C | Recordings and retention | Built and deployed (inert until live calls) | `54613db` … `f47cf1b` |
 | Team test | Real AI calls to teammates' verified phones | Later | — |
 | 1C | Landing, waitlist, /dealer opt-in, /privacy draft, analytics, robots | Done; deployed; indexing waits for the lawyer (`PUBLIC_LAUNCH`) | `2053ea7` … `9380285` |
-| 7, 9, 10 | Sandbox and presenter; hardening and demo deployment; go-live for real dealers | Later | — |
+| 7 | /try sandbox, live hero board, /present | Done; /try verified on production; /present needs an admin session | `b960acc` … `3e03782` |
+| 9, 10 | Hardening and demo deployment; go-live for real dealers | Later | — |
 
 ## 3b. Road to a live showcase (17 Nov 2026, night)
 
@@ -153,6 +154,14 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
 - **Choose dealers: Demo / Live** appears only when the server says live calls are possible for this contractor;
   live lists only test_ok or opted-in dealers; a live order's screens show LIVE, never DEMO.
 - **Confirm** now asks an unsaid steel grade and cement type with chips (PRODUCT §4) and shows a named brand.
+- **Phase 8C merged:** live calls' recordings are copied into Convex storage, played through 10-minute signed links
+  (`/rec`, seekable) on the board and on Result; recordings and transcripts are deleted at 30 days, callLog after a
+  year, never-onboarded anonymous users after 7 days. Inert until live calls exist.
+- **Phase 7 merged and verified on production:** `/try` (no sign-up, sample orders first, typing, mic behind a tap,
+  DEMO dealers only, limits enforced on the server, ends with "अपने असली dealers का रेट चाहिए?"): a sample order
+  reaches the DEMO parchi in 56 s on production. The landing hero now shows the live sweep board (client-side
+  fixtures). `/present` (admin-only presenter view with the pipeline lights, event log and "Reset demo") needs
+  the presenter's session in `ADMIN_USER_IDS` and `DEMO_DEPLOYMENT=true` on a demo deployment.
 - **Still to do in Phase 4:** a test on a real phone over HTTPS (production refuses automated browsers, so only
   a person can check it), the founders' own recording, voice "हाँ, शुरू कीजिए" on Confirm (needs a
   speech-only route), and the "change site" sheet listing more than the home site.
