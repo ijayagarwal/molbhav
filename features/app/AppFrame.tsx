@@ -96,19 +96,22 @@ export function AppFrame({ children, back, title, phoneDock, deskDock = true, pa
     <AppShell
       navLabel={t("brand.name")}
       topBar={
+        // Home: wordmark · DEMO · language · settings. Screens with a back link follow Confirm.html and
+        // Result.html: back · title · DEMO, so the title keeps the width it needs at 360 px (settings stay
+        // one tap away on Home and in the desk rail). The back arrow sits 16 px from the edge, as there.
         <>
-          <span className="flex min-w-0 items-center gap-2">
+          <span className="flex min-w-0 flex-1 items-center gap-1">
             {back ? (
-              <Link href={back.href} aria-label={back.label} className="-ml-2 flex size-14 items-center justify-center">
+              <Link href={back.href} aria-label={back.label} className="-ml-4 flex size-14 shrink-0 items-center justify-center">
                 <BackBold className="size-6" />
               </Link>
             ) : null}
-            {title ? <span className="truncate font-display text-title-2">{title}</span> : <Wordmark label={t("brand.name")} height={26} />}
+            {title ? <span className="min-w-0 truncate font-display text-title-2">{title}</span> : <Wordmark label={t("brand.name")} height={26} />}
           </span>
           <span className="flex shrink-0 items-center gap-2">
             <ModeBadge mode="sim" label={t("badge.demo")} />
             {back ? null : <LangSwitch label={t("home.langSwitch")} />}
-            {pathname === "/app/settings" ? null : (
+            {back || pathname === "/app/settings" ? null : (
               <Link href="/app/settings" aria-label={t("home.settings")} className="flex size-14 items-center justify-center rounded-card">
                 <SettingsBold className="size-6" />
               </Link>
