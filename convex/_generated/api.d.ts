@@ -27,6 +27,7 @@ import type * as orders from "../orders.js";
 import type * as quotes from "../quotes.js";
 import type * as seed from "../seed.js";
 import type * as settings from "../settings.js";
+import type * as share from "../share.js";
 import type * as sim_personas from "../sim/personas.js";
 
 import type {
@@ -55,6 +56,7 @@ declare const fullApi: ApiFromModules<{
   quotes: typeof quotes;
   seed: typeof seed;
   settings: typeof settings;
+  share: typeof share;
   "sim/personas": typeof sim_personas;
 }>;
 

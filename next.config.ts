@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
   // Phone testing through the cloudflared tunnel (CLAUDE.md, F9).
   allowedDevOrigins: ["*.trycloudflare.com"],
   poweredByHeader: false,
+  // The shared parchi's preview image needs @vercel/og's HarfBuzz wasm (supplied by scripts/og-wasm.mjs) and
+  // the static TTFs; both are read at runtime by path, so tracing can't find them on its own.
+  outputFileTracingIncludes: {
+    "/p/[publicId]/opengraph-image": ["./node_modules/@vercel/og/dist/hb.wasm", "./assets/og/*.ttf"],
+  },
   async headers() {
     return [
       {

@@ -27,6 +27,7 @@ import { formatPaise } from "@/lib/numbers";
 import { lineBreakdown } from "@/lib/pricing";
 import { resultSummaryText } from "@/lib/readback";
 import { buildResult, type ResultQuote } from "@/lib/result";
+import { ShareSheet } from "@/features/share/ShareSheet";
 import { AppFrame } from "./AppFrame";
 import { speak } from "./HomeScreen";
 import { OrderLoading, OrderMissing } from "./OrderStates";
@@ -45,6 +46,7 @@ export function ResultScreen({ orderId }: { orderId: string }) {
   const place = useMutation(placeRef);
   const prefs = usePrefs();
   const [placing, setPlacing] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
   const spoken = useRef(false);
 
   const back = { href: "/app", label: t("rail.home") };
@@ -230,7 +232,9 @@ export function ResultScreen({ orderId }: { orderId: string }) {
         </section>
       ) : null}
 
+      {winner ? <SecondaryButton onClick={() => setSharing(true)}>{t("result.share")}</SecondaryButton> : null}
       <div className="hidden lg:block">{confirmButton}</div>
+      <ShareSheet orderId={order._id} open={sharing} onClose={() => setSharing(false)} />
       {!winner ? (
         <SecondaryButton onClick={() => router.push("/app")}>{t("result.newOrder")}</SecondaryButton>
       ) : null}

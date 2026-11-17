@@ -358,6 +358,27 @@ export const hi = {
   "result.empty": "कोई पक्का रेट नहीं मिला",
   "result.emptyHint": "जाँच बाकी वाले रेट नीचे हैं। चाहें तो फिर से कोशिश कीजिए।",
   "result.newOrder": "नया ऑर्डर",
+
+  // Shared parchi and the share sheet.
+  "shared.saved": "{name} जी ने ₹{x} बचाए",
+  "shared.savedVsFirst": "अपने dealer के पहले रेट से",
+  "shared.savedVsMedian": "बीच वाले रेट से",
+  "shared.found": "सबसे सस्ता मिला",
+  "shared.munshiTitle": "माल की पर्ची",
+  "shared.placed": "ऑर्डर पक्का",
+  "shared.trustCalls": "कई dealers से रेट, अपने dealer को match का मौका",
+  "shared.trustHonest": "हर कॉल रिकॉर्ड, सिर्फ असली रेट से मोलभाव",
+  "shared.cta": "आप भी मोलभाव कीजिए",
+  "shared.gone": "ये लिंक अब नहीं चलता",
+  "shared.goneHint": "जिसने भेजा था, उनसे नया लिंक माँगिए।",
+  "share.title": "किसके लिए भेजना है?",
+  "share.fullHint": "dealer, कुल रकम और बचत",
+  "share.savingsHint": "सिर्फ कितना बचा, dealer का नाम नहीं",
+  "share.munshiHint": "dealer, माल और कब तक, बचत नहीं",
+  "share.send": "WhatsApp पे भेजिए",
+  "share.copied": "लिंक कॉपी हो गया",
+  "share.making": "पर्ची बन रही है…",
+  "share.message": "मोलभाव से रेट: {url}",
 } as const;
 
 export type DictKey = keyof typeof hi;

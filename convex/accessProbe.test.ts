@@ -60,6 +60,8 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   "orders:setCreditDays": { days: 15 },
   "dealers:setAskFirst": { askFirst: true },
   "contractors:setLanguage": { language: "en" },
+  "share:create": { mode: "full" },
+  "share:get": { publicId: "AAAAAAAAAAAAAAAAAAAAAA" },
 };
 /** String-typed ids (getOrNull takes a raw string so malformed links read as "not found"). */
 const STRING_IDS: Record<string, Record<string, string>> = { "orders:getOrNull": { orderId: "orders" } };
