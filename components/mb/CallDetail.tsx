@@ -68,10 +68,10 @@ export function CallDetail({ meta, title, player, transcript, understood, readBa
           >
             {player.playing ? <PauseBold className="size-6" /> : <PlayBold className="size-6" />}
           </button>
-          <div className="relative flex h-10 min-w-0 flex-1 items-center gap-[3px]">
+          <div className="relative flex h-10 min-w-0 flex-1 items-center gap-[3px] rounded-parchi has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-ink has-[input:focus-visible]:outline">
             {player.bars.map((b, i) => {
               const played = (i + 0.5) / player.bars.length <= player.positionS / Math.max(1, player.durationS);
-              return <span key={i} aria-hidden="true" className={`min-w-0 flex-1 rounded-sm ${played ? "bg-ink" : "bg-rule"}`} style={{ height: `${Math.round(20 + b * 80)}%` }} />;
+              return <span key={i} aria-hidden="true" className={`min-w-0 flex-1 rounded-full ${played ? "bg-ink" : "bg-rule"}`} style={{ height: `${Math.round(20 + b * 80)}%` }} />;
             })}
             {/* The real control: a range input over the bars, so seeking works by touch, mouse and keyboard. */}
             <input

@@ -25,7 +25,10 @@ export type MicPhase = "idle" | "pressing" | "holding" | "locked" | "sending" | 
 
 export interface MicState {
   phase: MicPhase;
+  /** When the finger (or Space) went down: the tap/hold threshold counts from here. */
   startedAt: number | null;
+  /** When the recorder actually started (DESIGN §13 "arming" ends): the cap and no-speech timer count from here. */
+  armedAt: number | null;
   origin: { x: number; y: number } | null;
   /** Current slide from the press point; negative x is left, negative y is up. */
   drag: { dx: number; dy: number };
@@ -43,6 +46,8 @@ export type MicEvent =
   | { type: "background" }
   | { type: "pttStart"; at: number }
   | { type: "pttStop" }
+  /** The recorder is live (getUserMedia resolved). */
+  | { type: "armed"; at: number }
   | { type: "reset" };
 
 /** What the hook must do: start the recorder, or stop it and send or discard the take. */
@@ -56,7 +61,7 @@ export interface MicStep {
 }
 
 export function initialMic(capMs: number = MIC.capMs): MicState {
-  return { phase: "idle", startedAt: null, origin: null, drag: { dx: 0, dy: 0 }, capMs };
+  return { phase: "idle", startedAt: null, armedAt: null, origin: null, drag: { dx: 0, dy: 0 }, capMs };
 }
 
 const RECORDING: ReadonlySet<MicPhase> = new Set(["pressing", "holding", "locked"]);
@@ -74,7 +79,11 @@ export function micStep(s: MicState, e: MicEvent): MicStep {
 
   if (e.type === "reset") return { state: initialMic(s.capMs), effect: null };
 
-  if (s.phase === "idle" || s.phase === "sending" || s.phase === "cancelled") {
+  // A take that is still being stopped is busy: a second tap can't start an overlapping take. The hook
+  // returns the machine to idle once the recorder has really stopped.
+  if (s.phase === "sending") return stay;
+
+  if (s.phase === "idle" || s.phase === "cancelled") {
     if (e.type === "down") {
       return {
         state: { ...initialMic(s.capMs), phase: "pressing", startedAt: e.at, origin: { x: e.x, y: e.y } },
@@ -88,14 +97,17 @@ export function micStep(s: MicState, e: MicEvent): MicStep {
   // From here on the mic is recording: pressing, holding or locked.
   if (e.type === "background") return to(s, "cancelled", "discard", "background");
   if (e.type === "cancel") return to(s, "cancelled", "discard", "user");
+  if (e.type === "armed") return { state: { ...s, armedAt: s.armedAt ?? e.at }, effect: null };
 
   if (e.type === "tick") {
-    const elapsed = e.at - (s.startedAt ?? e.at);
-    if (elapsed >= s.capMs) return to(s, "sending", "send", "cap");
-    if (s.phase === "pressing" && elapsed >= MIC.tapMaxMs) return to(s, "holding");
-    if (s.phase === "locked") {
+    const sinceDown = e.at - (s.startedAt ?? e.at);
+    // The cap and the no-speech rule start once the mic is really open, not while permission is pending.
+    const sinceArmed = s.armedAt === null ? 0 : e.at - s.armedAt;
+    if (s.armedAt !== null && sinceArmed >= s.capMs) return to(s, "sending", "send", "cap");
+    if (s.phase === "pressing" && sinceDown >= MIC.tapMaxMs) return to(s, "holding");
+    if (s.phase === "locked" && s.armedAt !== null) {
       if (e.speechMs > 0 && e.silenceMs >= MIC.silenceSendMs) return to(s, "sending", "send", "silence");
-      if (e.speechMs === 0 && elapsed >= MIC.noSpeechStopMs) return to(s, "cancelled", "discard", "noSpeech");
+      if (e.speechMs === 0 && sinceArmed >= MIC.noSpeechStopMs) return to(s, "cancelled", "discard", "noSpeech");
     }
     // While holding, pauses never stop the take (DESIGN §13).
     return stay;
@@ -127,7 +139,7 @@ export function micStep(s: MicState, e: MicEvent): MicStep {
 
 /** Seconds left to show once the take is within the last 5 s of the cap, else null. */
 export function countdownSeconds(state: MicState, now: number): number | null {
-  if (!isRecording(state.phase) || state.startedAt === null) return null;
-  const left = state.capMs - (now - state.startedAt);
+  if (!isRecording(state.phase) || state.armedAt === null) return null;
+  const left = state.capMs - (now - state.armedAt);
   return left <= MIC.countdownMs ? Math.max(0, Math.ceil(left / 1000)) : null;
 }

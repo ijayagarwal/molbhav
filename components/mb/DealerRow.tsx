@@ -64,6 +64,8 @@ export interface DealerRowProps {
   /** Desk: the row whose call is open in the panel. */
   selected?: boolean;
   onSelect?: () => void;
+  /** Desk grid: the one row in the Tab order (roving tabindex); arrow keys move between rows. */
+  tabStop?: boolean;
 }
 
 const IN_CALL: ReadonlySet<RowState> = new Set(["ringing", "talking", "haggling", "matchCall"]);
@@ -154,6 +156,8 @@ function Note({ p }: { p: DealerRowProps }) {
 export function DealerRow(p: DealerRowProps) {
   if (p.layout === "desk") {
     const flagInline = Boolean(p.note) && p.noteTone === "lal";
+    // Interactive rows live in a role="grid" (aria-selected is only valid there); static ledgers use "table".
+    const cellRole = p.onSelect ? "gridcell" : "cell";
     const second = p.line ?? (p.caption && TALKING.has(p.state) && p.sim !== false ? `${p.demoLabel} ${p.caption}` : !flagInline && p.note ? p.note : p.area);
     const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
       if (p.onSelect && (e.key === "Enter" || e.key === " ")) {
@@ -165,7 +169,7 @@ export function DealerRow(p: DealerRowProps) {
       <div
         role="row"
         aria-selected={p.onSelect ? (p.selected ?? false) : undefined}
-        tabIndex={p.onSelect ? 0 : undefined}
+        tabIndex={p.onSelect ? (p.tabStop ? 0 : -1) : undefined}
         onClick={p.onSelect}
         onKeyDown={onKeyDown}
         className={`relative isolate grid min-h-[72px] grid-cols-[minmax(0,1fr)_144px_140px_80px_104px] items-center gap-3 border-b border-rule px-4 py-2 last:border-b-0 ${p.onSelect ? "cursor-pointer hover:bg-paper" : ""} ${p.selected ? "bg-paper" : ""}`}
@@ -181,7 +185,7 @@ export function DealerRow(p: DealerRowProps) {
           />
         ) : null}
         {/* Desk.html: no avatar; the name keeps the line, badges and flags lead the second line. */}
-        <div role="cell" className="flex min-w-0 flex-col">
+        <div role={cellRole} className="flex min-w-0 flex-col">
           <span className="flex min-w-0 items-center gap-1.5">
             {p.state === "ringing" ? (
               <m.span className="shrink-0 text-neel" animate={{ rotate: [0, -14, 14, -14, 0] }} transition={{ duration: 0.5, repeat: Infinity, ease: "easeInOut" }}>
@@ -196,16 +200,16 @@ export function DealerRow(p: DealerRowProps) {
             <span className="truncate text-meta text-ink-2">{second}</span>
           </span>
         </div>
-        <div role="cell" className="min-w-0">
+        <div role={cellRole} className="min-w-0">
           <StatusPill kind={pillKind(p)} label={p.statusLabel} sim={p.sim !== false} size="sm" />
         </div>
-        <div role="cell" className="flex justify-end">
+        <div role={cellRole} className="flex justify-end">
           <TotalCell p={p} swipe={false} />
         </div>
-        <div role="cell" className="text-meta text-ink-2">
+        <div role={cellRole} className="text-meta text-ink-2">
           {p.credit ?? ""}
         </div>
-        <div role="cell" className="text-meta text-ink-2">
+        <div role={cellRole} className="text-meta text-ink-2">
           {p.delivery ?? ""}
         </div>
       </div>

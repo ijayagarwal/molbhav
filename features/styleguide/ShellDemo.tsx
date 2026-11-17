@@ -4,8 +4,8 @@
 // Phone: 56 px top bar, bottom voice dock with the safe area, sheets above the keyboard (Main.html,
 // Sweep.html). Desk: the Munshi desk (Desk.html, D5). The mic runs on the FAKE recorder; Space
 // push-to-talk and ⌘K work on desk (V6). Nothing here talks to a server.
-import { useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { AppShell, BottomSheet, IconRail } from "@/components/mb/AppShell";
+import { useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
+import { AppShell, BottomSheet, IconRail, useMedia } from "@/components/mb/AppShell";
 import { BestSoFarRibbon } from "@/components/mb/BestSoFarRibbon";
 import { SecondaryButton } from "@/components/mb/Buttons";
 import { CallDetail } from "@/components/mb/CallDetail";
@@ -22,7 +22,8 @@ import { Wordmark } from "@/components/mb/Wordmark";
 import { LangSwitch } from "@/features/i18n/LangSwitch";
 import { useMic } from "@/features/voice/useMic";
 import { usePushToTalk } from "@/features/voice/usePushToTalk";
-import { countdownSeconds, initialMic } from "@/lib/client/micGesture";
+import { countdownSeconds } from "@/lib/client/micGesture";
+import { composerKeyLabel } from "@/lib/client/pushToTalk";
 import { createFakeRecorder } from "@/lib/client/recorder";
 import type { Dict } from "@/lib/i18n/getDict";
 import { formatPaise } from "@/lib/numbers";
@@ -98,6 +99,12 @@ export function ShellDemo({ dict, lang }: { dict: Dict; lang: Lang }) {
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(31);
   const recorder = useMemo(() => createFakeRecorder(), []);
+  const isDesk = useMedia("(min-width: 1024px)");
+  const composerKey = useSyncExternalStore(
+    () => () => undefined,
+    () => composerKeyLabel(navigator.platform),
+    () => "⌘K",
+  );
   const dockRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastRowRef = useRef<HTMLElement | null>(null);
@@ -121,11 +128,14 @@ export function ShellDemo({ dict, lang }: { dict: Dict; lang: Lang }) {
     onStart: mic.pttStart,
     onStop: mic.pttStop,
     onCancel: mic.cancel,
-    onComposer: () => inputRef.current?.focus(),
+    // ⌘K: the desk composer, or the typed sheet below 1024 px (where the desk input is hidden).
+    onComposer: () => (isDesk ? inputRef.current?.focus() : setSheet(true)),
   });
 
   const listening = mic.view === "recording" || mic.view === "pressed" || mic.view === "locked" || mic.view === "processing";
-  const countdown = mic.startedAt === null ? null : countdownSeconds({ ...initialMic(mic.capMs), phase: mic.phase, startedAt: mic.startedAt }, mic.startedAt + mic.elapsedMs);
+  const countdown = countdownSeconds(mic.machine, mic.now);
+  // The phone sheet is modal once a take is locked (the finger has lifted): the page behind goes inert.
+  const sheetModal = !isDesk && mic.view === "locked";
 
   const openCall = (k: DealerKey, el?: HTMLElement | null) => {
     setSelected(k);
@@ -141,12 +151,13 @@ export function ShellDemo({ dict, lang }: { dict: Dict; lang: Lang }) {
       e.preventDefault();
       const next = rowsEls[Math.max(0, Math.min(rowsEls.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))];
       next?.focus();
-    } else if (shortcutsOn && (e.key === "p" || e.key === "P")) {
+    } else if (shortcutsOn && (e.key === "p" || e.key === "P") && !e.metaKey && !e.ctrlKey && !e.altKey) {
       setPlaying((p) => !p);
     }
   };
 
-  const micButton = (size: "lg" | "md") => <MicButton view={mic.view} ariaLabel={t("mic.aria")} size={size} bind={mic.bind} />;
+  // A locked take: the mic now sends, and its name says so (review of 2B).
+  const micButton = (size: "lg" | "md") => <MicButton view={mic.view} ariaLabel={mic.view === "locked" ? t("listen.send") : t("mic.aria")} size={size} bind={mic.bind} />;
 
   const header = (
     <div className="flex flex-col gap-1">
@@ -205,7 +216,7 @@ export function ShellDemo({ dict, lang }: { dict: Dict; lang: Lang }) {
           </div>
         ))}
       </div>
-      <div role="table" aria-label={t("table.caption")} onKeyDown={onLedgerKey} className="hidden overflow-hidden rounded-card border border-rule bg-card lg:block">
+      <div role="grid" aria-label={t("table.caption")} onKeyDown={onLedgerKey} className="hidden overflow-hidden rounded-card border border-rule bg-card lg:block">
         <div role="row" className="grid grid-cols-[minmax(0,1fr)_144px_140px_80px_104px] gap-3 border-b border-rule px-4 py-2 text-label text-ink-2">
           <span role="columnheader">{t("ledger.dealer")}</span>
           <span role="columnheader">{t("ledger.status")}</span>
@@ -216,7 +227,7 @@ export function ShellDemo({ dict, lang }: { dict: Dict; lang: Lang }) {
           <span role="columnheader">{t("ledger.delivery")}</span>
         </div>
         {ORDER.map((k) => (
-          <DealerRow key={k} {...rowFor(k, t, lang, "desk")} selected={selected === k} onSelect={() => openCall(k, document.activeElement as HTMLElement)} />
+          <DealerRow key={k} {...rowFor(k, t, lang, "desk")} selected={selected === k} tabStop={selected === k} onSelect={() => openCall(k, document.activeElement as HTMLElement)} />
         ))}
       </div>
     </>
@@ -233,7 +244,7 @@ export function ShellDemo({ dict, lang }: { dict: Dict; lang: Lang }) {
   const homeMain = (
     <>
       <div className="flex flex-col gap-1">
-        <span className="text-label text-ink-2">{t("home.greet", { name: lang === "hi" ? "रमेश" : "Ramesh" })}</span>
+        <span className="text-label text-ink-2">{t("home.greet", { name: t("demo.contractor") })}</span>
         <h1 className="font-display text-title-1">{t("home.title")}</h1>
       </div>
       <button type="button" onClick={() => setSheet(true)} className="inline-flex min-h-14 w-fit items-center gap-2 rounded-full border border-rule bg-card px-4 text-label">
@@ -273,7 +284,7 @@ export function ShellDemo({ dict, lang }: { dict: Dict; lang: Lang }) {
         selected === "omsai"
           ? [
               { label: t("sweep.allIn"), value: formatPaise(MS.totals.omsai.haggle) },
-              { label: t("call.includes"), value: lang === "hi" ? "GST, भाड़ा, उतराई" : "GST, delivery, unloading" },
+              { label: t("call.includes"), value: t("call.includesAll") },
               { label: t("call.billWeight"), value: `${t("parchi.pakka")} · ${t("parchi.kanta")}` },
               { label: t("slot.credit"), value: t("parchi.cash") },
             ]
@@ -286,6 +297,7 @@ export function ShellDemo({ dict, lang }: { dict: Dict; lang: Lang }) {
 
   return (
     <>
+      <div inert={sheetModal}>
       <AppShell
         navLabel={t("brand.name")}
         topBar={
@@ -300,7 +312,7 @@ export function ShellDemo({ dict, lang }: { dict: Dict; lang: Lang }) {
         rail={
           <IconRail
             homeLabel={t("rail.home")}
-            mark={lang === "hi" ? "मो" : "M"}
+            mark={t("brand.mark")}
             settingsLabel={`${t("shortcuts.toggle")}: ${shortcutsOn ? t("admin.yes") : t("admin.no")}`}
             onSettings={() => setShortcutsOn((s) => !s)}
             items={[
@@ -338,7 +350,21 @@ export function ShellDemo({ dict, lang }: { dict: Dict; lang: Lang }) {
           <DeskVoiceDock
             ref={dockRef}
             mic={micButton("md")}
-            label={mic.view === "processing" ? t("listen.processing") : listening ? `${t("listen.listening")} ${Math.floor(mic.elapsedMs / 1000)}s` : t("dock.label")}
+            label={t("dock.label")}
+            composerKey={composerKey}
+            take={
+              listening
+                ? {
+                    status: mic.view === "processing" ? t("listen.processing") : `${t("listen.listening")} ${Math.floor(mic.elapsedMs / 60000)}:${String(Math.floor(mic.elapsedMs / 1000) % 60).padStart(2, "0")}`,
+                    levels: mic.levels,
+                    locked: mic.view === "locked",
+                    cancelLabel: t("listen.cancel"),
+                    sendLabel: t("listen.send"),
+                    onCancel: mic.cancel,
+                    onSend: mic.send,
+                  }
+                : null
+            }
             placeholder={t("dock.placeholder")}
             holdLabel={t("dock.holdSpace")}
             typeLabel={t("dock.typeKey")}
@@ -357,7 +383,7 @@ export function ShellDemo({ dict, lang }: { dict: Dict; lang: Lang }) {
         panelOpen={panelOpen}
         onClosePanel={() => setPanelOpen(false)}
         closeLabel={t("panel.close")}
-        panelLabel={t("call.understood")}
+        panelLabel={dealerName(selected, lang)}
         returnFocusRef={lastRowRef}
       >
         <div className="flex gap-2">
@@ -366,6 +392,7 @@ export function ShellDemo({ dict, lang }: { dict: Dict; lang: Lang }) {
         </div>
         {screen === "sweep" ? sweepMain : homeMain}
       </AppShell>
+      </div>
 
       {/* The listening sheet on phone and tablet; the desk dock shows the take inline. */}
       {listening ? (

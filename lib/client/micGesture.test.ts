@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { countdownSeconds, initialMic, MIC, micStep, type MicEvent, type MicState, type MicStep } from "./micGesture";
 
+/** Runs events; a "start" effect arms the recorder at once (the mic opened instantly). */
 function run(events: MicEvent[], start: MicState = initialMic()): MicStep[] {
   const steps: MicStep[] = [];
   let s = start;
@@ -8,9 +9,14 @@ function run(events: MicEvent[], start: MicState = initialMic()): MicStep[] {
     const step = micStep(s, e);
     steps.push(step);
     s = step.state;
+    if (step.effect === "start") s = micStep(s, { type: "armed", at: "at" in e ? e.at : 0 }).state;
   }
   return steps;
 }
+const finalState = (steps: MicStep[]) => {
+  const st = steps[steps.length - 1].state;
+  return st.armedAt === null && st.startedAt !== null ? { ...st, armedAt: st.startedAt } : st;
+};
 const last = (steps: MicStep[]) => steps[steps.length - 1];
 const effects = (steps: MicStep[]) => steps.map((s) => s.effect).filter((e) => e !== null);
 const tick = (at: number, speechMs = 0, silenceMs = 0): MicEvent => ({ type: "tick", at, speechMs, silenceMs });
@@ -34,7 +40,7 @@ describe("tap: starts and auto-locks (V1)", () => {
   });
   test("locked: the send button, a second tap on the mic, or रद्द", () => {
     const locked = run([{ type: "down", at: 0, x: 0, y: 0 }, { type: "up", at: 100 }]);
-    const s = last(locked).state;
+    const s = finalState(locked);
     expect(micStep(s, { type: "send" })).toMatchObject({ effect: "send", reason: "user" });
     expect(micStep(s, { type: "down", at: 900, x: 0, y: 0 })).toMatchObject({ effect: "send" });
     expect(micStep(s, { type: "cancel" })).toMatchObject({ effect: "discard", reason: "user" });
@@ -62,7 +68,7 @@ describe("hold: push-to-talk (V1)", () => {
   test("pauses never stop a hold; only the cap does", () => {
     const steps = run([{ type: "down", at: 0, x: 0, y: 0 }, tick(400, 500, 0), tick(10_000, 1500, 8000)]);
     expect(last(steps).state.phase).toBe("holding");
-    expect(micStep(last(steps).state, tick(MIC.capMs))).toMatchObject({ effect: "send", reason: "cap" });
+    expect(micStep(finalState(steps), tick(MIC.capMs))).toMatchObject({ effect: "send", reason: "cap" });
   });
   test("pointercancel discards instead of sending half a sentence", () => {
     expect(last(run([{ type: "down", at: 0, x: 0, y: 0 }, tick(400), { type: "pointercancel" }]))).toMatchObject({ effect: "discard", reason: "pointercancel" });
@@ -72,7 +78,7 @@ describe("hold: push-to-talk (V1)", () => {
 describe("always", () => {
   test("going to the background releases the mic (V1)", () => {
     for (const events of [[{ type: "down", at: 0, x: 0, y: 0 }], [{ type: "down", at: 0, x: 0, y: 0 }, { type: "up", at: 50 }]] as MicEvent[][]) {
-      const s = last(run(events)).state;
+      const s = finalState(run(events));
       expect(micStep(s, { type: "background" })).toMatchObject({ effect: "discard", reason: "background" });
     }
   });
@@ -92,9 +98,28 @@ describe("always", () => {
     expect(last(steps)).toMatchObject({ effect: "send" });
   });
   test("the countdown shows only in the last 5 s", () => {
-    const s = last(run([{ type: "down", at: 0, x: 0, y: 0 }, { type: "up", at: 50 }])).state;
+    const s = finalState(run([{ type: "down", at: 0, x: 0, y: 0 }, { type: "up", at: 50 }]));
     expect(countdownSeconds(s, 19_999)).toBeNull();
     expect(countdownSeconds(s, 20_000)).toBe(5);
     expect(countdownSeconds(s, 24_100)).toBe(1);
+  });
+});
+
+describe("review of 2B: overlapping takes and slow permission", () => {
+  test("a tap while the last take is still stopping is ignored (no second, overlapping take)", () => {
+    const steps = run([{ type: "down", at: 0, x: 0, y: 0 }, { type: "up", at: 50 }, { type: "send" }]);
+    const sending = last(steps).state;
+    expect(sending.phase).toBe("sending");
+    expect(micStep(sending, { type: "down", at: 900, x: 0, y: 0 })).toMatchObject({ effect: null });
+    expect(micStep(sending, { type: "pttStart", at: 900 })).toMatchObject({ effect: null });
+  });
+  test("the cap and the no-speech rule wait for the mic to open (arming)", () => {
+    // Permission takes 4 s: no "noSpeech" stop at 5 s after the tap, only 5 s after arming.
+    let s = micStep(initialMic(), { type: "down", at: 0, x: 0, y: 0 }).state;
+    s = micStep(s, { type: "up", at: 50 }).state;
+    expect(micStep(s, tick(5000)).state.phase).toBe("locked");
+    s = micStep(s, { type: "armed", at: 4000 }).state;
+    expect(micStep(s, tick(8999)).state.phase).toBe("locked");
+    expect(micStep(s, tick(9000))).toMatchObject({ effect: "discard", reason: "noSpeech" });
   });
 });

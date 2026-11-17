@@ -184,7 +184,7 @@ function PlayerDemo({ t, lang }: { t: T; lang: Lang }) {
       ]}
       understood={[
         { label: t("sweep.allIn"), value: formatPaise(MS.totals.omsai.haggle) },
-        { label: t("call.includes"), value: lang === "hi" ? "GST, डिलीवरी, उतराई" : "GST, delivery, unloading" },
+        { label: t("call.includes"), value: t("call.includesAll") },
         { label: t("call.billWeight"), value: `${t("parchi.pakka")} · ${t("parchi.kanta")}` },
         { label: t("slot.credit"), value: t("parchi.cash"), flag: t("flag.check") },
       ]}
@@ -297,7 +297,7 @@ export function ComponentGallery({ hi, en }: { hi: Dict; en: Dict }) {
       ))}
       {S("ComparisonTable", (t, lang) => (
         <ComparisonTable
-          labels={{ caption: t("table.caption"), dealer: t("ledger.dealer"), total: t("ledger.landed"), rate: t("table.rate"), gst: t("slot.gst"), delivery: t("ledger.delivery"), credit: t("ledger.credit"), eta: t("table.eta") }}
+          labels={{ caption: t("table.caption"), best: t("status.best"), dealer: t("ledger.dealer"), total: t("ledger.landed"), rate: t("table.rate"), gst: t("slot.gst"), delivery: t("ledger.delivery"), credit: t("ledger.credit"), eta: t("table.eta") }}
           // The TEAM_TEST card rates (steel shown), as the dealers said them; totals from the brain.
           rows={[
             { id: "a", name: dealerName("agarwal", lang), totalPaise: MS.totals.agarwal.haggle, rate: `₹56.50/${t("unit.kg")}`, gst: t("table.gstExtra"), delivery: t("parchi.free"), credit: t("confirm.creditDays", { n: MS.terms.agarwal.creditDays }), eta: deliveryPhrase("agarwal", lang), winner: true },
@@ -317,7 +317,7 @@ export function ComponentGallery({ hi, en }: { hi: Dict; en: Dict }) {
 export function DeskRowsGallery({ dict, lang }: { dict: Dict; lang: Lang }) {
   const t = tOf(dict);
   return (
-    <div role="table" className="overflow-x-auto rounded-card border border-rule bg-card">
+    <div role="grid" aria-label={t("table.caption")} className="overflow-x-auto rounded-card border border-rule bg-card">
       <div className="min-w-[960px]">
         <div role="row" className="grid grid-cols-[minmax(0,1fr)_144px_140px_80px_104px] gap-3 border-b border-rule px-4 py-2 text-label text-ink-2">
           <span role="columnheader">{t("ledger.dealer")}</span>
@@ -329,7 +329,7 @@ export function DeskRowsGallery({ dict, lang }: { dict: Dict; lang: Lang }) {
           <span role="columnheader">{t("ledger.delivery")}</span>
         </div>
         {rows(t, lang, "desk").map((r, i) => (
-          <DealerRow key={i} {...r} onSelect={() => undefined} selected={i === 3} />
+          <DealerRow key={i} {...r} onSelect={() => undefined} selected={i === 3} tabStop={i === 3} />
         ))}
       </div>
     </div>

@@ -18,6 +18,8 @@ export interface KeyInfo {
   code: string;
   repeat: boolean;
   isComposing: boolean;
+  /** 229 while an IME is composing (Safari doesn't always set isComposing). */
+  keyCode?: number;
   metaKey: boolean;
   ctrlKey: boolean;
   altKey: boolean;
@@ -35,10 +37,10 @@ export type KeyIntent = "ptt" | "composer" | null;
 
 export function keyIntent(e: KeyInfo, focus: FocusInfo, ctx: PttContext): KeyIntent {
   // ⌘K / Ctrl+K opens the typed composer; it isn't a single-key shortcut, so the setting doesn't block it.
-  if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "k") return "composer";
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key.toLowerCase() === "k" || e.code === "KeyK")) return "composer";
   if (e.code !== "Space" && e.key !== " ") return null;
   if (!ctx.shortcutsOn || ctx.hasCommitAction) return null;
-  if (e.repeat || e.isComposing) return null;
+  if (e.repeat || e.isComposing || e.keyCode === 229) return null;
   if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return null;
   if (focus.inTextField || focus.onButton || !focus.onBodyOrDock) return null;
   return "ptt";
@@ -54,4 +56,9 @@ export function focusInfo(active: Element | null, dock: Element | null): FocusIn
   const inTextField = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
   const onButton = tag === "BUTTON" || tag === "A" || el.getAttribute("role") === "button" || el.getAttribute("role") === "checkbox";
   return { onBodyOrDock: dock !== null && el === dock, inTextField, onButton };
+}
+
+/** The composer shortcut as the keyboard shows it: "⌘K" on Apple devices, "Ctrl K" elsewhere. */
+export function composerKeyLabel(platform: string): string {
+  return /mac|iphone|ipad|ipod/i.test(platform) ? "⌘K" : "Ctrl K";
 }
