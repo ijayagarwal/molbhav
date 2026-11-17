@@ -1,8 +1,13 @@
-import { Placeholder } from "@/components/mb/Placeholder";
+import type { Metadata } from "next";
+import { Presenter } from "@/features/present/Presenter";
 import { getServerDict } from "@/lib/i18n/server";
 
-// Phase 7 builds the presenter view (B8).
-export default async function PresentPage() {
+// /present: the presenter view for the judge demo (DECISIONS B8, DESIGN §12.9, docs/DEMO.md). Admins only.
+export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getServerDict();
-  return <Placeholder title={t["brand.name"]} body={t["placeholder.soon"]} />;
+  return { title: `${t["present.title"]} · ${t["brand.name"]}` };
+}
+
+export default function PresentPage() {
+  return <Presenter />;
 }

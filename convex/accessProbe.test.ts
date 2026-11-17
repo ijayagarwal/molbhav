@@ -51,6 +51,8 @@ const NOT_PROBED: Record<string, string> = {
   "sweep:start": "takes a mode and an array of dealer ids; another user, a signed-out caller and dealers it may not call are refused in engine.test.ts",
   "orders:createDraft": "writes only the caller's own draft (ctx.contractor) and matches the site among the caller's own sites; signed-out, not onboarded and invalid items are refused in voice.test.ts",
   "limits:consumeVoice": "needs CONVEX_SERVER_SECRET and keys its limits on ctx.userId; signed-out callers and a wrong secret are refused in voice.test.ts",
+  "limits:consumeSandbox": "needs CONVEX_SERVER_SECRET and keys its limits on ctx.userId; signed-out callers, a wrong secret and every limit are covered in sandbox.test.ts",
+  "sandbox:createDraft": "serverMutation that also needs the visitor's session: writes only that visitor's own sandbox draft; secret, session and items are covered in sandbox.test.ts",
   "waitlist:join": "serverMutation: needs CONVEX_SERVER_SECRET (only the Next.js server action has it), reads no user data and returns none; secret, consent, phone and rate limit in waitlist.test.ts",
   "events:track": "serverMutation: needs CONVEX_SERVER_SECRET (only the Next.js server has it), writes allow-listed enum props only and returns nothing; covered in events.test.ts",
 };
@@ -70,6 +72,8 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   "contractors:setLanguage": { language: "en" },
   "share:create": { mode: "full" },
   "share:get": { publicId: "AAAAAAAAAAAAAAAAAAAAAA" },
+  "sandbox:createSample": { sample: "demo", lang: "hi" },
+  "sandbox:answer": { itemId: "steel", tier: "local_isi" },
 };
 /** String-typed ids (getOrNull takes a raw string so malformed links read as "not found"). */
 const STRING_IDS: Record<string, Record<string, string>> = { "orders:getOrNull": { orderId: "orders" } };

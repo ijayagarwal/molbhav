@@ -67,6 +67,12 @@ export function voiceOrderDeps(): VoiceOrderDeps {
     createDraft: async (args, tok) => await fetchMutation(api.orders.createDraft, args, { token: tok }),
     log,
     now,
+    // The /try sandbox (G3): its own limits and draft, still as the visitor and with the server secret.
+    consumeSandbox: async (kind, ipHash, tok) =>
+      await fetchMutation(api.limits.consumeSandbox, { serverSecret: serverSecret() ?? "", kind, ipHash }, { token: tok }),
+    createSandboxDraft: async (args, tok) => await fetchMutation(api.sandbox.createDraft, { serverSecret: serverSecret() ?? "", ...args }, { token: tok }),
+    // The canned demo-line parse, on the demo deployment's Vercel project only (Phase 7 item 4).
+    demoFallback: () => process.env.DEMO_DEPLOYMENT === "true",
   };
 }
 

@@ -62,15 +62,15 @@ describe("seed:reset", () => {
 });
 
 describe("admin.resetDemo", () => {
-  test("needs an admin; refreshes bands only on the demo deployment", async () => {
+  test("needs an admin and the demo deployment (never production, whose bands hold field data); refreshes seed bands there", async () => {
     const t = convexTest(schema, modules);
     const admin = await t.run((ctx) => ctx.db.insert("users", {}));
     const asAdmin = t.withIdentity({ subject: `${admin}|s` });
     await expect(asAdmin.mutation(api.admin.resetDemo, {})).rejects.toThrow(/forbidden/);
 
     vi.stubEnv("ADMIN_USER_IDS", admin);
-    await asAdmin.mutation(api.admin.resetDemo, {});
-    expect((await dump(t)).bands).toHaveLength(0); // production: real bands are never overwritten
+    await expect(asAdmin.mutation(api.admin.resetDemo, {})).rejects.toThrow(/not_demo_deployment/);
+    expect((await dump(t)).bands).toHaveLength(0); // production: nothing is touched
 
     vi.stubEnv("DEMO_DEPLOYMENT", "true");
     await asAdmin.mutation(api.admin.resetDemo, {});

@@ -5,7 +5,8 @@ import { withHomeRedirect } from "./lib/routing";
 
 // Convex Auth handles /api/auth and keeps the session cookies fresh (DECISIONS B1). On top of it:
 // the `lang` cookie (F8), and `/` → `/app` for a returning device (F1, applied after the auth
-// middleware; see lib/routing.ts for why).
+// middleware; see lib/routing.ts for why). `/?home` is never redirected (Phase 7 item 5): the presenter
+// opens the landing hero there, and /try links back to it (a sandbox visitor has a session too).
 
 const ONE_YEAR_S = 60 * 60 * 24 * 365;
 

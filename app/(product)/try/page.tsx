@@ -1,8 +1,13 @@
-import { Placeholder } from "@/components/mb/Placeholder";
+import type { Metadata } from "next";
+import { TryHome } from "@/features/try/TryHome";
 import { getServerDict } from "@/lib/i18n/server";
 
-// Phase 7 builds the /try sandbox (G3).
-export default async function SandboxPage() {
+// /try: the sandbox (DECISIONS G3, DESIGN §21.2, ARCHITECTURE §6.9). Sim only, fictional dealers.
+export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getServerDict();
-  return <Placeholder title={t["brand.name"]} body={t["placeholder.soon"]} />;
+  return { title: `${t["try.title"]} · ${t["brand.name"]}` };
+}
+
+export default function SandboxPage() {
+  return <TryHome />;
 }

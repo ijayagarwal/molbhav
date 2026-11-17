@@ -9,5 +9,7 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(req: Request): Promise<Response> {
-  return await handleVoiceOrder(req, voiceOrderDeps());
+  // /try sends ?sandbox=1 (G3, ARCHITECTURE §6.9): sandbox limits and a sandbox draft (sim only, 24 h).
+  const sandbox = new URL(req.url).searchParams.get("sandbox") === "1";
+  return await handleVoiceOrder(req, voiceOrderDeps(), { sandbox });
 }

@@ -46,6 +46,14 @@ describe("withHomeRedirect (F1)", () => {
     expect(withHomeRedirect(req, passThrough)).toBe(passThrough);
   });
 
+  test("/?home in any form (with a value, other params or a section) never goes to /app (the presenter, /try's links)", () => {
+    for (const url of ["https://molbhav.test/?home=1", "https://molbhav.test/?ref=parchi&home", "https://molbhav.test/?home#waitlist", "http://localhost:3000/?home"]) {
+      const passThrough = NextResponse.next();
+      const res = withHomeRedirect(request(url, { "__Host-__convexAuthRefreshToken": "x", __convexAuthRefreshToken: "x" }), passThrough);
+      expect(res, url).toBe(passThrough);
+    }
+  });
+
   test("other paths and the middleware's own redirects are left alone", () => {
     const passThrough = NextResponse.next();
     expect(withHomeRedirect(request("https://molbhav.test/dealer", { "__Host-__convexAuthRefreshToken": "x" }), passThrough)).toBe(passThrough);
