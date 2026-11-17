@@ -75,6 +75,23 @@ describe("the example draft and Confirm", () => {
     await as.mutation(api.orders.confirm, { orderId });
     expect((await as.query(api.orders.get, { orderId })).status).toBe("confirmed");
   });
+  test("an unsaid grade or cement type blocks the start until its chip is tapped (PRODUCT §4)", async () => {
+    const { t, as } = await onboarded();
+    const orderId = await as.mutation(api.orders.createExampleDraft, {});
+    await t.run(async (ctx) => {
+      const o = (await ctx.db.get(orderId))!;
+      await ctx.db.patch(orderId, { items: o.items.map((i) => ({ ...i, grade: undefined, cementType: undefined, tier: i.material === "tmt_steel" ? ("local_isi" as const) : i.tier })) });
+    });
+    await expect(as.mutation(api.orders.confirm, { orderId })).rejects.toThrow(/incomplete/);
+    await expect(as.mutation(api.orders.setItemGrade, { orderId, itemId: "cement", grade: "Fe500D" })).rejects.toThrow(/no_item/);
+    await expect(as.mutation(api.orders.setItemCementType, { orderId, itemId: "steel", cementType: "PPC" })).rejects.toThrow(/no_item/);
+    await as.mutation(api.orders.setItemGrade, { orderId, itemId: "steel", grade: "Fe550D" });
+    await expect(as.mutation(api.orders.confirm, { orderId })).rejects.toThrow(/incomplete/);
+    await as.mutation(api.orders.setItemCementType, { orderId, itemId: "cement", cementType: "OPC53" });
+    await as.mutation(api.orders.confirm, { orderId });
+    const order = await as.query(api.orders.get, { orderId });
+    expect(order.items.map((i) => i.grade ?? i.cementType)).toEqual(["Fe550D", "OPC53"]);
+  });
   test("confirm needs one tier per item; edits stop after confirm", async () => {
     const { t, as } = await onboarded();
     const orderId = await as.mutation(api.orders.createExampleDraft, {});

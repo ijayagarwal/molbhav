@@ -240,6 +240,28 @@ export const setItemSize = contractorMutation({
   },
 });
 
+/** The grade chip (PRODUCT §4: Fe500 / Fe500D / Fe550D). Steel only. */
+export const setItemGrade = contractorMutation({
+  args: { orderId: v.id("orders"), itemId: v.string(), grade: v.union(v.literal("Fe500"), v.literal("Fe500D"), v.literal("Fe550D")) },
+  handler: async (ctx, { orderId, itemId, grade }) => {
+    const order = await ownedDraft(ctx, orderId);
+    const item = order.items.find((i) => i.id === itemId);
+    if (item === undefined || item.material !== "tmt_steel") throw new ConvexError({ code: "no_item" });
+    await ctx.db.patch(order._id, { items: order.items.map((i) => (i.id === itemId ? { ...i, grade } : i)) });
+  },
+});
+
+/** The cement-type chip (OPC 43 / OPC 53 / PPC / PSC). Cement only. */
+export const setItemCementType = contractorMutation({
+  args: { orderId: v.id("orders"), itemId: v.string(), cementType: v.union(v.literal("OPC43"), v.literal("OPC53"), v.literal("PPC"), v.literal("PSC")) },
+  handler: async (ctx, { orderId, itemId, cementType }) => {
+    const order = await ownedDraft(ctx, orderId);
+    const item = order.items.find((i) => i.id === itemId);
+    if (item === undefined || item.material !== "cement") throw new ConvexError({ code: "no_item" });
+    await ctx.db.patch(order._id, { items: order.items.map((i) => (i.id === itemId ? { ...i, cementType } : i)) });
+  },
+});
+
 /** The delivery-time chip (R7): what the agents will say; never free text. */
 export const setDeliverBy = contractorMutation({
   args: { orderId: v.id("orders"), deliverBy },
@@ -279,6 +301,9 @@ export function confirmBlockers(order: Pick<Doc<"orders">, "items" | "siteId">):
     if (i.tier === undefined || i.tier === "both") out.push(`${i.id}:tier`);
     // P7: steel never goes to dealers without a bar size (a size said in suta is asked in mm).
     if (i.material === "tmt_steel" && i.diameterMm === undefined) out.push(`${i.id}:diameterMm`);
+    // Dealers can't quote comparable rates for an unknown grade or cement type (PRODUCT §4).
+    if (i.material === "tmt_steel" && i.grade === undefined) out.push(`${i.id}:grade`);
+    if (i.material === "cement" && i.cementType === undefined) out.push(`${i.id}:cementType`);
   }
   if (order.siteId === undefined) out.push("site");
   return out;

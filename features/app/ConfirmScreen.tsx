@@ -27,6 +27,7 @@ import { setPref, usePrefs } from "@/lib/client/prefs";
 import { createReadBackPlayer } from "@/lib/client/readBack";
 import { browserReadBackDeps } from "@/lib/client/readBackBrowser";
 import { CITY_AREAS, DELIVER_BY } from "@/lib/config";
+import { PARSE_CEMENT_TYPES, PARSE_GRADES } from "@/lib/llm/parsePrompt";
 import { SIZE_MM_CHOICES, SUTA_MM_CHOICES, openQuestions, partlyUnderstood, type Question } from "@/lib/confirmQuestions";
 import type { DeliverBy, OrderItem } from "@/lib/domain";
 import type { DictKey } from "@/lib/i18n/getDict";
@@ -46,6 +47,8 @@ const DELIVER_CHOICES: DeliverBy[] = ["today", "tomorrow_morning", "tomorrow", "
 function askKey(q: Question): DictKey {
   if (q.kind === "quantity") return "confirm.askQuantity";
   if (q.kind === "unit") return "confirm.askUnit";
+  if (q.kind === "grade") return "confirm.askGrade";
+  if (q.kind === "cementType") return "confirm.askCementType";
   return q.suta ? "confirm.askSuta" : "confirm.askSize";
 }
 
@@ -59,6 +62,8 @@ export function ConfirmScreen({ orderId }: { orderId: string }) {
   const facts = useQuery(api.orders.readBack, order ? { orderId: order._id } : "skip");
   const setTier = useMutation(api.orders.setItemTier);
   const setSize = useMutation(api.orders.setItemSize);
+  const setGrade = useMutation(api.orders.setItemGrade);
+  const setCementType = useMutation(api.orders.setItemCementType);
   const setDeliverBy = useMutation(api.orders.setDeliverBy);
   const setCredit = useMutation(api.orders.setCreditDays);
   const setSite = useMutation(api.orders.setSite);
@@ -157,6 +162,8 @@ export function ConfirmScreen({ orderId }: { orderId: string }) {
       ? [item.diameterMm ? { label: `${item.diameterMm}mm` } : { label: t("item.size"), missing: true }, item.grade ? { label: item.grade } : { label: t("item.grade"), missing: true }]
       : // No cement type said: show that it's missing ("टाइप?"), never a guessed PPC.
         [item.cementType ? { label: item.cementType } : { label: t("item.type"), missing: true }];
+    // A brand the contractor named shows too, so it's visible that it was heard (S3: only from the brand list).
+    if (item.brand) specs.push({ label: item.brand });
     const ask = current?.itemId === item.id ? current : null;
     const tierOpen = item.tier === undefined || item.tier === "both";
     // One question at a time: an unanswered tier shows when its turn comes; an answered one stays changeable.
@@ -177,6 +184,20 @@ export function ConfirmScreen({ orderId }: { orderId: string }) {
             value={null}
             onChange={(v) => setSize({ orderId: id, itemId: item.id, diameterMm: Number(v) })}
             options={(ask.suta ? SUTA_MM_CHOICES : SIZE_MM_CHOICES).map((mm) => ({ value: String(mm), label: `${mm}mm` }))}
+          />
+        ) : ask?.kind === "grade" ? (
+          <TierChips
+            question={t(askKey(ask))}
+            value={null}
+            onChange={(v) => setGrade({ orderId: id, itemId: item.id, grade: v as (typeof PARSE_GRADES)[number] })}
+            options={PARSE_GRADES.map((g) => ({ value: g, label: g }))}
+          />
+        ) : ask?.kind === "cementType" ? (
+          <TierChips
+            question={t(askKey(ask))}
+            value={null}
+            onChange={(v) => setCementType({ orderId: id, itemId: item.id, cementType: v as (typeof PARSE_CEMENT_TYPES)[number] })}
+            options={PARSE_CEMENT_TYPES.map((c) => ({ value: c, label: c }))}
           />
         ) : ask && ask.kind !== "tier" ? (
           <FixQuestion text={t(askKey(ask))} typeLabel={t("confirm.typeFix")} sayLabel={t("confirm.sayAgain")} onType={() => setFixing(true)} onSay={sayAgain} />

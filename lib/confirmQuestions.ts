@@ -1,12 +1,12 @@
 // What Confirm still has to ask, one question at a time (DESIGN §12.3; DECISIONS R7, R8, R10, P7). Pure.
-// Order: per item in spoken order, quantity → unit → bar size → tier; then the site. Cement's tier is
-// pre-selected by orders.createDraft (R8), so it is asked only when "दोनों" was said (R10). Every question
-// here blocks "हाँ, मोलभाव शुरू कीजिए": quantity, unit, tier and site because orders.confirm refuses
-// without them, and the steel bar size because a size said in suta is never guessed (P7) and dealers can't
-// quote an unknown size. Grade and cement type stay optional (shown as "ग्रेड?" chips, not asked).
+// Order: per item in spoken order, quantity → unit → bar size → grade (steel) or type (cement) → tier; then the
+// site. Cement's tier is pre-selected by orders.createDraft (R8), so it is asked only when "दोनों" was said
+// (R10). Every question here blocks "हाँ, मोलभाव शुरू कीजिए" (orders.confirm refuses without the answer): a
+// size said in suta is never guessed (P7), and dealers can't quote comparable rates for an unknown size, grade
+// or cement type (PRODUCT §4: "Fe500 / Fe500D / Fe550D" as chips).
 import type { OrderItem } from "./domain";
 
-export type QuestionKind = "quantity" | "unit" | "size" | "tier" | "site";
+export type QuestionKind = "quantity" | "unit" | "size" | "grade" | "cementType" | "tier" | "site";
 
 export interface Question {
   kind: QuestionKind;
@@ -40,6 +40,8 @@ export function openQuestions(order: OrderLike): Question[] {
     if (i.quantity === undefined || !(i.quantity > 0)) out.push({ kind: "quantity", itemId: i.id });
     if (i.unit === undefined) out.push({ kind: "unit", itemId: i.id });
     if (i.material === "tmt_steel" && i.diameterMm === undefined) out.push(suta ? { kind: "size", itemId: i.id, suta } : { kind: "size", itemId: i.id });
+    if (i.material === "tmt_steel" && i.grade === undefined) out.push({ kind: "grade", itemId: i.id });
+    if (i.material === "cement" && i.cementType === undefined) out.push({ kind: "cementType", itemId: i.id });
     if (i.tier === undefined || i.tier === "both") out.push(i.tier === "both" ? { kind: "tier", itemId: i.id, both: true } : { kind: "tier", itemId: i.id });
   }
   if (!order.siteId) out.push({ kind: "site" });
@@ -47,7 +49,7 @@ export function openQuestions(order: OrderLike): Question[] {
 }
 
 /** Questions a chip can answer today (a Convex mutation exists); the rest are answered by fixing the order. */
-export const CHIP_ANSWERED: ReadonlySet<QuestionKind> = new Set(["tier", "site", "size"]);
+export const CHIP_ANSWERED: ReadonlySet<QuestionKind> = new Set(["tier", "site", "size", "grade", "cementType"]);
 
 /** The question shown now: the first open one. */
 export function currentQuestion(order: OrderLike): Question | null {
@@ -59,5 +61,6 @@ export function currentQuestion(order: OrderLike): Question | null {
  * size or site), so part of what was said didn't come through. An unspoken tier or "दोनों" is expected.
  */
 export function partlyUnderstood(order: OrderLike): boolean {
-  return openQuestions(order).some((q) => q.kind !== "tier");
+  // An unsaid tier, grade or cement type is normal speech, not a miss: they are simply asked.
+  return openQuestions(order).some((q) => q.kind !== "tier" && q.kind !== "grade" && q.kind !== "cementType");
 }

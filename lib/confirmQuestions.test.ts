@@ -39,17 +39,18 @@ describe("Confirm's questions (DESIGN §12.3)", () => {
     expect(q.map((x) => `${x.itemId ?? ""}:${x.kind}`)).toEqual(["steel:quantity", "steel:unit", "cement:quantity", ":site"]);
   });
 
-  test("grade and cement type stay optional (shown as chips, never asked)", () => {
-    expect(openQuestions({ items: [steel({ grade: undefined, tier: "branded" }), cement({ cementType: undefined })], siteId: "s1" })).toEqual([]);
+  test("an unsaid grade or cement type is asked with chips (PRODUCT §4), without the 'didn't catch it' banner", () => {
+    const order = { items: [steel({ grade: undefined, tier: "branded" }), cement({ cementType: undefined })], siteId: "s1" };
+    expect(openQuestions(order).map((q) => q.kind)).toEqual(["grade", "cementType"]);
+    expect(partlyUnderstood(order)).toBe(false);
   });
 
-  test("every blocking field lib/parse.ts reports missing is asked (grade and cement type excepted)", () => {
+  test("every field lib/parse.ts reports missing is asked", () => {
     const items: OrderItem[] = [
-      steel({ diameterMm: undefined, quantity: undefined, tier: "both" }),
-      cement({ id: "cement", tier: "both", unit: undefined }),
+      steel({ diameterMm: undefined, quantity: undefined, tier: "both", grade: undefined }),
+      cement({ id: "cement", tier: "both", unit: undefined, cementType: undefined }),
     ];
     const asked = openQuestions({ items, siteId: "s1" }).map((q) => `${q.itemId}:${q.kind === "size" ? "diameterMm" : q.kind}`);
-    const parse = missingFields(items).filter((f) => !f.endsWith(":grade") && !f.endsWith(":cementType"));
-    expect(asked.sort()).toEqual(parse.sort());
+    expect(asked.sort()).toEqual(missingFields(items).sort());
   });
 });

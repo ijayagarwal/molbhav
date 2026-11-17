@@ -461,6 +461,8 @@ export const hi = {
   "confirm.typeFix": "लिख के ठीक कीजिए",
   "confirm.askQuantity": "कितना चाहिए, ये सुनाई नहीं दिया।",
   "confirm.askUnit": "टन, क्विंटल, किलो या बोरी? ये सुनाई नहीं दिया।",
+  "confirm.askGrade": "कौन सा ग्रेड?",
+  "confirm.askCementType": "सीमेंट का टाइप?",
   "confirm.askSize": "सरिया का साइज़ (mm) सुनाई नहीं दिया।",
   "confirm.askSuta": "साइज़ ‘सूत’ में बताया था। mm में बताइए, जैसे 12mm या 16mm।",
   "confirm.heard": "सुना: “{text}”",

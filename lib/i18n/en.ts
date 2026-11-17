@@ -448,6 +448,8 @@ export const en: Record<DictKey, string> = {
   "confirm.typeFix": "Fix by typing",
   "confirm.askQuantity": "We didn't catch how much you need.",
   "confirm.askUnit": "We didn't catch the unit: ton, quintal, kg or bags?",
+  "confirm.askGrade": "Which grade?",
+  "confirm.askCementType": "Which cement type?",
   "confirm.askSize": "We didn't catch the bar size (mm).",
   "confirm.askSuta": "The size was given in ‘suta’. Please give it in mm, like 12mm or 16mm.",
   "confirm.heard": "Heard: “{text}”",

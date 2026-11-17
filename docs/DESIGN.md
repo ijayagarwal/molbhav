@@ -264,7 +264,7 @@ An active sweep shows a banner above the mic: "Molbhav chal raha hai · 3/4 rate
 └──────────────────────────────┘
 ```
 
-Tier: if the steel tier wasn't spoken, `TierChips` appear inside the item card (one tap or one spoken word: "ब्रांडेड", "लोकल"); if "दोनों" was said, the same chips ask which tier to bargain for (R10). Cement shows its tier pre-selected (R8); `design/reference/Confirm.html` still shows unanswered cement chips, and this spec wins. "Suta" sizes are never mapped: ask with [12mm] [16mm] chips (P7). Confirm is blocked until every item has quantity, unit and tier.
+Tier: if the steel tier wasn't spoken, `TierChips` appear inside the item card (one tap or one spoken word: "ब्रांडेड", "लोकल"); if "दोनों" was said, the same chips ask which tier to bargain for (R10). Cement shows its tier pre-selected (R8); `design/reference/Confirm.html` still shows unanswered cement chips, and this spec wins. "Suta" sizes are never mapped: ask with [12mm] [16mm] chips (P7); an unsaid size gets the common sizes as chips. An unsaid steel grade is asked with [Fe500] [Fe500D] [Fe550D] and an unsaid cement type with [OPC43] [OPC53] [PPC] [PSC] (PRODUCT §4), one question at a time. A brand the contractor named shows as a chip. Confirm is blocked until every item has quantity, unit, size (steel), grade (steel) or type (cement), and tier.
 
 ### 12.4 Choose dealers
 Dealers in the site's city, same area first (no distances until P1). The contractor's dealer book (`saved`) is on by default, 4 to 6 (R13). The regular dealer is pinned at the top with the "आपके dealer" badge and the line **"आख़िर में match का मौका"**; a toggle "पहले भी पूछिए" switches him to a normal quote call (remembered per dealer, P1). Footer: "{n} dealers को call करेंगे · हर call में बताएँगे कि ये AI है". Primary: "Call शुरू कीजिए". Live mode shows a lal-outlined "LIVE" note ("असली calls जाएँगी") and lists only opted-in or test_ok dealers.
@@ -458,6 +458,8 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `logout.warning` | अभी फ़ोन नंबर से लॉगिन नहीं है, इसलिए लॉग आउट के बाद आपके पुराने ऑर्डर इस फ़ोन पे नहीं दिखेंगे। शुरू से शुरू करना होगा। | There's no phone-number login yet, so after you log out, your past orders won't show on this phone. You'll start again from the beginning. |
 | `logout.confirm` | हाँ, लॉग आउट कीजिए | Yes, log out |
 | `logout.cancel` | रहने दीजिए | Stay logged in |
+| `confirm.askGrade` | कौन सा ग्रेड? | Which grade? |
+| `confirm.askCementType` | सीमेंट का टाइप? | Which cement type? |
 | `badge.regular` | आपके dealer | Your dealer |
 | `badge.demo` | DEMO | DEMO |
 | `demo.watermark` | DEMO · काल्पनिक dealers | DEMO · fictional dealers |
