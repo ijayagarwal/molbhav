@@ -192,6 +192,13 @@ describe("sites and areas (R7: matched in code)", () => {
     expect(matchArea("मानसरोवर वाली साइट", "Jaipur")?.key).toBe("mansarovar");
     expect(matchArea("vidyadhar nagar", "Jaipur")?.key).toBe("vidhyadhar_nagar");
     expect(matchArea("malvia nagar", "Jaipur")?.key).toBe("malviya_nagar");
+    // Speech-to-text spellings: an extra or missing vowel still finds the area, on whole words only.
+    expect(matchArea("Manasarovar wali site pe", "Jaipur")?.key).toBe("mansarovar");
+    expect(matchArea("मनसरोवर वाली साइट", "Jaipur")?.key).toBe("mansarovar");
+    expect(matchArea("Jagatpur ki site", "Jaipur")?.key).toBe("jagatpura");
+    expect(matchArea("Manas Sarovar wali site pe", "Jaipur")?.key).toBe("mansarovar");
+    expect(matchArea("site pe chahiye", "Jaipur")).toBeUndefined();
+    expect(matchArea("naya ghar", "Jaipur")).toBeUndefined();
     expect(matchArea("C scheme", "Jaipur")?.key).toBe("c_scheme");
     expect(matchArea("सी स्कीम", "Jaipur")?.key).toBe("c_scheme");
     expect(matchArea("mandir ke paas", "Jaipur")).toBeUndefined();

@@ -81,7 +81,7 @@ export function FactTiles({ facts }: { facts: { label: string; value: string; on
         const body = (
           <>
             <span className="text-meta text-ink-2">{f.label}</span>
-            <span className="truncate text-label">{f.value}</span>
+            <span className="text-label [overflow-wrap:anywhere]">{f.value}</span>
           </>
         );
         return f.onClick ? (

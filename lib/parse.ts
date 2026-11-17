@@ -317,7 +317,35 @@ export function matchArea(text: string | null | undefined, city: City): Area | u
       if (hit && (best === undefined || name.length > best.len)) best = { area, len: name.length };
     }
   }
-  return best?.area;
+  return best?.area ?? matchAreaBySkeleton(text, city);
+}
+
+/** Consonants only, doubles collapsed: "Manasarovar"/"Mansarovar"/"Manas Sarovar" → "mnsrvr". */
+function skeleton(s: string): string {
+  return looseRoman(matchKey(s))
+    .replace(/[aeiou]/g, "")
+    .replace(/[\u093E-\u094D\u0902\u0903]/g, "") // matras, virama, anusvara, visarga
+    .replace(/[\u0905-\u0914]/g, "") // independent vowels
+    .replace(/(.)\1+/gu, "$1"); // "Manas Sarovar" joins to a double s
+}
+
+/**
+ * Fallback for speech-to-text's spelling variants ("Manasarovar wali site"): compare consonant skeletons of
+ * whole words only, so a short area name never matches inside another word ("site pe" is not Sitapura).
+ */
+function matchAreaBySkeleton(text: string, city: City): Area | undefined {
+  const words = text.normalize("NFC").split(/[^\p{L}\p{M}\p{N}]+/u).filter(Boolean);
+  for (const area of CITY_AREAS[city]) {
+    for (const name of [area.en, area.hi]) {
+      const n = name.split(/[^\p{L}\p{M}\p{N}]+/u).filter(Boolean).length;
+      const target = skeleton(name);
+      if (target.length < 3) continue;
+      // The name's own word count, or one more (speech-to-text can split a name: "Manas Sarovar").
+      for (const w of [n, n + 1])
+        for (let i = 0; i + w <= words.length; i++) if (skeleton(words.slice(i, i + w).join("")) === target) return area;
+    }
+  }
+  return undefined;
 }
 
 export interface SiteLike {
