@@ -1,26 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MicBold, NextBold } from "@/components/mb/icons";
-import { Parchi } from "@/components/mb/Parchi";
+import { HeroBoardLazy } from "@/features/marketing/HeroBoardLazy";
+import { heroBoardData } from "@/features/marketing/heroData";
 import { SiteFooter, SiteHeader } from "@/features/marketing/SiteChrome";
 import { WaitlistForm } from "@/features/marketing/WaitlistForm";
 import { WhatsAppLink } from "@/features/marketing/WhatsAppLink";
 import { whatsappDigits } from "@/features/marketing/contact";
-import { buildMoneyShot } from "@/features/moneyShot/data";
-import { CITY_AREAS, DELIVER_BY } from "@/lib/config";
-import { DEMO_ITEMS } from "@/lib/fixtures/demoOrder";
 import { getServerDict } from "@/lib/i18n/server";
-import { formatPaise, formatRate } from "@/lib/numbers";
-import { lineBreakdown } from "@/lib/pricing";
 import { cleanRef } from "@/lib/waitlist";
 
 // The landing page (DESIGN §21.1, design/reference/Landing.html, LandingPhone.html), server-only (F2), in the
-// G1 order: hero → how it works → honest-bargaining rules → for dealers → waitlist. Pilot wording (G2): our
-// team calls dealers today; AI calling is "जल्द". The proof band waits for real spread-test figures (G1), the
-// sandbox for /try, and the live hero board comes with Phase 7; meanwhile the hero shows the DEMO parchi the
-// brain computes for the demo order. WhatsApp click-to-chat appears only when the team number is set.
-const DEMO = buildMoneyShot(Date.UTC(2026, 10, 15));
-const UNIT_HI = { kg: "किलो", ton: "टन", quintal: "क्विंटल", bag: "बोरी" } as const;
+// G1 order: hero → how it works → honest-bargaining rules → the sandbox → for dealers → waitlist. Pilot wording
+// (G2): our team calls dealers today; AI calling is "जल्द". The hero's live board is the one client island
+// (features/marketing/HeroBoardLazy.tsx: a still frame first, the live board loaded after the page): the real
+// sweep components on fixtures the server computes, no Convex and no network. The proof band waits for real spread-test figures and a consented recording (G1), so it isn't
+// rendered. WhatsApp click-to-chat appears only when the team number is set.
 
 export async function generateMetadata(): Promise<Metadata> {
   const { lang, t } = await getServerDict();
@@ -38,14 +33,7 @@ export default async function LandingPage({ searchParams }: PageProps<"/">) {
   const rawRef = (await searchParams).ref;
   const refCode = cleanRef(typeof rawRef === "string" ? rawRef : undefined);
   const hasWhatsApp = whatsappDigits() !== null;
-  const winner = DEMO.dealers.agarwal;
-  const lines = lineBreakdown(DEMO_ITEMS, DEMO.winnerFacts.lines, false).map((l) => {
-    const item = DEMO_ITEMS.find((i) => i.id === l.itemId)!;
-    const what = item.material === "tmt_steel" ? `TMT ${item.diameterMm}mm ${item.grade}` : `${item.cementType}`;
-    return { label: `${what} · ${item.quantity} ${lang === "hi" ? UNIT_HI[item.unit!] : item.unit} × ${formatRate(l.rate)}/${lang === "hi" ? UNIT_HI[l.rateUnit] : l.rateUnit}`, amount: l.subtotal };
-  });
-  const total = lines.reduce((s, l) => s + l.amount, 0) + DEMO.winnerGstPaise;
-  const area = CITY_AREAS.Jaipur.find((a) => a.key === winner.area)?.[lang] ?? winner.area;
+  const board = heroBoardData(lang, t);
 
   const steps = [
     { n: 1, title: t["landing.step1Title"], body: t["landing.step1"] },
@@ -58,7 +46,7 @@ export default async function LandingPage({ searchParams }: PageProps<"/">) {
       <SiteHeader lang={lang} t={t} sections />
 
       <main>
-        <section className="mx-auto grid max-w-[1200px] gap-10 px-4 pb-14 pt-6 lg:grid-cols-[minmax(0,1fr)_460px] lg:items-center lg:px-8 lg:pt-12">
+        <section className="mx-auto grid max-w-[1200px] grid-cols-[minmax(0,1fr)] gap-10 px-4 pb-14 pt-6 lg:grid-cols-[minmax(0,1fr)_460px] lg:items-center lg:px-8 lg:pt-12">
           <div className="flex flex-col gap-5">
             <span className="w-fit rounded-card bg-cement px-3 py-1 text-label text-ink-2">{t["landing.eyebrow"]}</span>
             <h1 className="font-display text-[clamp(2.5rem,7vw,4.5rem)] leading-[1.1]">
@@ -71,7 +59,7 @@ export default async function LandingPage({ searchParams }: PageProps<"/">) {
             <div className="flex flex-col gap-2">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Link
-                  href="/app"
+                  href="/try"
                   className="press-paint inline-flex h-16 items-center justify-center gap-3 rounded-card border-2 border-ink bg-haldi px-6 font-display text-title-2 shadow-paint lg:w-fit"
                 >
                   <MicBold className="size-6" />
@@ -82,20 +70,7 @@ export default async function LandingPage({ searchParams }: PageProps<"/">) {
               <span className="text-meta text-ink-2">{t["landing.demoNote"]}</span>
             </div>
           </div>
-          <div className="flex flex-col gap-3">
-            <span className="text-label text-ink-2">{t["landing.exampleTitle"]}</span>
-            <Parchi
-              heading={`${t["parchi.title"]} · ${area}`}
-              status={t["status.final"]}
-              dealerName={lang === "hi" ? winner.nameHi : winner.name}
-              totalPaise={total}
-              allInLabel={t["parchi.allIn"]}
-              lines={[...lines, { label: t["parchi.gst"].replace("{rate}", "18"), amount: DEMO.winnerGstPaise }, { label: t["parchi.deliveryUnloading"], amount: t["parchi.free"], tone: "hara" }]}
-              chips={[DELIVER_BY.tomorrow_morning[lang], t["parchi.credit"].replace("{n}", String(DEMO.terms.agarwal.creditDays)), t["parchi.pakka"]]}
-              watermark={t["demo.watermark"]}
-            />
-            <p className="text-meta text-ink-2">{`${formatPaise(DEMO.savedPaise)} ${t["result.tallyLess"]} · ${t["result.vsFirst"].replace("{y}", formatPaise(DEMO.firstRatePaise).replace("₹", ""))}`}</p>
-          </div>
+          <HeroBoardLazy data={board} />
         </section>
 
         <section id="how" className="scroll-mt-4 border-t border-rule bg-card">
@@ -129,6 +104,24 @@ export default async function LandingPage({ searchParams }: PageProps<"/">) {
             </ul>
             <Link href="/app" className="inline-flex h-14 w-fit items-center rounded-card border-[1.5px] border-ink bg-card px-5 text-label">
               {t["landing.openApp"]}
+            </Link>
+          </div>
+        </section>
+
+        <section id="try" aria-labelledby="try-title" className="scroll-mt-4 border-b border-rule">
+          <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 py-12 lg:flex-row lg:items-center lg:justify-between lg:gap-10 lg:px-8">
+            <div className="flex max-w-[60ch] flex-col gap-3">
+              <h2 id="try-title" className="font-display text-title-1">
+                {t["landing.tryTitle"]}
+              </h2>
+              <p className="text-body-lg text-ink-2">{t["landing.tryBody"]}</p>
+            </div>
+            <Link
+              href="/try"
+              className="press-paint inline-flex min-h-16 w-full shrink-0 items-center justify-center gap-3 rounded-card border-2 border-ink bg-haldi px-6 font-display text-title-2 shadow-paint sm:w-fit"
+            >
+              <MicBold aria-hidden="true" className="size-6" />
+              {t["landing.tryCta"]}
             </Link>
           </div>
         </section>
