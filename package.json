@@ -14,6 +14,7 @@
     "size": "size-limit",
     "measure": "tsx scripts/measure-app.ts",
     "eval:extract": "tsx --env-file-if-exists=.env.local scripts/eval-extract.ts",
+    "eval:parse": "tsx --env-file-if-exists=.env.local scripts/eval-parse.ts",
     "fonts": ".venv/bin/python scripts/fonts.py",
     "icons": "tsx scripts/icons.ts",
     "postinstall": "node scripts/og-wasm.mjs"

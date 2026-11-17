@@ -1,0 +1,331 @@
+{
+  "about": "Golden set for the order parse (ARCHITECTURE §8.1, PROMPTS Phase 4 item 7). Run with `pnpm eval:parse` (calls Gemini; target ≥ 18/20). Every utterance is written by the team (no real contractor speech), so the free GEMINI_API_KEY is allowed; real transcripts, once added, need GEMINI_API_KEY_BILLED. Devanagari cases are written the way Sarvam's codemix mode transcribes (Hindi in Devanagari, English words and digits in Latin); Roman cases are the typed fallback. `expected` is Gemini's raw answer in the §8.1 shape. A case passes when lib/parse.ts maps the actual answer to the same items (material, size, grade, cement type, tier, brand, quantity, unit), site area, deliverBy, credit days and suta note as it maps `expected`; the free texts and the model's own `missing` list are not scored.",
+  "version": 1,
+  "cases": [
+    {
+      "id": "demo-hinglish",
+      "note": "§8.1 case 1, the docs/DEMO.md line: steel 12 mm Fe500D 2 ton, tier unsaid (asked on Confirm); cement PPC 150 bags; Mansarovar; kal subah; 15 days credit",
+      "transcript": "Kal subah tak 2 ton 12mm sariya Fe500D aur 150 bori PPC cement, Mansarovar wali site pe, 15 din ka udhaar chahiye",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": 12, "grade": "Fe500D", "cementType": null, "tier": null, "brand": null, "quantity": 2, "unit": "ton" },
+          { "material": "cement", "diameterMm": null, "grade": null, "cementType": "PPC", "tier": null, "brand": null, "quantity": 150, "unit": "bag" }
+        ],
+        "siteText": "Mansarovar wali site",
+        "deliverByText": "Kal subah tak",
+        "deliverBy": "tomorrow_morning",
+        "creditDaysWanted": 15,
+        "missing": ["tier"],
+        "notes": []
+      }
+    },
+    {
+      "id": "dedh-dhai-branded",
+      "note": "§8.1 case 2: dedh = 1.5, aath = 8, dhai sau = 250; steel branded with the grade missing; cement OPC53 UltraTech",
+      "transcript": "dedh ton aath mm branded aur dhai sau katta OPC 53 UltraTech",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": 8, "grade": null, "cementType": null, "tier": "branded", "brand": null, "quantity": 1.5, "unit": "ton" },
+          { "material": "cement", "diameterMm": null, "grade": null, "cementType": "OPC53", "tier": "branded", "brand": "UltraTech", "quantity": 250, "unit": "bag" }
+        ],
+        "siteText": null,
+        "deliverByText": null,
+        "deliverBy": null,
+        "creditDaysWanted": null,
+        "missing": ["grade"],
+        "notes": []
+      }
+    },
+    {
+      "id": "suta-roman",
+      "note": "§8.1 case 3 (P7): a size in suta is never mapped; diameter missing, size_said_in_suta; grade and tier missing",
+      "transcript": "sariya chahiye 4 suta wala, do ton",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": null, "grade": null, "cementType": null, "tier": null, "brand": null, "quantity": 2, "unit": "ton" }
+        ],
+        "siteText": null,
+        "deliverByText": null,
+        "deliverBy": null,
+        "creditDaysWanted": null,
+        "missing": ["diameterMm", "grade", "tier"],
+        "notes": ["size_said_in_suta"]
+      }
+    },
+    {
+      "id": "demo-codemix",
+      "note": "The demo line as Sarvam codemix writes it: same order as demo-hinglish",
+      "transcript": "कल सुबह तक 2 टन 12mm सरिया Fe500D और 150 बोरी PPC सीमेंट, मानसरोवर वाली साइट पे, 15 दिन का उधार चाहिए",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": 12, "grade": "Fe500D", "cementType": null, "tier": null, "brand": null, "quantity": 2, "unit": "ton" },
+          { "material": "cement", "diameterMm": null, "grade": null, "cementType": "PPC", "tier": null, "brand": null, "quantity": 150, "unit": "bag" }
+        ],
+        "siteText": "मानसरोवर वाली साइट",
+        "deliverByText": "कल सुबह तक",
+        "deliverBy": "tomorrow_morning",
+        "creditDaysWanted": 15,
+        "missing": ["tier"],
+        "notes": []
+      }
+    },
+    {
+      "id": "english-full",
+      "note": "English: Tata → Tata Tiscon (branded); cement any brand; Jagatpura; day after tomorrow; 30 days credit",
+      "transcript": "I need 3 tons of 16 mm TMT bars Fe550D, Tata, and 200 bags of OPC 43 cement, any brand, delivered day after tomorrow at the Jagatpura site, 30 days credit",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": 16, "grade": "Fe550D", "cementType": null, "tier": "branded", "brand": "Tata", "quantity": 3, "unit": "ton" },
+          { "material": "cement", "diameterMm": null, "grade": null, "cementType": "OPC43", "tier": "any", "brand": null, "quantity": 200, "unit": "bag" }
+        ],
+        "siteText": "Jagatpura site",
+        "deliverByText": "day after tomorrow",
+        "deliverBy": "day_after",
+        "creditDaysWanted": 30,
+        "missing": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "saade-quintal-local",
+      "note": "saade teen = 3.5, quintal; local ISI; Fe500; today",
+      "transcript": "साढ़े तीन क्विंटल 10mm सरिया लोकल ISI Fe500 चाहिए, आज ही",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": 10, "grade": "Fe500", "cementType": null, "tier": "local_isi", "brand": null, "quantity": 3.5, "unit": "quintal" }
+        ],
+        "siteText": null,
+        "deliverByText": "आज ही",
+        "deliverBy": "today",
+        "creditDaysWanted": null,
+        "missing": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "sava-jsw",
+      "note": "sava do = 2.25 ton; JSW → JSW Neosteel (branded); parso = day after; Vaishali Nagar",
+      "transcript": "sava do ton 12 mm Fe500D JSW ka sariya, parso tak Vaishali Nagar wali site pe",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": 12, "grade": "Fe500D", "cementType": null, "tier": "branded", "brand": "JSW", "quantity": 2.25, "unit": "ton" }
+        ],
+        "siteText": "Vaishali Nagar wali site",
+        "deliverByText": "parso tak",
+        "deliverBy": "day_after",
+        "creditDaysWanted": null,
+        "missing": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "paune-jindal",
+      "note": "paune teen = 2.75 ton; Jindal → Jindal Panther (branded); grade missing; this week",
+      "transcript": "पौने तीन टन 20mm सरिया Jindal का, इस हफ़्ते में",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": 20, "grade": null, "cementType": null, "tier": "branded", "brand": "Jindal", "quantity": 2.75, "unit": "ton" }
+        ],
+        "siteText": null,
+        "deliverByText": "इस हफ़्ते में",
+        "deliverBy": "this_week",
+        "creditDaysWanted": null,
+        "missing": ["grade"],
+        "notes": []
+      }
+    },
+    {
+      "id": "dedh-sau-katta-ambuja",
+      "note": "dedh sau katta = 150 bags; Ambuja (branded); kal shaam = tomorrow; Sanganer",
+      "transcript": "डेढ़ सौ कट्टा अंबुजा PPC, कल शाम तक सांगानेर वाली साइट पे",
+      "expected": {
+        "items": [
+          { "material": "cement", "diameterMm": null, "grade": null, "cementType": "PPC", "tier": "branded", "brand": "Ambuja", "quantity": 150, "unit": "bag" }
+        ],
+        "siteText": "सांगानेर वाली साइट",
+        "deliverByText": "कल शाम तक",
+        "deliverBy": "tomorrow",
+        "creditDaysWanted": null,
+        "missing": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "negation-no-cement",
+      "note": "A negation: cement is NOT wanted, so only the steel line; लोकल = local_isi",
+      "transcript": "सीमेंट नहीं चाहिए, सिर्फ़ 2 टन 12mm सरिया Fe500D लोकल वाला",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": 12, "grade": "Fe500D", "cementType": null, "tier": "local_isi", "brand": null, "quantity": 2, "unit": "ton" }
+        ],
+        "siteText": null,
+        "deliverByText": null,
+        "deliverBy": null,
+        "creditDaysWanted": null,
+        "missing": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "negation-brand",
+      "note": "A negated brand: not ACC, UltraTech; 100 bags OPC 53",
+      "transcript": "ACC nahi, UltraTech hi chahiye, 100 bori OPC 53",
+      "expected": {
+        "items": [
+          { "material": "cement", "diameterMm": null, "grade": null, "cementType": "OPC53", "tier": "branded", "brand": "UltraTech", "quantity": 100, "unit": "bag" }
+        ],
+        "siteText": null,
+        "deliverByText": null,
+        "deliverBy": null,
+        "creditDaysWanted": null,
+        "missing": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "missing-grade",
+      "note": "A missing grade: 8 mm 5 ton ब्रांडेड, grade left null",
+      "transcript": "5 टन 8mm सरिया चाहिए ब्रांडेड",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": 8, "grade": null, "cementType": null, "tier": "branded", "brand": null, "quantity": 5, "unit": "ton" }
+        ],
+        "siteText": null,
+        "deliverByText": null,
+        "deliverBy": null,
+        "creditDaysWanted": null,
+        "missing": ["grade"],
+        "notes": []
+      }
+    },
+    {
+      "id": "both-tiers",
+      "note": "दोनों / dono: tier both, kept so Confirm asks which (R10)",
+      "transcript": "2 ton 12mm sariya Fe500D, branded aur local dono ka rate dekh lijiye",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": 12, "grade": "Fe500D", "cementType": null, "tier": "both", "brand": null, "quantity": 2, "unit": "ton" }
+        ],
+        "siteText": null,
+        "deliverByText": null,
+        "deliverBy": null,
+        "creditDaysWanted": null,
+        "missing": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "koi-bhi-credit",
+      "note": "कोई भी = any; 300 bags PPC; 7 days credit",
+      "transcript": "300 बोरी PPC कोई भी कंपनी का, 7 दिन उधार",
+      "expected": {
+        "items": [
+          { "material": "cement", "diameterMm": null, "grade": null, "cementType": "PPC", "tier": "any", "brand": null, "quantity": 300, "unit": "bag" }
+        ],
+        "siteText": null,
+        "deliverByText": null,
+        "deliverBy": null,
+        "creditDaysWanted": 7,
+        "missing": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "two-sizes-kilo",
+      "note": "Two steel lines in kilo (ids steel, steel_2); one grade said for both",
+      "transcript": "1500 kilo 12mm aur 500 kilo 8mm sariya, dono Fe500D",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": 12, "grade": "Fe500D", "cementType": null, "tier": null, "brand": null, "quantity": 1500, "unit": "kg" },
+          { "material": "tmt_steel", "diameterMm": 8, "grade": "Fe500D", "cementType": null, "tier": null, "brand": null, "quantity": 500, "unit": "kg" }
+        ],
+        "siteText": null,
+        "deliverByText": null,
+        "deliverBy": null,
+        "creditDaysWanted": null,
+        "missing": ["tier"],
+        "notes": []
+      }
+    },
+    {
+      "id": "naami-company",
+      "note": "नामी कंपनी = branded cement, no brand named; 200 bags OPC 43",
+      "transcript": "दो सौ बैग नामी कंपनी का सीमेंट OPC 43",
+      "expected": {
+        "items": [
+          { "material": "cement", "diameterMm": null, "grade": null, "cementType": "OPC43", "tier": "branded", "brand": null, "quantity": 200, "unit": "bag" }
+        ],
+        "siteText": null,
+        "deliverByText": null,
+        "deliverBy": null,
+        "creditDaysWanted": null,
+        "missing": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "suta-devanagari",
+      "note": "Suta in Devanagari (P7): चार सूत is never mapped; डेढ़ टन = 1.5; लोकल",
+      "transcript": "चार सूत का सरिया डेढ़ टन, लोकल वाला",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": null, "grade": null, "cementType": null, "tier": "local_isi", "brand": null, "quantity": 1.5, "unit": "ton" }
+        ],
+        "siteText": null,
+        "deliverByText": null,
+        "deliverBy": null,
+        "creditDaysWanted": null,
+        "missing": ["diameterMm", "grade"],
+        "notes": ["size_said_in_suta"]
+      }
+    },
+    {
+      "id": "dhai-ton-words",
+      "note": "Numbers as words: ढाई = 2.5, बारह mm = 12; kal subah",
+      "transcript": "ढाई टन बारह mm का सरिया Fe500D, कल सुबह",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": 12, "grade": "Fe500D", "cementType": null, "tier": null, "brand": null, "quantity": 2.5, "unit": "ton" }
+        ],
+        "siteText": null,
+        "deliverByText": "कल सुबह",
+        "deliverBy": "tomorrow_morning",
+        "creditDaysWanted": null,
+        "missing": ["tier"],
+        "notes": []
+      }
+    },
+    {
+      "id": "english-shree-cement",
+      "note": "English, cement only: Shree (branded); Malviya Nagar; tomorrow",
+      "transcript": "Send 120 bags of PPC cement, Shree brand, to the Malviya Nagar site by tomorrow",
+      "expected": {
+        "items": [
+          { "material": "cement", "diameterMm": null, "grade": null, "cementType": "PPC", "tier": "branded", "brand": "Shree", "quantity": 120, "unit": "bag" }
+        ],
+        "siteText": "Malviya Nagar site",
+        "deliverByText": "by tomorrow",
+        "deliverBy": "tomorrow",
+        "creditDaysWanted": null,
+        "missing": [],
+        "notes": []
+      }
+    },
+    {
+      "id": "sail-udhaar-tonk",
+      "note": "SAIL (branded); teen = 3 ton; 45 days credit; Tonk Road",
+      "transcript": "SAIL ka 16mm TMT Fe500D teen ton, 45 din ka udhaar, Tonk Road wali site",
+      "expected": {
+        "items": [
+          { "material": "tmt_steel", "diameterMm": 16, "grade": "Fe500D", "cementType": null, "tier": "branded", "brand": "SAIL", "quantity": 3, "unit": "ton" }
+        ],
+        "siteText": "Tonk Road wali site",
+        "deliverByText": null,
+        "deliverBy": null,
+        "creditDaysWanted": 45,
+        "missing": [],
+        "notes": []
+      }
+    }
+  ]
+}
