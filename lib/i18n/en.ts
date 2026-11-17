@@ -406,4 +406,14 @@ export const en: Record<DictKey, string> = {
   "placed.share": "Share the parchi",
   "placed.deliverBy": "Delivery: {when}",
   "placed.undone": "Order stopped",
+
+  "error.pageTitle": "This page couldn't open",
+  "error.pageHint": "Something went wrong on our side. Try again, or go home.",
+  "error.retry": "Try again",
+
+  "badge.live": "LIVE",
+  "item.steel": "TMT steel",
+  "item.cement": "Cement",
+  "item.cementOf": "{type} cement",
+  "item.type": "Type",
 };

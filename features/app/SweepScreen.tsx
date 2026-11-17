@@ -13,7 +13,7 @@ import { DealerRow, type DealerRowProps, type RowState } from "@/components/mb/D
 import { ModeBadge } from "@/components/mb/ModeBadge";
 import { StopAllButton } from "@/components/mb/StatusPill";
 import { api } from "@/convex/_generated/api";
-import { buildBoard, type BoardRow, type BoardData } from "@/lib/board";
+import { buildBoard, type BoardRow } from "@/lib/board";
 import { earcons } from "@/lib/client/earcons";
 import { haptics } from "@/lib/client/haptics";
 import { usePrefs } from "@/lib/client/prefs";
@@ -25,6 +25,7 @@ import { initials } from "@/lib/initials";
 import { formatPaise } from "@/lib/numbers";
 import { parseTurns } from "@/lib/transcript";
 import { AppFrame } from "./AppFrame";
+import { toBoardData } from "./boardData";
 import { OrderLoading, OrderMissing } from "./OrderStates";
 import { useNow } from "./useNow";
 import { useOrderScreen } from "./useOrderScreen";
@@ -60,17 +61,20 @@ export function SweepScreen({ orderId }: { orderId: string }) {
   const lastRow = useRef<HTMLElement | null>(null);
   const stamped = useRef<Set<string> | null>(null);
 
-  const board = data ? buildBoard(data as unknown as BoardData, now) : null;
+  const board = data ? buildBoard(toBoardData(data), now) : null;
   const nameOf = (r: BoardRow) => (lang === "hi" ? (r.dealer.nameHi ?? r.dealer.name) : r.dealer.name);
 
   // Stamp sound, haptic and announcement for every newly revealed quote (DESIGN §10, §15).
   const revealed = board ? board.rows.filter((r) => r.quote !== undefined).map((r) => `${r.quote!._id}`) : [];
   const revealedKey = revealed.join(",");
+  const loaded = board !== null;
   useEffect(() => {
     if (!board) return;
     const ids = new Set(revealedKey ? revealedKey.split(",") : []);
     if (stamped.current === null) {
-      stamped.current = ids; // first load: no sounds for quotes that were already in
+      // The board's first data: quotes already in (a reload, a revisit) are seen, not new. Every quote
+      // revealed after this point is announced, including the very first one.
+      stamped.current = ids;
       return;
     }
     const fresh = [...ids].filter((id) => !stamped.current!.has(id));
@@ -80,9 +84,9 @@ export function SweepScreen({ orderId }: { orderId: string }) {
     haptics.stamp();
     const row = board.rows.find((r) => r.quote && fresh.includes(r.quote._id));
     if (row?.total !== undefined) setAnnounce(t("sweep.announce", { dealer: nameOf(row), total: formatPaise(row.total) }));
-    // board is rebuilt every tick; only the set of revealed quotes matters here.
+    // board is rebuilt every tick; only its arrival and the set of revealed quotes matter here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revealedKey]);
+  }, [loaded, revealedKey]);
 
   const title = board?.phase === "haggle" ? t("haggle.title") : board?.phase === "match" ? t("match.title") : t("sweep.title");
   const back = { href: "/app", label: t("rail.home") };
@@ -108,6 +112,7 @@ export function SweepScreen({ orderId }: { orderId: string }) {
     const q = r.quote;
     const area = CITY_AREAS.Jaipur.find((a) => a.key === r.dealer.area)?.[lang] ?? r.dealer.area;
     const flagged = r.kind === "notComparable";
+    const flag = q?.flags.includes("gst_unclear") ? t("flag.checkGst") : t("flag.check");
     return {
       layout,
       name: nameOf(r),
@@ -125,9 +130,10 @@ export function SweepScreen({ orderId }: { orderId: string }) {
       strike: r.strike ? { fromPaise: r.strike.from, toPaise: r.strike.to, droppedLabel: t("haggle.dropped", { x: formatPaise(r.strike.from - r.strike.to).replace("₹", "") }), variant: r.dealer._id.charCodeAt(r.dealer._id.length - 1) } : undefined,
       totalNote: flagged ? t("sweep.allIn") : undefined,
       badge: r.dealer.isRegular ? t("badge.regular") : undefined,
-      note: r.kind === "held" ? t("dealers.matchLater") : flagged ? `${q?.flags.includes("gst_unclear") ? t("flag.checkGst") : t("flag.check")} · ${t("sweep.notInHaggle")}` : undefined,
+      // Desk (Desk.html): the short flag, with "not in the bargaining" as the row's second line.
+      note: r.kind === "held" ? t("dealers.matchLater") : flagged ? (layout === "desk" ? flag : `${flag} · ${t("sweep.notInHaggle")}`) : undefined,
       noteTone: flagged ? "lal" : "ink",
-      line: layout === "desk" && r.strike ? t("haggle.dropped", { x: formatPaise(r.strike.from - r.strike.to).replace("₹", "") }) : undefined,
+      line: layout !== "desk" ? undefined : r.strike ? t("haggle.dropped", { x: formatPaise(r.strike.from - r.strike.to).replace("₹", "") }) : flagged ? t("sweep.notInHaggle") : undefined,
       credit: q ? (q.creditDays ? t("confirm.creditDays", { n: q.creditDays }) : t("confirm.cash")) : undefined,
       delivery: q?.deliveryBy ? DELIVER_BY[q.deliveryBy as DeliverBy]?.[lang] : undefined,
       winner: false,
@@ -224,7 +230,7 @@ export function SweepScreen({ orderId }: { orderId: string }) {
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <span className="flex items-center gap-2 text-meta text-ink-2">
-            <ModeBadge mode={order.mode} label={order.mode === "sim" ? t("badge.demo") : "LIVE"} />
+            <ModeBadge mode={order.mode} label={order.mode === "sim" ? t("badge.demo") : t("badge.live")} />
           </span>
           <h1 className="hidden font-display text-title-1 lg:block">{title}</h1>
         </div>

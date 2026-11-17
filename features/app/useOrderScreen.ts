@@ -2,17 +2,20 @@
 
 // Loads one of the caller's orders for a screen and keeps the URL honest: if the order's status belongs on
 // another screen (it moved on, or a stale link), it replaces the route. Returns undefined while loading and
-// null when the order doesn't exist or isn't the caller's (both look the same, by design).
+// null when the order doesn't exist or isn't the caller's (both look the same, by design). A signed-out
+// visitor never runs the query (it would throw) and is sent to /app instead.
 import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { api } from "@/convex/_generated/api";
 import { orderPath, screenFor, type OrderScreen } from "@/lib/orderRoute";
+import { useRequireSession } from "./useSession";
 
 export function useOrderScreen(orderId: string, screen: OrderScreen) {
   const router = useRouter();
+  const signedIn = useRequireSession();
   // getOrNull reads a malformed or foreign id as null ("not found").
-  const order = useQuery(api.orders.getOrNull, { orderId });
+  const order = useQuery(api.orders.getOrNull, signedIn ? { orderId } : "skip");
   const target = order ? screenFor(order.status) : null;
   useEffect(() => {
     if (order && target !== screen) router.replace(orderPath(order._id, order.status));

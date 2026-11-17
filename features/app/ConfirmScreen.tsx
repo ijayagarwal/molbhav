@@ -19,6 +19,7 @@ import { CITY_AREAS, DELIVER_BY } from "@/lib/config";
 import type { DeliverBy, OrderItem } from "@/lib/domain";
 import type { DictKey } from "@/lib/i18n/getDict";
 import { useT } from "@/lib/i18n/useT";
+import { itemTitle } from "@/lib/orderLabel";
 import { readBackText } from "@/lib/readback";
 import { AppFrame } from "./AppFrame";
 import { speak } from "./HomeScreen";
@@ -68,11 +69,12 @@ export function ConfirmScreen({ orderId }: { orderId: string }) {
     const steel = item.material === "tmt_steel";
     const specs = steel
       ? [item.diameterMm ? { label: `${item.diameterMm}mm` } : { label: t("item.size"), missing: true }, item.grade ? { label: item.grade } : { label: t("item.grade"), missing: true }]
-      : [{ label: item.cementType ?? "PPC" }];
+      : // No cement type said: show that it's missing ("टाइप?"), never a guessed PPC.
+        [item.cementType ? { label: item.cementType } : { label: t("item.type"), missing: true }];
     return (
       <ItemCard
         key={item.id}
-        title={steel ? (lang === "hi" ? "TMT सरिया" : "TMT steel") : `${item.cementType ?? ""} ${lang === "hi" ? "सीमेंट" : "cement"}`.trim()}
+        title={itemTitle(item, t)}
         quantity={item.quantity === undefined ? null : String(item.quantity)}
         unit={item.unit ? t(UNIT_KEY[item.unit]) : ""}
         specs={specs}

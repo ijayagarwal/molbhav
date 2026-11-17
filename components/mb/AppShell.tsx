@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useSyncExternalStore, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { DealersBold, OrdersBold, PinBold, PlusBold, SettingsBold, XBold } from "./icons";
 
 // The app's frame at every width (DESIGN §18, §19, D5). Props only; one DOM for all breakpoints.
@@ -97,6 +98,22 @@ export function useMedia(query: string): boolean {
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
+/** Keeps Tab and Shift+Tab inside a modal dialog (the call drawer, a bottom sheet): the ends wrap around. */
+function keepTabInside(e: KeyboardEvent, root: HTMLElement) {
+  const items = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE));
+  if (items.length === 0) return;
+  const first = items[0];
+  const last = items[items.length - 1];
+  const inside = root.contains(document.activeElement);
+  if (e.shiftKey && (document.activeElement === first || !inside)) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (document.activeElement === last || !inside)) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
 export function AppShell({ topBar, rail, bahi, children, phoneDock, deskDock, panel, panelOpen, onClosePanel, closeLabel, panelLabel, navLabel, returnFocusRef }: ShellProps) {
   // From 1280 px the panel is docked: no drawer state. Narrowing the window later must not pop a stale drawer open.
   const docked = useMedia("(min-width: 1280px)");
@@ -129,18 +146,7 @@ export function AppShell({ topBar, rail, bahi, children, phoneDock, deskDock, pa
         close();
         return;
       }
-      if (e.key !== "Tab" || !panelRef.current) return;
-      const items = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
-      if (items.length === 0) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
+      if (e.key === "Tab" && panelRef.current) keepTabInside(e, panelRef.current);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -198,31 +204,70 @@ export function AppShell({ topBar, rail, bahi, children, phoneDock, deskDock, pa
   );
 }
 
+const subscribeNothing = () => () => undefined;
+
 /**
  * A bottom sheet (DESIGN §20): over a scrim, overscroll contained, and above the on-screen keyboard
  * (the root viewport uses interactiveWidget "resizes-content", so a fixed bottom edge rides the keyboard).
+ * It is a modal dialog like the call drawer: it renders at the end of <body>, focus moves into it (its first
+ * control, else Close), Tab stays inside, the page behind is inert, Esc closes, and focus returns to the
+ * control that opened it. `inline` (the styleguide) renders in place with none of that.
  */
 export function BottomSheet({ open, title, onClose, closeLabel, children, inline = false }: { open: boolean; title: string; onClose: () => void; closeLabel: string; children: ReactNode; inline?: boolean }) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  // Screens pass a fresh onClose on every render; the dialog effect must not re-run (and re-focus) for that.
+  const onCloseRef = useRef(onClose);
   useEffect(() => {
-    if (!open || inline) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    onCloseRef.current = onClose;
+  });
+  // The portal needs document.body: false while hydrating, true afterwards.
+  const mounted = useSyncExternalStore(subscribeNothing, () => true, () => false);
+  const modal = open && !inline && mounted;
+
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!modal || !sheet) return;
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // The sheet is a child of <body>, so everything else on the page is one of its siblings.
+    const behind = Array.from(document.body.children).filter((el): el is HTMLElement => el instanceof HTMLElement && el !== sheet && !el.inert);
+    for (const el of behind) el.inert = true;
+    (bodyRef.current?.querySelector<HTMLElement>(FOCUSABLE) ?? closeRef.current)?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (e.key === "Tab") keepTabInside(e, sheet);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, inline, onClose]);
-  if (!open) return null;
-  return (
-    <div className={inline ? "relative" : "fixed inset-0 z-50 flex flex-col justify-end"} role="dialog" aria-modal={!inline} aria-label={title}>
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      // The page leaves inert first: focusing the trigger while it still is would silently fail.
+      for (const el of behind) el.inert = false;
+      if (trigger?.isConnected) trigger.focus();
+    };
+  }, [modal]);
+
+  if (!open || (!inline && !mounted)) return null;
+  const sheet = (
+    <div ref={sheetRef} className={inline ? "relative" : "fixed inset-0 z-50 flex flex-col justify-end"} role="dialog" aria-modal={!inline} aria-label={title}>
       {inline ? null : <div aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-ink/50" />}
       <div className={`relative mx-auto flex max-h-[85dvh] w-full max-w-[640px] flex-col gap-4 overflow-y-auto rounded-t-sheet bg-paper px-4 pt-3 [overscroll-behavior:contain] ${inline ? "rounded-b-card border border-rule pb-4" : "pb-[max(16px,env(safe-area-inset-bottom))]"}`}>
         <span aria-hidden="true" className="mx-auto h-1.5 w-11 rounded-full bg-rule" />
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-display text-title-2">{title}</h2>
-          <button type="button" onClick={onClose} aria-label={closeLabel} className="flex size-14 items-center justify-center rounded-card border border-rule bg-card">
+          <button ref={closeRef} type="button" onClick={onClose} aria-label={closeLabel} className="flex size-14 shrink-0 items-center justify-center rounded-card border border-rule bg-card">
             <XBold className="size-5" />
           </button>
         </div>
-        {children}
+        <div ref={bodyRef} className="contents">
+          {children}
+        </div>
       </div>
     </div>
   );
+  return inline ? sheet : createPortal(sheet, document.body);
 }

@@ -67,7 +67,8 @@ export function DealersScreen({ orderId }: { orderId: string }) {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState(false);
 
-  const back = { href: `/app/order/${orderId}/confirm`, label: t("onboarding.back") };
+  // Home, not Confirm: the order is already "confirmed", so /confirm would bounce straight back here.
+  const back = { href: "/app", label: t("rail.home") };
   if (order === undefined || (order && view === undefined)) {
     return (
       <AppFrame back={back} title={t("dealers.title")} deskDock={false} phoneDock={null}>

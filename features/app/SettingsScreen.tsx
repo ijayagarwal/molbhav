@@ -1,8 +1,8 @@
 "use client";
 
 // /app/settings: the whole app's language (hi ⇄ en), device sounds, the spoken result (V7), single-key
-// shortcuts (WCAG 2.1.4), the demo-mode note and privacy. Everything here works signed out too, except
-// what is stored on the profile.
+// shortcuts (WCAG 2.1.4), the demo-mode note and privacy. Settings belong to a session: a signed-out
+// visitor (a fresh browser) is sent to /app, where onboarding starts one.
 import { useQuery } from "convex/react";
 import { useEffect, type ReactNode } from "react";
 import { api } from "@/convex/_generated/api";
@@ -12,6 +12,7 @@ import { setPref, usePrefs, type Prefs } from "@/lib/client/prefs";
 import { CITY_AREAS } from "@/lib/config";
 import { useT } from "@/lib/i18n/useT";
 import { AppFrame } from "./AppFrame";
+import { useRequireSession } from "./useSession";
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -48,11 +49,22 @@ export function SettingsScreen() {
   const { t } = useT();
   const { lang, setLang, pending } = useLanguage();
   const prefs = usePrefs();
+  const signedIn = useRequireSession();
   const me = useQuery(api.contractors.me, {});
   useEffect(() => setSoundEnabled(prefs.sound), [prefs.sound]);
 
   const set = <K extends keyof Prefs>(k: K) => (v: Prefs[K]) => setPref(k, v);
   const area = me?.site ? CITY_AREAS.Jaipur.find((a) => a.key === me.site?.area) : undefined;
+
+  if (!signedIn) {
+    return (
+      <AppFrame back={{ href: "/app", label: t("rail.home") }} title={t("settings.title")} phoneDock={null} deskDock={false}>
+        <p role="status" aria-busy="true" className="text-body text-ink-2">
+          {t("session.connecting")}
+        </p>
+      </AppFrame>
+    );
+  }
 
   return (
     <AppFrame back={{ href: "/app", label: t("rail.home") }} title={t("settings.title")} phoneDock={null} deskDock={false}>
