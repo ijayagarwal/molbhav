@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
-import robots from "@/app/robots";
+import robots, { launchRobots } from "@/app/robots";
 
 // Two readings of robots.txt: Google's (the longest matching rule wins, allow on a tie) and a strict crawler's
 // (any matching disallow blocks). The public pages must be crawlable and the private ones blocked under both.
 const rules = (() => {
-  const r = robots().rules;
+  const r = launchRobots().rules;
   const rule = Array.isArray(r) ? r[0] : r;
   const list = (v: string | string[] | undefined) => (v === undefined ? [] : Array.isArray(v) ? v : [v]);
   return { userAgent: rule.userAgent, allow: list(rule.allow), disallow: list(rule.disallow) };
@@ -17,7 +17,14 @@ function longestMatch(path: string): boolean {
 }
 const strict = (path: string) => !rules.disallow.some((p) => path.startsWith(p));
 
-describe("robots (Phase 1C)", () => {
+describe("robots before launch", () => {
+  test("every crawler is kept out until PUBLIC_LAUNCH=true", () => {
+    const r = robots().rules;
+    expect(Array.isArray(r) ? r[0] : r).toEqual({ userAgent: "*", disallow: "/" });
+  });
+});
+
+describe("robots at launch (Phase 1C)", () => {
   test("applies to every crawler", () => {
     expect(rules.userAgent).toBe("*");
   });
