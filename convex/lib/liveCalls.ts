@@ -3,16 +3,17 @@
 // call can move goes through the same rules:
 // - statuses only move up the rank table and final statuses never change;
 // - any final status frees the live slot, so the waiting dial jobs are kicked (R2);
-// - a completed call goes to the same extraction job as sim, while its round is open;
+// - a completed call goes to the same extraction job as sim, while its round is open, and its recording is
+//   copied into Convex storage (Phase 8C), whether or not its round is still open;
 // - an unanswered opening call gets one retry (3 minutes later) while its round is open (R3, R15).
-import { CALLS } from "../../lib/config";
+import { CALLS, RETENTION } from "../../lib/config";
 import { deadlineFor, isFinalStatus, mapBolnaStatus, type CallStatus } from "../../lib/bolna/status";
 import type { ExecutionSnapshot } from "../../lib/bolna/execution";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { afterCallSettled, EXTRACT_DEADLINE_MS, roundOpen } from "../engine";
-import { dialPool, llmPool } from "../pools";
+import { dialPool, llmPool, MEDIA_COPY_DELAY_MS, mediaPool } from "../pools";
 
 /** How many waiting live calls one kick looks at (the trial has 2 slots; a sweep has at most 8 dealers). */
 const KICK_LIMIT = 20;
@@ -73,12 +74,14 @@ export async function scheduleRetry(ctx: MutationCtx, order: Doc<"orders">, call
 }
 
 /**
- * Phase 8C copies the recording into Convex storage (B6). This is the hook it fills in.
- * TODO(8C): take ctx and `await mediaPool.enqueueAction(ctx, internal.media.copyRecording, { callId, roundSeq }, …)`,
- * passing the recording URL from the execution (re-fetched there, never stored here: it is a 24 h presigned link).
+ * Copies a completed live call's recording into Convex storage (B6, Phase 8C) on the media pool, with
+ * retries for transient failures. The job re-fetches the execution for the link (a 24 h presigned URL is
+ * never stored here) and is idempotent on the call row, so it carries no round: a late call's recording is
+ * still its proof.
  */
-export function enqueueRecordingCopy(call: Doc<"calls">): void {
-  console.log(JSON.stringify({ evt: "recording_copy_pending_8c", callId: call._id }));
+export async function enqueueRecordingCopy(ctx: MutationCtx, call: Doc<"calls">): Promise<void> {
+  if (call.mode !== "live") return;
+  await mediaPool.enqueueAction(ctx, internal.media.copyRecording, { callId: call._id }, { runAfter: MEDIA_COPY_DELAY_MS });
 }
 
 type FinalPatch = Partial<Doc<"calls">> & { status: "completed" | "no_answer" | "busy" | "failed" | "cancelled" };
@@ -98,7 +101,9 @@ export async function finishLiveCall(ctx: MutationCtx, call: Doc<"calls">, patch
   const open = order !== null && roundOpen(order, call);
   const done = { ...call, ...patch };
   if (patch.status === "completed") {
-    enqueueRecordingCopy(done);
+    // The transcript (stored with this patch) and the recording go after 30 days (B6, §6.11).
+    await ctx.db.patch(call._id, { purgeAt: (call.endedAt ?? now) + RETENTION.recordingMs });
+    await enqueueRecordingCopy(ctx, done);
     if (!open) {
       // Late: the round moved on (or the order is ready), so this call never changes the result (§6.3).
       await ctx.db.patch(call._id, { extract: "failed" });

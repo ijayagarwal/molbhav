@@ -476,14 +476,37 @@ The route `POST /api/voice/order?sandbox=1` calls `checkBotId()` and refuses bot
 `share.create({ orderId, mode })` returns the order's link for that mode (a row in `shares`), making a revocable 22-character (128-bit) `publicId` the first time; each mode has its own link, so a link already sent never changes what it shows. `share.revoke` deletes all of an order's links. `share.get({ publicId })` (named `get` because `public` is a reserved word in JS modules) returns only: dealer name, items (no rates in `savings` mode), total, saving vs the first rate, delivery window, and a DEMO watermark flag. It uses the same quote projection and frozen ranking as the owner's Result screen; while placing or placed it shows the offer being placed (`placedQuoteId`), and never an offer set aside. **Never** site, date, phone numbers, recordings or losing prices. The page is `noindex`. `opengraph-image.tsx` renders the same data with `@vercel/og` 1.0.3 and static TTFs; `parchi.png` serves that image at a fixed URL (the og:image URL is hashed in production). The client fetches `parchi.png` when a share mode is picked and calls `navigator.share({ files })` inside the tap, falling back to a wa.me link to `/p/...`.
 
 ### 6.11 Recordings and retention (B6, S4)
-- `media.copyRecording` (media pool) follows Bolna's recording URL (a 24 h presigned redirect) and saves the file to Convex storage.
-- Playback: `media.recToken({ callId })` (ownership-checked query) returns a 10-minute HMAC token, and the HTTP route `/rec/:callId?t=` streams the file with **Range/206** support (needed for Safari seeking).
-- Crons:
-  - delete recordings and transcripts at 30 days;
-  - delete sandbox orders at `expiresAt`;
-  - delete TTS cache after 24 h;
-  - delete opted-out dealers' recordings immediately.
-- `callLog` keeps the number hash, time, consent and outcome for 1 year.
+- **Copy** (`convex/media.ts`, built in Phase 8C). When a live call reaches `completed`, `finishLiveCall` sets `calls.purgeAt` (the call's end + 30 days) and enqueues `media.copyRecording({ callId })` on the media pool (10 s later).
+  - The job re-fetches the execution with our key (`GET /executions/{id}`; a webhook body is never trusted) for `telephony_data.recording_url` (a 24 h presigned redirect).
+  - It downloads the file with a plain fetch that carries no auth header (`lib/recording.ts`):
+    - https DNS names only, no IP literals or local hosts;
+    - read as a stream and cut off past 16 MiB (`MAX_RECORDING_BYTES`, which keeps every `/rec` reply under Convex's 20 MB);
+    - the stored type is sniffed from the file's first bytes (MP3, WAV, Ogg, MP4, WebM), never taken from the header, so an HTML error page is never kept.
+  - `media.saveRecording` re-checks everything before it sets `calls.recordingStorageId`, and deletes the file instead when the call already has one, the dealer opted out during the download, or the call is past `purgeAt`.
+  - Never for sim calls, unfinished calls or opted-out dealers. Idempotent on the call row, so it carries no round: a late call's recording is still its proof.
+  - Retries: a transient failure throws, and the pool retries it 5 times (30 s, 1, 2, 4 and 8 minutes apart, each with a freshly fetched link). Transient means: no link yet, network, timeout, 403/408/410/429/5xx, or Bolna 429/5xx. A permanent one (no key, a gone execution, not audio, too large, a bad link) is logged and dropped.
+- **Playback.**
+  - `media.recToken({ callId })` is a guarded mutation (`userMutation`), not a query, because a cached query could hand out an expired token.
+  - Only the order's owner gets a link; an admin (`ADMIN_USER_IDS`) may too, and that is written to `auditLog` (`recording.listen`). A missing call, someone else's call and a call without a recording all fail as `not_found`.
+  - It returns `{ url: <CONVEX_SITE_URL>/rec/<callId>?t=<token>, expiresAt }`. The token is `<expiry ms>.<HMAC-SHA256 hex>` over `rec:v1:<callId>:<expiry>` with `REC_TOKEN_SECRET` (`lib/recToken.ts`). An unset or short secret (under 32 characters) fails closed as `not_configured`.
+- **`GET /rec/<callId>?t=`** (`convex/mediaHttp.ts`):
+  - checks the token in constant time;
+  - streams the stored file, answering `Range` with **206** and `Content-Range` (needed for Safari seeking), an unsatisfiable range with 416, and anything else with the whole file;
+  - refuses a bad, expired or other call's token with 403, a missing secret with 503, and a deleted recording with 404;
+  - sends `Cache-Control: no-store, private`, `nosniff`, `no-referrer` and `Content-Disposition: inline` with no file name, so nothing about the dealer is in the headers.
+- **The player** (`components/mb/RecordingPlayer.tsx`, loaded lazily through `features/app/CallRecording.tsx`) appears in the sweep panel's CallDetail and in Result's "रिकॉर्डिंग" section (DESIGN §12.7 item 5) for live calls with a stored recording only.
+  - It asks for the link on the first tap. In the same tap it plays 10 ms of silence, so iOS lets that element play when the link arrives.
+  - One recording plays at a time. A link that expired while paused is fetched again, and a reload refused mid-play is retried once with a fresh link.
+  - It draws a plain track, never a made-up waveform (D7).
+- **Crons** (`convex/crons.ts` → `convex/retention.ts`; each job works in batches and schedules its own next batch until done):
+  - hourly: `purgeRecordings` deletes the stored recording and clears the transcript of every live call past `purgeAt` (30 days; index `calls.by_purgeAt`);
+  - daily at 03:10 IST: `purgeCallLog` deletes `callLog` rows older than a year (index `callLog.by_at`);
+  - daily at 03:20 IST: `purgeAnonUsers` deletes anonymous users older than 7 days who never onboarded (no contractor row) with their `authSessions`, `authRefreshTokens`, `authAccounts` and `authVerificationCodes` (S4).
+    - It keeps admins, non-anonymous users and anyone who still owns an order (a sandbox order goes first, at its own expiry).
+    - `contractors.create` refuses a session whose user was deleted, while its JWT lasts.
+  - Still to build with their features: delete sandbox orders at `expiresAt` (G3), and delete TTS cache after 24 h.
+- **Opt-outs** delete the dealer's recordings at once (`applyOptOut` → `calls.deleteDealerRecordings`, R15, R18). A copy in flight when the opt-out lands keeps nothing (`saveRecording`).
+- `callLog` keeps the number's HMAC hash, time, consent, round and outcome for 1 year, never a number, audio or text.
 - Bolna keeps its own copy and documents no delete API. Disclose this in the privacy notice, and turn on India data residency if available.
 
 ### 6.12 Presenter `/present` (B8)

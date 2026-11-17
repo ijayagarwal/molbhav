@@ -6,6 +6,7 @@
 // the stamp sound and haptic and is announced to screen readers ("rate mila", §15). D7: captions are
 // labelled DEMO and appear in sim only; live rows show status, timer and the slot checklist.
 import { useMutation, useQuery } from "convex/react";
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { BestSoFarRibbon } from "@/components/mb/BestSoFarRibbon";
 import { CallDetail } from "@/components/mb/CallDetail";
@@ -29,6 +30,9 @@ import { toBoardData } from "./boardData";
 import { OrderLoading, OrderMissing } from "./OrderStates";
 import { useNow } from "./useNow";
 import { useOrderScreen } from "./useOrderScreen";
+
+// A live call's stored recording (Phase 8C, B6), loaded only when the panel shows one (DESIGN §20).
+const CallRecording = dynamic(() => import("./CallRecording").then((m) => m.CallRecording));
 
 const KIND: Record<BoardRow["kind"], { state: RowState; label: DictKey }> = {
   queued: { state: "queued", label: "status.queued" },
@@ -167,6 +171,7 @@ export function SweepScreen({ orderId }: { orderId: string }) {
       meta={selCall ? `${t(`round.${selCall.round}` as DictKey)} · ${t(KIND[sel.kind].label)}` : t("call.noCallYet")}
       title={nameOf(sel)}
       player={null}
+      recording={selCall && selCall.mode === "live" && selCall.hasRecording ? <CallRecording key={selCall._id} callId={selCall._id} variant="panel" durationS={selCall.durationSec} /> : undefined}
       transcript={lines}
       understood={
         q

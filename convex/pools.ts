@@ -21,9 +21,14 @@ export const llmPool = new Workpool(components.llmPool, {
   defaultRetryBehavior: { maxAttempts: 4, initialBackoffMs: 1000, base: 2 },
 });
 
-/** Recording copies (Phase 8C): 2 at once, 3 retries. */
+/**
+ * Recording copies (Phase 8C, media.copyRecording): 2 at once. A copy starts shortly after `completed` (Bolna
+ * has the file by then) and a transient failure retries 5 times, 30 s, 1, 2, 4 and 8 minutes apart, each
+ * with a freshly fetched link: well inside the link's 24 hours.
+ */
+export const MEDIA_COPY_DELAY_MS = 10_000;
 export const mediaPool = new Workpool(components.mediaPool, {
   maxParallelism: 2,
   retryActionsByDefault: true,
-  defaultRetryBehavior: { maxAttempts: 4, initialBackoffMs: 2000, base: 2 },
+  defaultRetryBehavior: { maxAttempts: 6, initialBackoffMs: 30_000, base: 2 },
 });
