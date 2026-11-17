@@ -4,6 +4,7 @@
 // every write is an internal Convex function run from the CLI, so this page can't change who gets called.
 // Phone hashes for TEST_PHONE_HASHES come from the CLI too (admin:addDealer, admin:phoneHash).
 import { useConvexAuth, useQuery } from "convex/react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { api } from "@/convex/_generated/api";
 import { CITY_AREAS, type City } from "@/lib/config";
@@ -155,6 +156,9 @@ export function AdminPanel() {
       ) : isAdmin ? (
         <>
           <p className="text-meta text-ink-2">{t("admin.readOnly")}</p>
+          <Link href="/app/admin/agents" className="inline-flex min-h-14 w-fit items-center gap-2 rounded-card border-[1.5px] border-ink bg-card px-4 text-label">
+            {t("admin.agentsLink")}
+          </Link>
           <Panel />
         </>
       ) : (
