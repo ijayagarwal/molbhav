@@ -236,3 +236,14 @@ describe("review fixes (Phase 3 panel)", () => {
     expect(hindiQuantity(0.25)).toBe("पाव");
   });
 });
+
+describe("formatRate (hard rule 9)", () => {
+  test("two decimals only when there are paise, Indian grouping", async () => {
+    const { formatRate } = await import("./numbers");
+    expect(formatRate(56.5)).toBe("₹56.50");
+    expect(formatRate(370)).toBe("₹370");
+    expect(formatRate(66700)).toBe("₹66,700");
+    expect(formatRate(5750.25)).toBe("₹5,750.25");
+  });
+});
+

@@ -21,6 +21,12 @@ export function formatINR(rupees: number): string {
 }
 
 /** Same, from integer paise. */
+/** A rate as dealers write it: Indian grouping, and two decimals only when there are paise (₹56.50, ₹66,700). */
+export function formatRate(rupees: number): string {
+  const fractional = Math.round(rupees * 100) % 100 !== 0;
+  return `₹${new Intl.NumberFormat("en-IN", { minimumFractionDigits: fractional ? 2 : 0, maximumFractionDigits: 2 }).format(rupees)}`;
+}
+
 export function formatPaise(paise: number): string {
   return formatINR(paise / 100);
 }

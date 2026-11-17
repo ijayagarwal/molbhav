@@ -23,7 +23,7 @@ import { usePrefs } from "@/lib/client/prefs";
 import { DELIVER_BY } from "@/lib/config";
 import type { DeliverBy, OrderItem, QuoteLine } from "@/lib/domain";
 import { useT } from "@/lib/i18n/useT";
-import { formatPaise } from "@/lib/numbers";
+import { formatPaise, formatRate } from "@/lib/numbers";
 import { lineBreakdown } from "@/lib/pricing";
 import { resultSummaryText } from "@/lib/readback";
 import { buildResult, type ResultQuote } from "@/lib/result";
@@ -120,7 +120,7 @@ export function ResultScreen({ orderId }: { orderId: string }) {
       const item = items.find((i) => i.id === l.itemId)!;
       const what = item.material === "tmt_steel" ? `TMT ${item.diameterMm ?? ""}mm ${item.grade ?? ""}`.trim() : `${item.cementType ?? ""}`;
       const unit = lang === "hi" ? UNIT_HI[l.rateUnit] : l.rateUnit;
-      parchiLines.push({ label: `${what} · ${item.quantity} ${lang === "hi" ? UNIT_HI[item.unit!] : item.unit} × ₹${l.rate}/${unit}`, amount: l.subtotal });
+      parchiLines.push({ label: `${what} · ${item.quantity} ${lang === "hi" ? UNIT_HI[item.unit!] : item.unit} × ${formatRate(l.rate)}/${unit}`, amount: l.subtotal });
     }
     if (wq.landed.gst > 0) parchiLines.push({ label: t("parchi.gst", { rate: 18 }), amount: wq.landed.gst });
     const charges = wq.landed.delivery + wq.landed.unloading;
@@ -214,7 +214,7 @@ export function ResultScreen({ orderId }: { orderId: string }) {
               name: nameOf(q.dealerId),
               badge: q.dealerId === regular?.dealerId ? t("badge.regular") : undefined,
               totalPaise: q.total,
-              rate: steel ? `₹${steel.rate}/${lang === "hi" ? UNIT_HI[steel.rateUnit] : steel.rateUnit}` : "—",
+              rate: steel ? `${formatRate(steel.rate)}/${lang === "hi" ? UNIT_HI[steel.rateUnit] : steel.rateUnit}` : "—",
               gst: steel ? (steel.gstMode === "included" ? t("table.gstIncluded") : steel.gstMode === "extra" ? t("table.gstExtra") : "?") : "—",
               delivery: full ? (full.landed.delivery + full.landed.unloading === 0 ? t("parchi.free") : formatPaise(full.landed.delivery + full.landed.unloading)) : "—",
               credit: q.creditDays ? t("confirm.creditDays", { n: q.creditDays }) : t("parchi.cash"),

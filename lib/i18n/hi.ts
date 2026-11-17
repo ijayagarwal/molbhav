@@ -379,6 +379,26 @@ export const hi = {
   "share.copied": "लिंक कॉपी हो गया",
   "share.making": "पर्ची बन रही है…",
   "share.message": "मोलभाव से रेट: {url}",
+
+  // Landing (pilot wording, G2).
+  "landing.eyebrow": "ठेकेदारों के लिए · जयपुर से शुरुआत",
+  "landing.heroLine1": "आप बोलिए।",
+  "landing.heroLine2": "मोलभाव हम करेंगे।",
+  "landing.sub": "एक order बोलिए। हम आस-पास के dealers से सब मिलाके रेट लेते हैं, सबसे सस्ते दो से मोलभाव करते हैं, रिकॉर्डिंग के साथ।",
+  "landing.demoNote": "डेमो में काल्पनिक dealers हैं, कोई असली कॉल नहीं जाती।",
+  "landing.openApp": "App खोलिए",
+  "landing.exampleTitle": "ऐसी पर्ची मिलती है",
+  "landing.howTitle": "कैसे काम करता है",
+  "landing.step1Title": "बोलिए",
+  "landing.step1": "साइज़, ग्रेड, मात्रा, साइट, कब तक, उधार: जैसे मुंशी को बताते हैं।",
+  "landing.step2Title": "मोलभाव",
+  "landing.step2": "हमारी टीम आस-पास के dealers से सब मिलाके रेट लेती है, फिर सबसे सस्ते दो से असली रेट पे मोलभाव। AI कॉल: जल्द।",
+  "landing.step3Title": "पक्का",
+  "landing.step3": "एक पर्ची: सबसे सस्ता रेट, डिलीवरी, उधार, और हर कॉल की रिकॉर्डिंग।",
+  "landing.honestTitle": "ईमानदार मोलभाव",
+  "landing.rule1": "हर AI कॉल में पहले बताते हैं कि ये AI है और रिकॉर्ड हो रही है।",
+  "landing.rule2": "सिर्फ असली रेट बताते हैं, किसी dealer का नाम नहीं।",
+  "landing.rule3": "आपके dealer को match का मौका हमेशा मिलता है।",
 } as const;
 
 export type DictKey = keyof typeof hi;
