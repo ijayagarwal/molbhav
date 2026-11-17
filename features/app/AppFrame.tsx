@@ -24,6 +24,7 @@ import { usePrefs } from "@/lib/client/prefs";
 import { createFakeRecorder } from "@/lib/client/recorder";
 import { useT } from "@/lib/i18n/useT";
 import { formatDate } from "@/lib/i18n/format";
+import { itemsLabel } from "@/lib/orderLabel";
 import { ORDER_STATUS_KEY, orderPath, RUNNING } from "@/lib/orderRoute";
 
 interface Props {
@@ -155,7 +156,7 @@ export function AppFrame({ children, back, title, phoneDock, deskDock = true, pa
                   aria-current={current ? "page" : undefined}
                   className={`flex min-h-14 flex-col justify-center rounded-card px-3 py-2 ${current ? "border-2 border-ink bg-card" : "hover:bg-card"}`}
                 >
-                  <span className="truncate text-label">{o.items.map((i) => (i.material === "tmt_steel" ? `TMT ${i.diameterMm ?? ""}mm` : (i.cementType ?? "Cement"))).join(" + ")}</span>
+                  <span className="truncate text-label">{itemsLabel(o.items, t)}</span>
                   <span className={`text-meta ${RUNNING.has(o.status) ? "text-neel" : "text-ink-2"}`}>
                     {`${formatDate(o._creationTime, lang)} · ${t(ORDER_STATUS_KEY[o.status])}`}
                   </span>

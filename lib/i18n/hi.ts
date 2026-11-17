@@ -412,6 +412,13 @@ export const hi = {
   "error.pageTitle": "ये पेज नहीं खुल पाया",
   "error.pageHint": "हमारी तरफ़ से कुछ गड़बड़ हुई। फिर से कोशिश कीजिए, या होम पे जाइए।",
   "error.retry": "फिर से कोशिश कीजिए",
+
+  // Material names and the live badge (were hard-coded in screens).
+  "badge.live": "LIVE",
+  "item.steel": "TMT सरिया",
+  "item.cement": "सीमेंट",
+  "item.cementOf": "{type} सीमेंट",
+  "item.type": "टाइप",
 } as const;
 
 export type DictKey = keyof typeof hi;

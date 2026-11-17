@@ -402,4 +402,10 @@ export const en: Record<DictKey, string> = {
   "error.pageTitle": "This page couldn't open",
   "error.pageHint": "Something went wrong on our side. Try again, or go home.",
   "error.retry": "Try again",
+
+  "badge.live": "LIVE",
+  "item.steel": "TMT steel",
+  "item.cement": "Cement",
+  "item.cementOf": "{type} cement",
+  "item.type": "Type",
 };

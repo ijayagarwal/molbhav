@@ -14,6 +14,7 @@ import { CITY_AREAS } from "@/lib/config";
 import { DEMO_TRANSCRIPT } from "@/lib/fixtures/demoOrder";
 import { formatDate } from "@/lib/i18n/format";
 import { useT } from "@/lib/i18n/useT";
+import { itemsLabel } from "@/lib/orderLabel";
 import { ORDER_STATUS_KEY, orderPath, RUNNING } from "@/lib/orderRoute";
 import { AppFrame } from "./AppFrame";
 import { Onboarding } from "./Onboarding";
@@ -124,9 +125,7 @@ export function HomeScreen() {
               <li key={o._id} className="border-t border-rule">
                 <Link href={orderPath(o._id, o.status)} className="flex min-h-14 items-center justify-between gap-3 py-2">
                   <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-label">
-                      {o.items.map((i) => (i.material === "tmt_steel" ? `TMT ${i.diameterMm ?? ""}mm` : (i.cementType ?? "Cement"))).join(" + ")}
-                    </span>
+                    <span className="truncate text-label">{itemsLabel(o.items, t)}</span>
                     <span className="text-meta text-ink-2">{formatDate(o._creationTime, lang)}</span>
                   </span>
                   <span className={`shrink-0 text-label ${RUNNING.has(o.status) ? "text-neel" : o.status === "placed" ? "text-hara" : "text-ink-2"}`}>
