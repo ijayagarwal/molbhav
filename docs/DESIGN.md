@@ -460,6 +460,34 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `try.end` | अपने असली dealers का रेट चाहिए? | Want rates from your real dealers? |
 | `landing.cta` | खुद बोलके देखिए | Try it with your voice |
 | `landing.pilot` | जयपुर पायलट: हमारी टीम आपके लिए dealers को कॉल करती है | Jaipur pilot: our team calls dealers for you |
+| `primer.title` | Mic चाहिए | We need the mic |
+| `primer.body` | बोलके ऑर्डर देने के लिए mic चाहिए। हम सिर्फ़ तब सुनते हैं जब आप बटन दबाते हैं। | To order by voice we need the mic. We only listen while you press the button. |
+| `primer.allow` | Mic चालू कीजिए | Turn on the mic |
+| `primer.ready` | Mic चालू है। अब दबाइए और बोलिए। | The mic is on. Now press and speak. |
+| `error.noMic` | इस फ़ोन में mic नहीं मिला। लिख के बताइए। | No microphone found. Type your order instead. |
+| `error.micBusy` | Mic अभी कोई और ऐप चला रहा है। उसे बंद करके फिर से कोशिश कीजिए। | Another app is using the mic. Close it and try again. |
+| `error.insecure` | इस लिंक पर mic नहीं चल सकता (लिंक सुरक्षित नहीं है)। लिख के बताइए। | The mic can't work on this link (it isn't secure). Type instead. |
+| `error.unsupported` | इस browser में आवाज़ रिकॉर्ड नहीं हो सकती। Chrome में खोलिए, या लिख के बताइए। | This browser can't record audio. Open it in Chrome, or type instead. |
+| `voice.errBot` | ये अनुरोध पूरा नहीं हो पाया। पेज दोबारा खोलकर फिर से कोशिश कीजिए। | We couldn't complete that request. Reload the page and try again. |
+| `voice.errSession` | आपका सत्र नहीं मिला। पेज दोबारा खोलकर फिर से कोशिश कीजिए। | We couldn't find your session. Reload the page and try again. |
+| `voice.errTooLong` | ऑर्डर बहुत लंबा है। छोटा करके फिर से बोलिए या लिखिए। | That's too long. Say or type a shorter order. |
+| `voice.errBusy` | अभी बहुत जल्दी-जल्दी ऑर्डर आए। थोड़ी देर बाद फिर से कोशिश कीजिए। | Too many orders in a short time. Try again in a little while. |
+| `voice.errCap` | आज ऑर्डर समझने की सीमा पूरी हो गई। कल फिर से कोशिश कीजिए, या उदाहरण वाले ऑर्डर से शुरू कीजिए। | Today's limit for understanding orders is used up. Try again tomorrow, or start with the example order. |
+| `voice.errStt` | आवाज़ साफ़ समझ नहीं आई। फिर से बोलिए, या लिख दीजिए। | We couldn't make out the audio. Try again, or type it. |
+| `voice.errParse` | इसमें ऑर्डर समझ नहीं आया। सामान, मात्रा और साइज़ बोलिए, जैसे: 2 टन 12mm सरिया। | We couldn't find an order in that. Say the material, quantity and size, like: 2 ton 12mm steel. |
+| `voice.errServer` | हमारी तरफ़ से कुछ गड़बड़ हुई। फिर से कोशिश कीजिए। | Something went wrong on our side. Please try again. |
+| `voice.errNetwork` | नेटवर्क नहीं मिला। नेटवर्क आने पर फिर से कोशिश कीजिए। | No network. Try again once you're connected. |
+| `confirm.tierBoth` | दोनों में से किसका रेट लें? | Which one should we get rates for? |
+| `confirm.stop` / `confirm.mute` | रोकिए / अपने-आप न सुनाएँ | Stop / Don't play automatically |
+| `confirm.fixHint` | जो ग़लत है, बदलकर भेजिए। नया ऑर्डर इसकी जगह ले लेगा। | Change what's wrong and send. The new order replaces this one. |
+| `confirm.sayAgain` / `confirm.typeFix` | फिर से बोलिए / लिख के ठीक कीजिए | Say it again / Fix by typing |
+| `confirm.askQuantity` | कितना चाहिए, ये सुनाई नहीं दिया। | We didn't catch how much you need. |
+| `confirm.askUnit` | टन, क्विंटल, किलो या बोरी? ये सुनाई नहीं दिया। | We didn't catch the unit: ton, quintal, kg or bags? |
+| `confirm.askSize` | सरिया का साइज़ (mm) सुनाई नहीं दिया। | We didn't catch the bar size (mm). |
+| `confirm.askSuta` | साइज़ ‘सूत’ में बताया था। mm में बताइए, जैसे 12mm या 16mm। | The size was given in ‘suta’. Please give it in mm, like 12mm or 16mm. |
+| `confirm.heard` / `confirm.yourSite` | सुना: “{text}” / {site} · आपकी साइट | Heard: “{text}” / {site} · your site |
+
+The voice-order rows from `primer.title` down (Phase 4 client) are new and need the native speaker's review most. Every `/api/voice/order` error code maps to one of them in `lib/client/voiceErrors.ts`; `voice.soon` shows only for `not_configured`.
 
 Hindi copy must be reviewed by a native speaker on the team before any public launch.
 

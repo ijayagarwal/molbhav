@@ -65,8 +65,8 @@ export function TypedOrderSheet({ title, onClose, initialText = "", hint, replac
           className="min-h-28 w-full resize-none rounded-card border-[1.5px] border-ink bg-card px-4 py-3 text-body placeholder:text-ink-3 disabled:text-ink-2"
         />
         {copy ? (
-          <div role="alert" className="flex flex-col gap-3 rounded-card border-[1.5px] border-lal bg-card px-4 py-3">
-            <p className="text-label text-lal">{t(copy.key)}</p>
+          <div role="alert" className={`flex flex-col gap-3 rounded-card border-[1.5px] bg-card px-4 py-3 ${copy.soon ? "border-neel" : "border-lal"}`}>
+            <p className={`text-label ${copy.soon ? "text-neel" : "text-lal"}`}>{t(copy.key)}</p>
             {copy.retry === "reload" ? (
               <SecondaryButton onClick={() => window.location.reload()}>{t("error.retry")}</SecondaryButton>
             ) : null}
