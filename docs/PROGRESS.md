@@ -159,6 +159,12 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
   `pnpm bolna:voice` switches between them without touching Bolna (dev is on ElevenLabs now). One teammate is
   a `test_ok` dealer ("Agarwal Steels", Card A) and on `TEST_PHONE_HASHES`; the founder's account "ramesh" is
   verified. `LIVE_CALLS_ENABLED` is NOT set: no live call until a founder says "go".
+- **First tests (18 Nov, early morning):** browser calls with the ElevenLabs set were silent after the greeting:
+  the founders' own ElevenLabs key (connected in Bolna) produced no audio (likely their ElevenLabs plan and the
+  Voice Library voice); the Sarvam set worked on two dashboard phone calls. Dev is on Sarvam until that's fixed.
+  A test call also slipped into "बोल रहा हूँ": the shared prompt now spells out हम / impersonal phrasing. The
+  webhook secret now rides in the URL (`?token=`), so no manual dashboard step is ever needed. `pnpm team:setup`
+  (or `--solo` when a founder plays the dealer on their own phone) sets the test numbers; solo is set now.
 - **Phase 8C merged:** live calls' recordings are copied into Convex storage, played through 10-minute signed links
   (`/rec`, seekable) on the board and on Result; recordings and transcripts are deleted at 30 days, callLog after a
   year, never-onboarded anonymous users after 7 days. Inert until live calls exist.

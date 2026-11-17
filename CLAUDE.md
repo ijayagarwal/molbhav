@@ -83,7 +83,7 @@ Still off-limits without the human's explicit go-ahead in that moment: placing o
    - Admin checks use `requireAdmin(ctx)` against `ADMIN_USER_IDS`. No public function can switch identity.
    - API keys live only in Convex env or Vercel server env, never in client bundles or git.
 7. **Webhooks are untrusted:**
-   1. verify the `x-molbhav-secret` header;
+   1. verify the shared secret (the `x-molbhav-secret` header, or `?token=` in the webhook URL, since Bolna's API can't set webhook headers; constant-time compare);
    2. dedupe;
    3. return 200 fast;
    4. re-fetch the execution from Bolna before writing;
