@@ -60,6 +60,21 @@ describe("the example draft and Confirm", () => {
     expect((await as.query(api.orders.get, { orderId })).items[0].tier).toBe("branded");
     expect((await as.query(api.contractors.me, {}))?.tierPrefs).toEqual({ tmt_steel: "branded" });
   });
+  test("a steel item without a bar size can't start; the mm chip sets it (P7)", async () => {
+    const { t, as } = await onboarded();
+    const orderId = await as.mutation(api.orders.createExampleDraft, {});
+    await t.run(async (ctx) => {
+      const o = (await ctx.db.get(orderId))!;
+      await ctx.db.patch(orderId, { items: o.items.map((i) => (i.id === "steel" ? { ...i, diameterMm: undefined, tier: "local_isi" as const } : i)) });
+    });
+    await expect(as.mutation(api.orders.confirm, { orderId })).rejects.toThrow(/incomplete/);
+    await expect(as.mutation(api.orders.setItemSize, { orderId, itemId: "steel", diameterMm: 13 })).rejects.toThrow(/invalid_size/);
+    await expect(as.mutation(api.orders.setItemSize, { orderId, itemId: "cement", diameterMm: 12 })).rejects.toThrow(/no_item/);
+    await as.mutation(api.orders.setItemSize, { orderId, itemId: "steel", diameterMm: 16 });
+    expect((await as.query(api.orders.get, { orderId })).items[0].diameterMm).toBe(16);
+    await as.mutation(api.orders.confirm, { orderId });
+    expect((await as.query(api.orders.get, { orderId })).status).toBe("confirmed");
+  });
   test("confirm needs one tier per item; edits stop after confirm", async () => {
     const { t, as } = await onboarded();
     const orderId = await as.mutation(api.orders.createExampleDraft, {});

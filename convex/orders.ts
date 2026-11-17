@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { CITIES, CITY_AREAS, type City } from "../lib/config";
 import type { OrderItem, Tier } from "../lib/domain";
 import { DEMO_CREDIT_DAYS, DEMO_DELIVER_BY, DEMO_ITEMS, DEMO_TRANSCRIPT } from "../lib/fixtures/demoOrder";
-import { PARSE_LIMITS, PARSE_NOTES, cleanText, itemsAreSanitized, missingFields, resolveSite } from "../lib/parse";
+import { PARSE_LIMITS, PARSE_NOTES, TMT_DIAMETERS_MM, cleanText, itemsAreSanitized, missingFields, resolveSite } from "../lib/parse";
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { requireOwnedOrder } from "./lib/access";
@@ -228,6 +228,18 @@ export const setItemTier = contractorMutation({
   },
 });
 
+/** The bar-size chip (P7: a size said in suta is asked in mm, never mapped automatically). Steel only. */
+export const setItemSize = contractorMutation({
+  args: { orderId: v.id("orders"), itemId: v.string(), diameterMm: v.number() },
+  handler: async (ctx, { orderId, itemId, diameterMm }) => {
+    const order = await ownedDraft(ctx, orderId);
+    const item = order.items.find((i) => i.id === itemId);
+    if (item === undefined || item.material !== "tmt_steel") throw new ConvexError({ code: "no_item" });
+    if (!TMT_DIAMETERS_MM.includes(diameterMm)) throw new ConvexError({ code: "invalid_size" });
+    await ctx.db.patch(order._id, { items: order.items.map((i) => (i.id === itemId ? { ...i, diameterMm } : i)) });
+  },
+});
+
 /** The delivery-time chip (R7): what the agents will say; never free text. */
 export const setDeliverBy = contractorMutation({
   args: { orderId: v.id("orders"), deliverBy },
@@ -265,6 +277,8 @@ export function confirmBlockers(order: Pick<Doc<"orders">, "items" | "siteId">):
     if (i.quantity === undefined || !(i.quantity > 0)) out.push(`${i.id}:quantity`);
     if (i.unit === undefined) out.push(`${i.id}:unit`);
     if (i.tier === undefined || i.tier === "both") out.push(`${i.id}:tier`);
+    // P7: steel never goes to dealers without a bar size (a size said in suta is asked in mm).
+    if (i.material === "tmt_steel" && i.diameterMm === undefined) out.push(`${i.id}:diameterMm`);
   }
   if (order.siteId === undefined) out.push("site");
   return out;

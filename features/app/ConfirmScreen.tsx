@@ -27,7 +27,7 @@ import { setPref, usePrefs } from "@/lib/client/prefs";
 import { createReadBackPlayer } from "@/lib/client/readBack";
 import { browserReadBackDeps } from "@/lib/client/readBackBrowser";
 import { CITY_AREAS, DELIVER_BY } from "@/lib/config";
-import { openQuestions, partlyUnderstood, type Question } from "@/lib/confirmQuestions";
+import { SIZE_MM_CHOICES, SUTA_MM_CHOICES, openQuestions, partlyUnderstood, type Question } from "@/lib/confirmQuestions";
 import type { DeliverBy, OrderItem } from "@/lib/domain";
 import type { DictKey } from "@/lib/i18n/getDict";
 import { useT } from "@/lib/i18n/useT";
@@ -58,6 +58,7 @@ export function ConfirmScreen({ orderId }: { orderId: string }) {
   // The site's area when it isn't the default one (the same facts the server's read-back uses).
   const facts = useQuery(api.orders.readBack, order ? { orderId: order._id } : "skip");
   const setTier = useMutation(api.orders.setItemTier);
+  const setSize = useMutation(api.orders.setItemSize);
   const setDeliverBy = useMutation(api.orders.setDeliverBy);
   const setCredit = useMutation(api.orders.setCreditDays);
   const setSite = useMutation(api.orders.setSite);
@@ -169,7 +170,15 @@ export function ConfirmScreen({ orderId }: { orderId: string }) {
         unit={item.unit ? t(UNIT_KEY[item.unit]) : ""}
         specs={specs}
       >
-        {ask && ask.kind !== "tier" ? (
+        {ask?.kind === "size" ? (
+          // P7: asked in mm with chips; a size said in suta gets only the two it can mean.
+          <TierChips
+            question={t(askKey(ask))}
+            value={null}
+            onChange={(v) => setSize({ orderId: id, itemId: item.id, diameterMm: Number(v) })}
+            options={(ask.suta ? SUTA_MM_CHOICES : SIZE_MM_CHOICES).map((mm) => ({ value: String(mm), label: `${mm}mm` }))}
+          />
+        ) : ask && ask.kind !== "tier" ? (
           <FixQuestion text={t(askKey(ask))} typeLabel={t("confirm.typeFix")} sayLabel={t("confirm.sayAgain")} onType={() => setFixing(true)} onSay={sayAgain} />
         ) : null}
         {showTier ? (

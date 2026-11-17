@@ -21,6 +21,9 @@ export interface Question {
 /** P7: a size said in suta is asked with these mm chips (sources disagree on 4 suta = 12 or 16 mm). */
 export const SUTA_MM_CHOICES: readonly number[] = [12, 16];
 
+/** A size that wasn't said at all: the common site sizes as chips (anything rarer: fix the order). */
+export const SIZE_MM_CHOICES: readonly number[] = [8, 10, 12, 16, 20, 25];
+
 /** The note lib/parse.ts writes when a size was said in suta. */
 export const SUTA_NOTE = "size_said_in_suta";
 
@@ -44,7 +47,7 @@ export function openQuestions(order: OrderLike): Question[] {
 }
 
 /** Questions a chip can answer today (a Convex mutation exists); the rest are answered by fixing the order. */
-export const CHIP_ANSWERED: ReadonlySet<QuestionKind> = new Set(["tier", "site"]);
+export const CHIP_ANSWERED: ReadonlySet<QuestionKind> = new Set(["tier", "site", "size"]);
 
 /** The question shown now: the first open one. */
 export function currentQuestion(order: OrderLike): Question | null {
