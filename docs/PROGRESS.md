@@ -45,7 +45,7 @@ legal and account steps.
 - Convex for the database, realtime, jobs and auth (production in EU);
 - Tailwind v4 with our tokens, Motion, Phosphor icons;
 - Sarvam for speech-to-text and text-to-speech;
-- Gemini Flash for parsing and extraction;
+- OpenAI (gpt-5.4-mini, R19) for parsing and extraction;
 - Bolna for phone agents.
 
 ## 3. Phase tracker
@@ -62,15 +62,34 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 | 2A | The 20-second money shot (design gate) | Done, approved by the user | `phase-2A` |
 | 8A | Live-call guards (`claimDial`), CLI-only admin, disclosure check (pulled forward) | Done, reviewed | `phase-8A` |
 | 2B | Component library, phone shell, Munshi desk, mic gestures, Space push-to-talk | Done, reviewed | `phase-2B` |
-| 5 / 6A / 6B engine | Sim sweep, extraction job, haggle, match, ranking, place + undo + confirm call | Done in sim (live dial waits for 8B; the extraction golden set waits for a Gemini key) | `f571ea4`, `b06d39a`, `10fb8c7`, `a701ce6` |
+| 5 / 6A / 6B engine | Sim sweep, extraction job, haggle, match, ranking, place + undo + confirm call | Done in sim (live dial waits for 8B; the extraction golden set is ready to run with the OpenAI key) | `f571ea4`, `b06d39a`, `10fb8c7`, `a701ce6` |
 | App screens | Onboarding, Home, Settings (language switch), Confirm | Done (sim; voice and typed parsing come with Phase 4) | `6caaa21` |
 | App screens 2 | Choose dealers, Sweep board, Result, Placed, Share, landing, PWA | Done in sim; reviewed (17 defects fixed); verified on production | `f32e70f` … `8781d88` |
-| 4 | Real voice: recorder, Sarvam STT, Gemini parse, read-back TTS | Server half in progress (keyless, mocked); live test waits for keys (§6) | — |
+| 4 | Real voice: recorder, Sarvam STT, OpenAI parse (R19), read-back TTS | Server half merged; keys in; client half and the OpenAI swap in progress | `5f8ba5a` … `c997e98` |
 | 8B / 8C | Bolna dial, webhooks, report_quote; recordings and retention | Later (needs a Bolna account) | — |
 | Team test | Real AI calls to teammates' verified phones | Later | — |
 | 1C, 7, 9, 10 | Landing and waitlist; sandbox and presenter; hardening; go-live | Later | — |
 
 ## 4. Session log (what happened, newest first)
+
+### 17 Nov 2026 (night): keys in, OpenAI instead of Gemini, /app back under budget
+- **Keys:** the founders sent the Sarvam and OpenAI keys. They are set in `.env.local`, Vercel production and
+  both Convex deployments (never printed or committed). Also generated: `CONVEX_SERVER_SECRET` (dev and prod),
+  and `HASH_SECRET` copied to Vercel. Production voice spend is capped at ₹200 a day (`VOICE_DAILY_INR_CAP`).
+- **R19: OpenAI replaces Gemini** for the order parse and the call extraction, as the founders asked.
+  `gpt-5.4-mini` with reasoning off parsed the 20-case golden set 20/20 at a median of 1.5 s (gpt-4.1-mini,
+  gpt-5.5, gpt-5.6-luna and gpt-6-luna also 20/20 but slower; gpt-5.4-nano 19/20).
+- **First real voice round trip:** Bulbul spoke the demo line, Saaras transcribed it in 0.5 s, and the parse
+  got every field right in 1.7 s (about 2.2 s from end of speech to a draft; target 2.5 s). Note: Saaras v4
+  writes English words in Devanagari ("एफ.ई.500डी") even in codemix mode; the parse copes.
+- **Phase 4 server half merged** (keyless build, mocked tests): parse, Sarvam clients, `/api/voice/order`
+  (NDJSON stream), `/api/tts`, rate limits and the daily ₹ cap, BotID, the parse golden set.
+- **/app's first load was over budget** (260 KB of JS against 200 KB). Now 182 KB on production: icons ship
+  one weight instead of six, motion code loads only on order screens, and Home and onboarding load on demand.
+  CI now measures /app's real first render on a Pixel 7 profile.
+- **In progress (two agents):** the OpenAI swap across every call site, and the phone side of voice (real
+  recorder, mic permission primer, live transcript, typed fallback, Confirm's missing-field chips, the Sarvam
+  read-back).
 
 ### 17 Nov 2026 (evening): the whole sim flow works end to end
 - **What a contractor can do now (sim, DEMO dealers, zero call cost):** onboard → tap the example order →
@@ -212,10 +231,9 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 
 | Item | Why | How to get it |
 |---|---|---|
-| Sarvam API key | Speech-to-text and the spoken read-back (Phase 4) | dashboard.sarvam.ai → API keys → create. Paste it in chat, or ask Claude to set it from a file. |
-| Gemini API key, free tier | Parsing the spoken order in development and on demo data | aistudio.google.com → Get API key |
-| Gemini API key, billed | Anything real (live transcripts never go to the free tier) | A Google Cloud project with billing on, a budget alert and a daily quota → APIs → Generative Language API → key |
-| `~/Downloads/demo.m4a` | The end-to-end voice test | Record the demo line from docs/DEMO.md in Voice Memos and save it to Downloads |
+| ~~Sarvam API key~~ | Received 17 Nov 2026; set in `.env.local` and Vercel production | Done. Rotate it once things run (it was pasted in chat). |
+| ~~OpenAI API key~~ (replaces both Gemini keys, R19) | Received 17 Nov 2026; set in `.env.local`, Vercel production and both Convex deployments | Done. Rotate it once things run (it was pasted in chat). Set a monthly budget limit in the OpenAI dashboard. |
+| `~/Downloads/demo.m4a` | A real human voice for the voice test (the automated test can use Bulbul's synthetic voice meanwhile) | Record the demo line from docs/DEMO.md in Voice Memos and save it to Downloads |
 | A real phone for HTTPS tests | Mic and voice checks (Claude starts the tunnel) | Any Android in Chrome |
 | Later: Bolna account + teammates' phone numbers | The Team test (real AI calls to teammates only) | START_HERE.md Part C5 |
 | Later: the team's WhatsApp Business number | The landing page's main call to action (Phase 1C) | WhatsApp Business app on a team phone; send the number |
