@@ -133,7 +133,8 @@ export async function syncAgents(client: BolnaClient, configs: Record<Round, Age
     }
     const got = JSON.stringify(await client.getAgent(id));
     const warnings: string[] = [];
-    if (!got.includes(`${site}/bolna/report-quote`)) warnings.push("report_quote isn't visible on the saved agent: add it by hand (docs/BOLNA_SETUP.md, manual fallback)");
+    // R23: only the Match agent carries report_quote.
+    if (round === "match" && !got.includes(`${site}/bolna/report-quote`)) warnings.push("report_quote isn't visible on the saved agent: add it by hand (docs/BOLNA_SETUP.md, manual fallback)");
     if (!got.includes(`${site}/bolna/webhook`)) warnings.push("the webhook URL isn't visible through the API: check it in the dashboard (Extractions tab)");
     if (/transfer_call/i.test(got)) warnings.push("the saved agent has a transfer_call tool: remove it now");
     if (/"auto_reschedule":\s*true/.test(got)) warnings.push("auto_reschedule is on: turn it off");

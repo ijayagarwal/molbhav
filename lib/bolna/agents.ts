@@ -189,7 +189,7 @@ const TRANSCRIBER_CONTEXT =
  * Appended to every system prompt: the variables the prompts can't name themselves and how report_quote's
  * fields are filled. Technical glue only; the rules agents follow are CALL_SCRIPT.md's.
  */
-export const PROMPT_FOOTER = [
+const SPEAKING_RULES = [
   // Hard rule 3 / CALL_SCRIPT rule 2, made concrete: a first live test produced "मैं … बोल रहा हूँ" despite the rule.
   "HOW TO SPEAK ABOUT YOURSELF (strict): speak as हम (we) or impersonally, never as मैं with a gendered verb. " +
     "Say \"ये मोलभाव से AI कॉल है\", \"हम {contractor_name} जी के लिए रेट ले रहे हैं\", \"जी, नोट कर लिया\", \"धन्यवाद जी\". " +
@@ -197,7 +197,15 @@ export const PROMPT_FOOTER = [
     "If asked who is calling: \"जी, ये मोलभाव का AI सहायक है, {contractor_name} जी के लिए रेट ले रहे हैं।\" Small talk: answer in one short line, then return to the order.",
   "BUYER'S NUMBER: if the dealer asks for {contractor_name} जी's number and {contractor_phone_spoken} is not empty, say it slowly, digit by digit, then once more: {contractor_phone_spoken}. " +
     "If it is empty: \"जी, ऑर्डर पक्का होते ही {contractor_name} जी खुद आपसे बात कर लेंगे।\" Never give any other number.",
-  "CALL REFERENCE: {molbhav_call_id}. Item keys for report_quote: {item_keys}.",
+];
+const CALL_REFERENCE = "CALL REFERENCE: {molbhav_call_id}. Item keys for report_quote: {item_keys}.";
+
+/** Quote, Haggle and Confirm (no tools, R23): the speaking rules and the call reference only. Never mention a tool. */
+export const PROMPT_FOOTER_NO_TOOL = [...SPEAKING_RULES, "CALL REFERENCE: {molbhav_call_id}. You have no tools: never write JSON, braces or code; only speak."].join("\n");
+
+export const PROMPT_FOOTER = [
+  ...SPEAKING_RULES,
+  CALL_REFERENCE,
   "REPORT_QUOTE: call it exactly when the instructions above say so. Send only figures the dealer himself said, written as digits (सत्तावन → 57, सड़सठ हज़ार → 67000, साढ़े पाँच हज़ार → 5500). " +
     "rates: one entry per item he quoted, separated by ';', each as <item key>:<rate>:<kg|quintal|ton|bag>:<extra|included|unknown> (the GST mode he said). " +
     "brand: <item key>:<brand he named>, separated by ';'. stock: full, partial, none or unknown. delivery and unloading: rupees as digits, or free; leave empty if he didn't say. " +
@@ -274,7 +282,8 @@ export function buildAgentConfig(round: Round, script: CallScript, opts: BuildOp
   const telephony = opts.telephony ?? "plivo";
   const a = script.agents[round];
   const s = script.shared;
-  const prompt = `${a.systemPrompt}\n\n${PROMPT_FOOTER}`;
+  // report_quote exists only on the Match agent (R23), so only its prompt carries the tool instructions.
+  const prompt = `${a.systemPrompt}\n\n${round === "match" ? PROMPT_FOOTER : PROMPT_FOOTER_NO_TOOL}`;
   return {
     agent_config: {
       agent_name: agentName(round, PLACEHOLDER.target),
@@ -291,7 +300,9 @@ export function buildAgentConfig(round: Round, script: CallScript, opts: BuildOp
             llm_agent: {
               agent_type: "simple_llm_agent",
               agent_flow_type: "streaming",
-              llm_config: { provider: "openai", model: "gpt-5.4-mini", max_tokens: 250, temperature: 1, reasoning_effort: "none", verbosity: "low" },
+              // R23: a non-reasoning model for the live conversation: it follows the step list and makes clean tool calls
+              // (gpt-5.4-mini skipped steps and once spoke a tool call aloud). Parse and extraction stay on R19's model.
+              llm_config: { provider: "openai", model: "gpt-4.1-mini", max_tokens: 200, temperature: 0.2 },
             },
             synthesizer: synthesizer(voice, "hi"),
             transcriber: {
@@ -305,9 +316,10 @@ export function buildAgentConfig(round: Round, script: CallScript, opts: BuildOp
             },
             input: { provider: telephony, format: "wav" },
             output: { provider: telephony, format: "wav" },
-            api_tools: reportQuoteTool(),
+            api_tools: round === "match" ? reportQuoteTool() : null,
+            // R23: Hindi only. Auto-switching to English misfired on unclear Hindi in the first live tests.
             multilingual_config: {
-              enabled: true,
+              enabled: false,
               active_language: "hi",
               language_switch_trigger: "requested_or_auto_detected",
               languages: {
@@ -384,11 +396,19 @@ export function agentProblems(config: AgentConfig): string[] {
   if (/retry_config/.test(text)) out.push("has a retry_config");
   const task = config.agent_config.tasks[0];
   if (task.task_config.auto_reschedule !== false) out.push("auto_reschedule is not off");
-  const tools = task.tools_config.api_tools.tools;
-  if (tools.length !== 1 || tools[0].name !== "report_quote" || tools[0].key !== "custom_task") out.push("tools must be report_quote only");
-  const params = task.tools_config.api_tools.tools_params;
-  if (Object.keys(params).join() !== "report_quote") out.push("tools_params must be report_quote only");
-  if (!params.report_quote.url.endsWith("/bolna/report-quote")) out.push("report_quote points elsewhere");
+  // R23: report_quote on the Match agent only; every other agent has no tools at all.
+  const api = task.tools_config.api_tools;
+  const isMatch = config.agent_config.agent_name.startsWith("Molbhav Match ");
+  if (!isMatch) {
+    if (api !== null) out.push("only the Match agent may have a tool");
+  } else if (api === null) {
+    out.push("the Match agent needs report_quote");
+  } else {
+    const tools = api.tools;
+    if (tools.length !== 1 || tools[0].name !== "report_quote" || tools[0].key !== "custom_task") out.push("tools must be report_quote only");
+    if (Object.keys(api.tools_params).join() !== "report_quote") out.push("tools_params must be report_quote only");
+    if (!api.tools_params.report_quote.url.endsWith("/bolna/report-quote")) out.push("report_quote points elsewhere");
+  }
   if (!/\/bolna\/webhook\?token=[^&]+$/.test(config.agent_config.webhook_url)) out.push("the webhook points elsewhere or has no token");
   return out;
 }

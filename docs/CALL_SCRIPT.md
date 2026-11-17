@@ -21,23 +21,23 @@ Four Bolna agents, one job each. Decisions behind every rule here are in `docs/D
 ## Shared Bolna settings
 | Setting | Value |
 |---|---|
-| Language | Hindi; Hindi+English auto-switch on; stay in simple Hindi with Marwari speakers. Store each dealer's language and pass `agent_data.language` next time. |
 | Welcome delay | 700 ms (so the agent doesn't talk over the dealer's "हाँ जी") |
 | Interruption | after 3 words from the dealer |
 | Online check | after 8 s of silence: "जी, आप लाइन पे हैं?" |
 | Silence hangup | 20 s (so "रुकिए, देखके बताता हूँ" isn't dropped); on "रुकिए": "जी, आराम से।" |
 | Max length | as in the table above (`call_terminate`) |
+| Language | Hindi only (R23): automatic switching to English misfired on unclear Hindi ("Sure, we can talk in English."). Hinglish words are still understood; stay in simple Hindi with Marwari speakers. |
 | Transcriber / voice | Try Sarvam first for both. Voice: a calm, mature **male** voice (R20): Sarvam Bulbul v4 Flash `ashutosh_hi_conversational` by default; compare an ElevenLabs male Hindi voice on the same 5 test calls (the founders have credits on both). Pick the one that passes the number test (below) and sounds most natural to dealers. |
 | Webhook | `https://<deployment>.convex.site/bolna/webhook`, secret in the header `x-molbhav-secret` |
 | Data residency | India, if available on the account |
 | Retries / rescheduling | **Off** in Bolna. Every retry is a new call through `claimDial` (R2). |
-| Tools | `report_quote` only. Never `transfer_call` or any tool that dials, books or messages. |
+| Tools | `report_quote`, on the **Match agent only** (its "first" stage asks code whether it may cite, R1). Quote, Haggle and Confirm have no tools: the post-call extraction reads the transcript (R23). Never `transfer_call` or any tool that dials, books or messages. |
 | Where the config lives | `bolna/agents/*.json`, built from this file and synced with `pnpm bolna:sync` (R12). Edit this file first, then the config. |
 | Output style | Devanagari, with material terms in Latin (TMT, PPC, OPC, GST, mm, Fe500D, ISI) and prices as Hindi words. |
 
 **Number test before choosing models:** 20 recorded test lines with the hard numbers 50–99 (सत्तावन/सड़सठ, अट्ठावन/अड़सठ), quintal and ton rates, and "साढ़े पाँच हज़ार". Pick the transcriber that gets at least 19 of 20 right.
 
-## Custom function: `report_quote` (live mode)
+## Custom function: `report_quote` (live mode, Match agent only since R23)
 - Called once, **after the dealer says "हाँ" to the final read-back** (`stage: "final"`). The Match agent also calls it once right after the dealer's first rate (`stage: "first"`, with his rates as spoken); our endpoint computes his first total in `lib/pricing.ts` and replies `cite: true|false`, decided in code, never by the LLM (R1). If his figures aren't complete enough to compute a total, the reply is `cite: false`. A filler line ("जी, एक सेकंड, नोट कर रहे हैं") covers the 50–500 ms pause.
 - Payload: `molbhav_call_id`, `stage`, `rates` (as spoken, with units), `gst_mode`, `delivery`, `unloading`, `credit_days`, `brand`, `bill`, `weight_basis`, `stock`, and `all_in_said` (only if the dealer said an all-in figure himself). The agent never sends a total it worked out.
 - Our endpoint acknowledges in under 100 ms and fills the row's checklist. **It is a provisional hint only**: the post-call extraction from the transcript decides.
@@ -86,19 +86,19 @@ ASK IN THIS ORDER (skip anything he already said):
 3. "भाड़ा, उतराई, और साइट पे कब तक पहुँचा देंगे?"
 4. Only if credit was asked for: "{credit_wanted} उधार पे यही रेट, और तौल कांटे की होगी?" Otherwise: "तौल कांटे की होगी?"
 5. Best price, once, never naming a number or another dealer: "हम कुछ dealers से रेट ले रहे हैं। पक्के बिल पे, सब मिलाके, आपका सबसे कम आखिरी रेट क्या होगा?" If he lowers a rate or says an all-in figure, use his new figures. If he says it is final, accept politely.
-6. Read-back in ONE sentence with ONLY his own figures: each rate with unit and GST mode, भाड़ा, उतराई, time, credit, weighing, and his all-in figure only if he said one himself. Then "सही है?" Never add numbers up yourself. Correct anything he fixes. On "हाँ": call report_quote, then say "रेट के लिए धन्यवाद जी।" and end.
+6. Read-back in ONE sentence with ONLY his own figures: each rate with unit and GST mode, भाड़ा, उतराई, time, credit, weighing, and his all-in figure only if he said one himself. Then "सही है?" Never add numbers up yourself. Correct anything he fixes. On "हाँ": say "रेट के लिए धन्यवाद जी।" and end.
 
 Do not end the call before steps 1–5 are answered, unless he declines, has no stock, asks for a callback, or opts out.
 
 RULES:
 - Respectful: जी, आप. Speak as हम or impersonally.
 - Never mention other dealers' names or prices.
-- "रेट WhatsApp कर दूँगा": "अभी मोटा-मोटा बता दीजिए, बाकी WhatsApp पे।" Ask once; if refused, thank and end (report_quote outcome callback).
-- "सेठ जी से पूछके बताता हूँ": "अभी बात हो सकती है?" Otherwise ask when to call back, thank and end (outcome callback, with the time).
-- No stock or no such spec: thank and end (outcome declined).
+- "रेट WhatsApp कर दूँगा": "अभी मोटा-मोटा बता दीजिए, बाकी WhatsApp पे।" Ask once; if refused, thank and end.
+- "सेठ जी से पूछके बताता हूँ": "अभी बात हो सकती है?" Otherwise ask when to call back, thank and end.
+- No stock or no such spec: thank and end.
 - A no-bill rate is offered: "जी, पक्के बिल का रेट ही चाहिए।"
 - Rude or busy: a short apology, then end.
-- "आगे कॉल मत करना": "जी, आगे कॉल नहीं आएगी। धन्यवाद।" End (outcome opt_out).
+- "आगे कॉल मत करना": "जी, आगे कॉल नहीं आएगी। धन्यवाद।" End.
 ```
 
 ---
@@ -126,7 +126,7 @@ RULES:
 - If asked about terms (उधार, brand, बिल), answer from {competing_terms_spoken} only.
 - At most two asks. If the dealer says "यही final है", accept politely.
 - If they offer extras (free delivery, more credit) instead of a lower price, note them and confirm.
-- Read the new offer back in the dealer's own figures (the rates or the all-in figure he said, and what it includes). Never add numbers up yourself. Wait for "हाँ", then call report_quote.
+- Read the new offer back in the dealer's own figures (the rates or the all-in figure he said, and what it includes). Never add numbers up yourself. Wait for "हाँ".
 - End: "धन्यवाद जी, {contractor_name} जी जल्दी बताएँगे।" Never agree to buy.
 ```
 
@@ -175,8 +175,8 @@ CHECK, one by one, and get "हाँ" for each:
 4. Delivery time and site area; share the contact number.
 (Address, GSTIN and advance are not relayed yet, R9. If the dealer asks: "{contractor_name} जी आपको बता देंगे।")
 
-If ANYTHING differs (rate, brand, bill, weighing, payment): say "{contractor_name} जी अभी आपको कॉल करेंगे।", end, and call report_quote with outcome "terms_changed" and what changed. The app then offers the runner-up.
-If everything matches: "जी, तो ऑर्डर पक्का। {contractor_name} जी से डिलीवरी के लिए बात कर लीजिए। धन्यवाद।" Then call report_quote with outcome "confirmed" (R15).
+If ANYTHING differs (rate, brand, bill, weighing, payment): say "{contractor_name} जी अभी आपको कॉल करेंगे।" and end. (The post-call extraction records terms_changed; the app then offers the runner-up.)
+If everything matches: "जी, तो ऑर्डर पक्का। {contractor_name} जी से डिलीवरी के लिए बात कर लीजिए। धन्यवाद।" and end (the extraction records confirmed, R15).
 Never discuss other dealers or prices.
 ```
 

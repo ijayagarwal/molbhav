@@ -62,17 +62,35 @@ describe("the agents are built from docs/CALL_SCRIPT.md (R12)", () => {
     }
   });
 
-  test("hard rules hold for every agent: report_quote only, no transfer, Bolna retries and rescheduling off (R2, C8)", () => {
+  test("hard rules hold for every agent: report_quote on Match only (R23), no transfer, Bolna retries and rescheduling off (R2, C8)", () => {
     for (const r of ROUNDS) {
       expect(agentProblems(built[r])).toEqual([]);
       const task = built[r].agent_config.tasks[0];
       expect(task.task_config.auto_reschedule).toBe(false);
-      expect(task.tools_config.api_tools.tools_params.report_quote).toMatchObject({ method: "POST", url: `${PLACEHOLDER.siteUrl}/bolna/report-quote` });
-      expect(task.tools_config.api_tools.tools_params.report_quote.headers["x-molbhav-secret"]).toBe(PLACEHOLDER.secret);
+      const api = task.tools_config.api_tools;
+      if (r !== "match") {
+        expect(api).toBeNull();
+        // No tool means no tool instructions: the prompt must never invite JSON (a tool call was once spoken aloud).
+        expect(built[r].agent_prompts.task_1.system_prompt).not.toMatch(/REPORT_QUOTE|report_quote/);
+        continue;
+      }
+      expect(api!.tools_params.report_quote).toMatchObject({ method: "POST", url: `${PLACEHOLDER.siteUrl}/bolna/report-quote` });
+      expect(api!.tools_params.report_quote.headers["x-molbhav-secret"]).toBe(PLACEHOLDER.secret);
     }
-    const bad = JSON.parse(JSON.stringify(built.quote));
+    const bad = JSON.parse(JSON.stringify(built.match));
     bad.agent_config.tasks[0].tools_config.api_tools.tools.push({ name: "transfer_call", key: "transfer_call" });
     expect(agentProblems(bad).join()).toMatch(/transfer_call/);
+    const toolOnQuote = JSON.parse(JSON.stringify(built.quote));
+    toolOnQuote.agent_config.tasks[0].tools_config.api_tools = built.match.agent_config.tasks[0].tools_config.api_tools;
+    expect(agentProblems(toolOnQuote).join()).toMatch(/only the Match agent/);
+  });
+
+  test("R23: Hindi only (no auto-switch to English) on a non-reasoning conversation model", () => {
+    for (const r of ROUNDS) {
+      const tools = built[r].agent_config.tasks[0].tools_config;
+      expect(tools.multilingual_config.enabled).toBe(false);
+      expect(tools.llm_agent.llm_config.model).toBe("gpt-4.1-mini");
+    }
   });
 
   test("R20: a calm male Sarvam voice by default; ElevenLabs is a swap", () => {

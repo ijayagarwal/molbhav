@@ -331,7 +331,8 @@ describe("a live sweep (trial mode, two teammates' phones)", () => {
 
   test("sim orders never reach claimDial or Bolna (hard rule 1)", async () => {
     const { t, as, orderId, dealer } = await setup(["A", "B"]);
-    await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: [dealer.A, dealer.B] });
+    // Real (test_ok) dealers can't even join a sim sweep: sim calls only DEMO dealers.
+    await expect(as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: [dealer.A, dealer.B] })).rejects.toMatchObject({ data: { code: "dealer_unavailable" } });
     await run(t, 5 * 60_000);
     expect(bolna.fetch).not.toHaveBeenCalled();
     expect(await t.run(async (ctx) => await ctx.db.query("callLog").collect())).toHaveLength(0);

@@ -55,8 +55,21 @@ export const start = userMutation({
             .query("contractorDealers")
             .withIndex("by_contractor", (q) => q.eq("contractorId", contractor._id))
             .collect();
+    if (mode === "live") {
+      // First, so a contractor who can't go live hears why ("live calls are off") before any dealer detail.
+      // contractor is non-null here: a sandbox order was refused above and an app order needs its owner's profile.
+      const now = Date.now();
+      const opened = await contractorOrdersToday(ctx, contractor!._id, now);
+      const live = liveAvailability(liveEnv(), contractor!, opened.size, now);
+      if (!live.available) throw new ConvexError({ code: "live_unavailable", reason: live.reason });
+      if (order.siteId === undefined) throw new ConvexError({ code: "no_site" });
+    }
     const blocked = new Set<string>(book.filter((r) => r.relation === "blocked").map((r) => r.dealerId));
-    const usable = (d: Doc<"dealers"> | null): d is Doc<"dealers"> => d !== null && d.city === city && d.consent !== "opted_out" && !blocked.has(d._id);
+    // Sim calls only DEMO dealers; live only real dealers who may get AI calls (test_ok, opted_in), so a live order
+    // never holds a fictional regular dealer for the match round (claimDial would refuse it anyway, B10).
+    const fitsMode = (d: Doc<"dealers">) => (mode === "sim" ? d.isDemo === true : d.isDemo !== true && (d.consent === "test_ok" || d.consent === "opted_in"));
+    const usable = (d: Doc<"dealers"> | null): d is Doc<"dealers"> =>
+      d !== null && d.city === city && d.consent !== "opted_out" && !blocked.has(d._id) && fitsMode(d);
 
     const picked = [...new Set(dealerIds)];
     if (picked.length > MAX_SWEEP_DEALERS) throw new ConvexError({ code: "too_many_dealers", max: MAX_SWEEP_DEALERS });
@@ -72,15 +85,8 @@ export const start = userMutation({
     if (quoteDealers.length === 0) throw new ConvexError({ code: "no_dealers" });
 
     if (mode === "live") {
-      // contractor is non-null here: a sandbox order was refused above and an app order needs its owner's profile.
-      const env = liveEnv();
-      const now = Date.now();
-      const opened = await contractorOrdersToday(ctx, contractor!._id, now);
-      const live = liveAvailability(env, contractor!, opened.size, now);
-      if (!live.available) throw new ConvexError({ code: "live_unavailable", reason: live.reason });
-      if (order.siteId === undefined) throw new ConvexError({ code: "no_site" });
       // Last, so a sweep refused for any other reason doesn't use up an hourly token (the transaction rolls back anyway).
-      if (!(await consumeLiveSweep(ctx, env))) throw new ConvexError({ code: "live_sweep_limit" });
+      if (!(await consumeLiveSweep(ctx, liveEnv()))) throw new ConvexError({ code: "live_sweep_limit" });
     }
 
     const roundSeq = order.roundSeq + 1;

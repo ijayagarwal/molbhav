@@ -48,7 +48,8 @@ const SYNCED = ["quote", "haggle", "match", "confirm"].map((agent) => ({
 function fixedLines(config: { agent_config: { agent_welcome_message: string; tasks: { task_config: Record<string, unknown>; tools_config: Record<string, unknown> }[] } }): string[] {
   const task = config.agent_config.tasks[0];
   const online = task.task_config.check_user_online_message as Record<string, string>;
-  const tools = (task.tools_config.api_tools as { tools: { pre_call_message: string }[] }).tools;
+  // R23: only the Match agent has a tool; the others have api_tools null.
+  const tools = (task.tools_config.api_tools as { tools: { pre_call_message: string }[] } | null)?.tools ?? [];
   const langs = (task.tools_config.multilingual_config as { languages: Record<string, { handoff_message?: string }> }).languages;
   return [config.agent_config.agent_welcome_message, ...Object.values(online), ...tools.map((t) => t.pre_call_message), ...Object.values(langs).map((l) => l.handoff_message ?? "")].filter((s) => s !== "");
 }
