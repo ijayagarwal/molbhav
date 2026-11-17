@@ -70,6 +70,32 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 | Team test | Real AI calls to teammates' verified phones | Later | — |
 | 1C, 7, 9, 10 | Landing and waitlist; sandbox and presenter; hardening; go-live | Later | — |
 
+## 3b. Road to a live showcase (17 Nov 2026, night)
+
+**Works today (simulator, zero call cost):** onboarding, a spoken or typed order (real Sarvam speech-to-text and
+OpenAI parse), Confirm with the read-back in a male voice, choosing dealers, the live board with DEMO dealers,
+haggle and match, Result, placing with undo, the confirm call, the shared parchi. On phone and desk, in hi and en.
+
+**Step 1: a live AI call we can watch (needs the founders: a Bolna account and its API key).**
+1. Claude: `pnpm bolna:sync` creates the four phone agents (Quote, Haggle, Match, Confirm) from CALL_SCRIPT.md
+   with the male voice (R20), the webhook and the `report_quote` tool; `pnpm bolna:check` shows them.
+2. Fastest showcase, if Bolna offers browser web calls: a founder opens `/app/admin/agents` and talks to the
+   Quote agent from the browser, playing a dealer. No phone number, no verification; the founder presses Start.
+3. The Team test (docs/TEAM_TEST.md): two teammates' phones verified in the Bolna dashboard; Claude adds them
+   as test dealers; a founder says "go"; Claude turns on `LIVE_CALLS_ENABLED` on the dev deployment only; a
+   founder starts a live order from the app; the board fills from real calls; extraction reads the transcripts;
+   Result and the parchi as usual. Rollback: `LIVE_CALLS_ENABLED=false`.
+4. Recordings as proof (Phase 8C): stored in Convex behind signed links, deleted after 30 days.
+
+**Step 2: real dealers (Milestone 2, Phase 10; legal and accounts).** A registered business number (our own
+Plivo or Exotel account with KYC), the TRAI A2P declaration, dealers who opted in on /dealer and were called
+back by the team, IST call hours, a lawyer's read of the privacy and consent text.
+
+**Step 3: public launch.** The landing page with the waitlist, /dealer and /privacy (Phase 1C, being built), the
+team's WhatsApp number, phone-number login (an SMS provider with DLT registration, so logging out doesn't lose
+the account), the sandbox /try and the presenter view for demos (Phase 7), hardening and a demo deployment
+(Phase 9).
+
 ## 4. Session log (what happened, newest first)
 
 ### 17 Nov 2026 (night): keys in, OpenAI instead of Gemini, /app back under budget
@@ -107,6 +133,11 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
   - `E2E_LIVE_VOICE=1 pnpm e2e` runs the spoken and typed order tests (real API calls; local dev only, because
     production's BotID correctly refuses automated browsers).
   - /app's first load on production: 195 KB of JS (budget 200 KB): watch it.
+- **Male voice (R20):** the read-back now speaks with Sarvam's `ashutosh_hi_conversational` (Hindi) and
+  `dev_en_conversational` (English); samples of five candidates are in `~/Downloads/molbhav-voice-samples`.
+- **Log out** in Settings, with an honest warning: sessions are anonymous until phone-number login exists.
+- **In progress (two agents):** Phase 8B (Bolna calling, built keyless and mocked) and Phase 1C (waitlist,
+  /dealer, /privacy, analytics, robots).
 - **Still to do in Phase 4:** a test on a real phone over HTTPS (production refuses automated browsers, so only
   a person can check it), the founders' own recording, voice "हाँ, शुरू कीजिए" on Confirm (needs a
   speech-only route), and the "change site" sheet listing more than the home site.
