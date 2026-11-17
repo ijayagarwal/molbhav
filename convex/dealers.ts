@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import { requireOwnedOrder } from "./lib/access";
 import { contractorMutation, contractorQuery } from "./lib/functions";
 import { publicDealer } from "./lib/projections";
@@ -30,9 +31,13 @@ export const forOrder = contractorQuery({
       .query("contractorDealers")
       .withIndex("by_contractor", (q) => q.eq("contractorId", ctx.contractor._id))
       .collect();
-    const inCity = (await ctx.db.query("dealers").withIndex("by_city", (q) => q.eq("city", city)).take(200)).filter(
-      (d) => d.consent !== "opted_out" && (order.mode === "sim" ? d.isDemo : true),
-    );
+    const callable = (d: Doc<"dealers"> | null): d is Doc<"dealers"> =>
+      d !== null && d.city === city && d.consent !== "opted_out" && (order.mode === "sim" ? d.isDemo === true : true);
+    // The contractor's own dealers always show, read by id; the rest of the city is capped for the list.
+    const own = (await Promise.all(relations.map((r) => ctx.db.get(r.dealerId)))).filter(callable);
+    const ownIds = new Set(own.map((d) => d._id as string));
+    const rest = (await ctx.db.query("dealers").withIndex("by_city", (q) => q.eq("city", city)).take(200)).filter((d) => callable(d) && !ownIds.has(d._id));
+    const inCity = [...own, ...rest];
     const rel = new Map(relations.map((r) => [r.dealerId as string, r]));
     const sameAreaFirst = (a: (typeof inCity)[number], b: (typeof inCity)[number]) =>
       Number(b.area === site?.area) - Number(a.area === site?.area) || a.name.localeCompare(b.name);
