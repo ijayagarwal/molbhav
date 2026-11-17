@@ -1,0 +1,636 @@
+{
+  "about": "Golden set for the quote extractor (ARCHITECTURE §8.2, PROMPTS Phase 5 item 8). Run with `pnpm eval:extract` (calls Gemini; target ≥ 9/10). The persona cases are the simulator's own transcripts for the demo order (fictional dealers, made-up prices); the handwritten ones are a per-quintal quote with GST unclear and a dealer who corrects his own number. `expected` is what the dealer said, in lib/extraction.ts's Extraction shape (confidence isn't scored). Haggle cases carry the dealer's earlier terms; haggle and match cases carry the cited total in rupees. Real call transcripts, with names and numbers replaced, are added later and need the billed key.",
+  "version": 1,
+  "cases": [
+    {
+      "id": "agarwal-quote",
+      "source": "persona:perkg_gst_extra",
+      "note": "Card A: per kg, GST extra, delivery free, unloading ₹600, 7 days credit (₹2,00,610)",
+      "round": "quote",
+      "items": [
+        {
+          "id": "steel",
+          "material": "tmt_steel",
+          "diameterMm": 12,
+          "grade": "Fe500D",
+          "tier": "local_isi",
+          "quantity": 2,
+          "unit": "ton"
+        },
+        {
+          "id": "cement",
+          "material": "cement",
+          "cementType": "PPC",
+          "tier": "any",
+          "quantity": 150,
+          "unit": "bag"
+        }
+      ],
+      "transcript": "assistant: नमस्ते जी, ये मोलभाव से AI कॉल है, रमेश जी की तरफ़ से, और कॉल रिकॉर्ड हो रही है। मानसरोवर साइट पे कल सुबह दो टन बारह mm लोकल ISI सरिया Fe500D, और डेढ़ सौ बोरी PPC सीमेंट चाहिए, स्टॉक में है?\nuser: हाँ जी, पूरा माल है।\nassistant: कुछ dealers से रेट ले रहे हैं। कौन सा brand, और रेट क्या रहेगा?\nuser: सरिया शक्ति TMT, सत्तावन रुपये किलो, GST अलग।\nassistant: मतलब सत्तावन रुपये किलो, सही?\nuser: हाँ जी।\nassistant: और सीमेंट का?\nuser: सीमेंट जयपुर गोल्ड, तीन सौ सत्तर रुपये बोरी, GST अलग।\nassistant: मतलब तीन सौ सत्तर रुपये बोरी, सही?\nuser: हाँ जी।\nassistant: पक्के बिल पे, GST मिलाके, साइट पे उतार के, सब मिलाके कितना होगा?\nuser: डिलीवरी फ्री, उतराई छह सौ रुपये, पक्का बिल।\nassistant: साइट पे कब तक पहुँचा देंगे?\nuser: कल सुबह तक पहुँचा देंगे।\nassistant: पंद्रह दिन के उधार पे रेट यही रहेगा या अलग?\nuser: सात दिन उधार दे देंगे, रेट यही रहेगा।\nassistant: तौल कांटे की होगी या standard?\nuser: कांटे पे।\nassistant: तो सरिया शक्ति TMT सत्तावन रुपये किलो GST अलग, सीमेंट जयपुर गोल्ड तीन सौ सत्तर रुपये बोरी GST अलग, भाड़ा फ्री, उतराई छह सौ, पक्का बिल, कांटे की तौल, सात दिन उधार, कल सुबह। सही है?\nuser: हाँ, सही है।\nassistant: रेट के लिए धन्यवाद जी।",
+      "expected": {
+        "lines": [
+          {
+            "orderItemId": "steel",
+            "rate": 57,
+            "rateUnit": "kg",
+            "gstMode": "extra",
+            "brandOffered": "Shakti TMT",
+            "tierOffered": "local_isi",
+            "inStock": "yes"
+          },
+          {
+            "orderItemId": "cement",
+            "rate": 370,
+            "rateUnit": "bag",
+            "gstMode": "extra",
+            "brandOffered": "Jaipur Gold",
+            "tierOffered": "any",
+            "inStock": "yes"
+          }
+        ],
+        "billType": "pakka",
+        "weightBasis": "kanta",
+        "deliveryCharge": 0,
+        "unloadingCharge": 600,
+        "deliveryBy": "tomorrow_morning",
+        "creditDays": 7,
+        "outcome": "quoted",
+        "saidFinal": false
+      }
+    },
+    {
+      "id": "omsai-quote",
+      "source": "persona:perton_gst_incl",
+      "note": "Card B: per ton, GST included, delivery ₹1,500, unloading included, cash (₹2,00,750)",
+      "round": "quote",
+      "items": [
+        {
+          "id": "steel",
+          "material": "tmt_steel",
+          "diameterMm": 12,
+          "grade": "Fe500D",
+          "tier": "local_isi",
+          "quantity": 2,
+          "unit": "ton"
+        },
+        {
+          "id": "cement",
+          "material": "cement",
+          "cementType": "PPC",
+          "tier": "any",
+          "quantity": 150,
+          "unit": "bag"
+        }
+      ],
+      "transcript": "assistant: नमस्ते जी, ये मोलभाव से AI कॉल है, रमेश जी की तरफ़ से, और कॉल रिकॉर्ड हो रही है। मानसरोवर साइट पे कल सुबह दो टन बारह mm लोकल ISI सरिया Fe500D, और डेढ़ सौ बोरी PPC सीमेंट चाहिए, स्टॉक में है?\nuser: हाँ जी, पूरा माल है।\nassistant: कुछ dealers से रेट ले रहे हैं। कौन सा brand, और रेट क्या रहेगा?\nuser: सरिया शक्ति TMT, सड़सठ हज़ार रुपये टन, GST मिलाके।\nassistant: मतलब सड़सठ हज़ार रुपये टन, सही?\nuser: हाँ जी।\nassistant: और सीमेंट का?\nuser: सीमेंट जयपुर गोल्ड, चार सौ पैंतीस रुपये बोरी, GST मिलाके।\nassistant: मतलब चार सौ पैंतीस रुपये बोरी, सही?\nuser: हाँ जी।\nassistant: पक्के बिल पे, GST मिलाके, साइट पे उतार के, सब मिलाके कितना होगा?\nuser: भाड़ा पंद्रह सौ रुपये, उतराई शामिल, पक्का बिल।\nassistant: साइट पे कब तक पहुँचा देंगे?\nuser: कल तक पहुँचा देंगे।\nassistant: पंद्रह दिन के उधार पे रेट यही रहेगा या अलग?\nuser: उधार नहीं, कैश ही चलेगा।\nassistant: तौल कांटे की होगी या standard?\nuser: कांटे पे।\nassistant: तो सरिया शक्ति TMT सड़सठ हज़ार रुपये टन GST मिलाके, सीमेंट जयपुर गोल्ड चार सौ पैंतीस रुपये बोरी GST मिलाके, भाड़ा पंद्रह सौ, उतराई फ्री, पक्का बिल, कांटे की तौल, उधार नहीं, कल। सही है?\nuser: हाँ, सही है।\nassistant: रेट के लिए धन्यवाद जी।",
+      "expected": {
+        "lines": [
+          {
+            "orderItemId": "steel",
+            "rate": 67000,
+            "rateUnit": "ton",
+            "gstMode": "included",
+            "brandOffered": "Shakti TMT",
+            "tierOffered": "local_isi",
+            "inStock": "yes"
+          },
+          {
+            "orderItemId": "cement",
+            "rate": 435,
+            "rateUnit": "bag",
+            "gstMode": "included",
+            "brandOffered": "Jaipur Gold",
+            "tierOffered": "any",
+            "inStock": "yes"
+          }
+        ],
+        "billType": "pakka",
+        "weightBasis": "kanta",
+        "deliveryCharge": 1500,
+        "unloadingCharge": 0,
+        "deliveryBy": "tomorrow",
+        "creditDays": 0,
+        "outcome": "quoted",
+        "saidFinal": false
+      }
+    },
+    {
+      "id": "rathore-quote",
+      "source": "persona:whatsapp_dodger",
+      "note": "Card C: per quintal, GST/charges/bill unclear, never confirms the read-back",
+      "round": "quote",
+      "items": [
+        {
+          "id": "steel",
+          "material": "tmt_steel",
+          "diameterMm": 12,
+          "grade": "Fe500D",
+          "tier": "local_isi",
+          "quantity": 2,
+          "unit": "ton"
+        },
+        {
+          "id": "cement",
+          "material": "cement",
+          "cementType": "PPC",
+          "tier": "any",
+          "quantity": 150,
+          "unit": "bag"
+        }
+      ],
+      "transcript": "assistant: नमस्ते जी, ये मोलभाव से AI कॉल है, रमेश जी की तरफ़ से, और कॉल रिकॉर्ड हो रही है। मानसरोवर साइट पे कल सुबह दो टन बारह mm लोकल ISI सरिया Fe500D, और डेढ़ सौ बोरी PPC सीमेंट चाहिए, स्टॉक में है?\nuser: रेट WhatsApp कर दूँगा जी।\nassistant: अभी मोटा-मोटा बता दीजिए, बाकी WhatsApp पे।\nuser: हाँ जी, पूरा माल है।\nassistant: कुछ dealers से रेट ले रहे हैं। कौन सा brand, और रेट क्या रहेगा?\nuser: सरिया, पाँच हज़ार सात सौ पचास रुपये क्विंटल।\nassistant: मतलब पाँच हज़ार सात सौ पचास रुपये क्विंटल, सही?\nuser: हाँ जी।\nassistant: और सीमेंट का?\nuser: सीमेंट, तीन सौ अस्सी रुपये बोरी।\nassistant: मतलब तीन सौ अस्सी रुपये बोरी, सही?\nuser: हाँ जी।\nassistant: पक्के बिल पे, GST मिलाके, साइट पे उतार के, सब मिलाके कितना होगा?\nuser: GST वो बाद में देख लेंगे, भाड़ा-उतराई साइट देख के बताएँगे, बिल चाहिए तो रेट अलग है।\nassistant: साइट पे कब तक पहुँचा देंगे?\nuser: जल्दी भेज देंगे।\nassistant: पंद्रह दिन के उधार पे रेट यही रहेगा या अलग?\nuser: उधार की बात बाद में कर लेंगे।\nassistant: तौल कांटे की होगी या standard?\nuser: वो देख लेंगे।\nassistant: तो सरिया पाँच हज़ार सात सौ पचास रुपये क्विंटल, सीमेंट तीन सौ अस्सी रुपये बोरी। सही है?\nuser: वो सब बाद में देख लेंगे।\nassistant: रेट के लिए धन्यवाद जी।",
+      "expected": {
+        "lines": [
+          {
+            "orderItemId": "steel",
+            "rate": 5750,
+            "rateUnit": "quintal",
+            "gstMode": "unknown",
+            "inStock": "yes"
+          },
+          {
+            "orderItemId": "cement",
+            "rate": 380,
+            "rateUnit": "bag",
+            "gstMode": "unknown",
+            "inStock": "yes"
+          }
+        ],
+        "billType": "unknown",
+        "weightBasis": "unknown",
+        "outcome": "quoted",
+        "saidFinal": false
+      }
+    },
+    {
+      "id": "omsai-haggle",
+      "source": "persona:perton_gst_incl",
+      "note": "Card B haggle: both rates said again, nothing else changes (₹1,99,400)",
+      "round": "haggle",
+      "items": [
+        {
+          "id": "steel",
+          "material": "tmt_steel",
+          "diameterMm": 12,
+          "grade": "Fe500D",
+          "tier": "local_isi",
+          "quantity": 2,
+          "unit": "ton"
+        },
+        {
+          "id": "cement",
+          "material": "cement",
+          "cementType": "PPC",
+          "tier": "any",
+          "quantity": 150,
+          "unit": "bag"
+        }
+      ],
+      "earlier": {
+        "lines": [
+          {
+            "orderItemId": "steel",
+            "rate": 67000,
+            "rateUnit": "ton",
+            "gstMode": "included",
+            "brandOffered": "Shakti TMT",
+            "tierOffered": "local_isi",
+            "inStock": "yes"
+          },
+          {
+            "orderItemId": "cement",
+            "rate": 435,
+            "rateUnit": "bag",
+            "gstMode": "included",
+            "brandOffered": "Jaipur Gold",
+            "tierOffered": "any",
+            "inStock": "yes"
+          }
+        ],
+        "billType": "pakka",
+        "weightBasis": "kanta",
+        "deliveryCharge": 1500,
+        "unloadingCharge": 0,
+        "deliveryBy": "tomorrow",
+        "creditDays": 0
+      },
+      "citedRupees": 200610,
+      "transcript": "assistant: नमस्ते जी, ये मोलभाव से AI कॉल है, रमेश जी की तरफ़ से दोबारा, और कॉल रिकॉर्ड हो रही है। आपके रेट के बारे में एक मिनट बात करनी थी।\nuser: हाँ जी, बोलिए।\nassistant: एक और dealer ने लोकल ISI, पक्का बिल, GST, भाड़ा और उतराई जोड़के के साथ, सब मिलाके दो लाख छह सौ दस रुपये बोला है। आप सबसे बढ़िया कितना कर सकते हैं, सब मिलाके?\nuser: चलो, सरिया छियासठ हज़ार सात सौ रुपये टन, सीमेंट चार सौ तीस रुपये बोरी।\nassistant: तो सरिया शक्ति TMT छियासठ हज़ार सात सौ रुपये टन GST मिलाके, सीमेंट जयपुर गोल्ड चार सौ तीस रुपये बोरी GST मिलाके, बाकी सब पहले जैसा: भाड़ा पंद्रह सौ, उतराई फ्री, पक्का बिल, कांटे की तौल, उधार नहीं, कल। सही है?\nuser: हाँ, सही है।\nassistant: धन्यवाद जी, रमेश जी जल्दी बताएँगे।",
+      "expected": {
+        "lines": [
+          {
+            "orderItemId": "steel",
+            "rate": 66700,
+            "rateUnit": "ton",
+            "gstMode": "included",
+            "brandOffered": "Shakti TMT",
+            "tierOffered": "local_isi",
+            "inStock": "yes"
+          },
+          {
+            "orderItemId": "cement",
+            "rate": 430,
+            "rateUnit": "bag",
+            "gstMode": "included",
+            "brandOffered": "Jaipur Gold",
+            "tierOffered": "any",
+            "inStock": "yes"
+          }
+        ],
+        "billType": "pakka",
+        "weightBasis": "kanta",
+        "deliveryCharge": 1500,
+        "unloadingCharge": 0,
+        "deliveryBy": "tomorrow",
+        "creditDays": 0,
+        "outcome": "quoted",
+        "saidFinal": false
+      }
+    },
+    {
+      "id": "agarwal-haggle",
+      "source": "persona:perkg_gst_extra",
+      "note": "Card A haggle: steel ₹56.50/kg and unloading free; cement unchanged (₹1,98,830)",
+      "round": "haggle",
+      "items": [
+        {
+          "id": "steel",
+          "material": "tmt_steel",
+          "diameterMm": 12,
+          "grade": "Fe500D",
+          "tier": "local_isi",
+          "quantity": 2,
+          "unit": "ton"
+        },
+        {
+          "id": "cement",
+          "material": "cement",
+          "cementType": "PPC",
+          "tier": "any",
+          "quantity": 150,
+          "unit": "bag"
+        }
+      ],
+      "earlier": {
+        "lines": [
+          {
+            "orderItemId": "steel",
+            "rate": 57,
+            "rateUnit": "kg",
+            "gstMode": "extra",
+            "brandOffered": "Shakti TMT",
+            "tierOffered": "local_isi",
+            "inStock": "yes"
+          },
+          {
+            "orderItemId": "cement",
+            "rate": 370,
+            "rateUnit": "bag",
+            "gstMode": "extra",
+            "brandOffered": "Jaipur Gold",
+            "tierOffered": "any",
+            "inStock": "yes"
+          }
+        ],
+        "billType": "pakka",
+        "weightBasis": "kanta",
+        "deliveryCharge": 0,
+        "unloadingCharge": 600,
+        "deliveryBy": "tomorrow_morning",
+        "creditDays": 7
+      },
+      "citedRupees": 199400,
+      "transcript": "assistant: नमस्ते जी, ये मोलभाव से AI कॉल है, रमेश जी की तरफ़ से दोबारा, और कॉल रिकॉर्ड हो रही है। आपके रेट के बारे में एक मिनट बात करनी थी।\nuser: हाँ जी, बोलिए।\nassistant: एक और dealer ने लोकल ISI, पक्का बिल, GST, भाड़ा और उतराई जोड़के, सात दिन उधार के साथ, सब मिलाके एक लाख निन्यानवे हज़ार चार सौ रुपये बोला है। आप सबसे बढ़िया कितना कर सकते हैं, सब मिलाके?\nuser: ठीक है, सरिया छप्पन रुपये पचास पैसे किलो, और उतराई भी फ्री। यही final है।\nassistant: तो सरिया शक्ति TMT छप्पन रुपये पचास पैसे किलो GST अलग, बाकी सब पहले जैसा: भाड़ा फ्री, उतराई फ्री, पक्का बिल, कांटे की तौल, सात दिन उधार, कल सुबह। सही है?\nuser: हाँ, सही है।\nassistant: धन्यवाद जी, रमेश जी जल्दी बताएँगे।",
+      "expected": {
+        "lines": [
+          {
+            "orderItemId": "steel",
+            "rate": 56.5,
+            "rateUnit": "kg",
+            "gstMode": "extra",
+            "brandOffered": "Shakti TMT",
+            "tierOffered": "local_isi",
+            "inStock": "yes"
+          }
+        ],
+        "billType": "pakka",
+        "weightBasis": "kanta",
+        "deliveryCharge": 0,
+        "unloadingCharge": 0,
+        "deliveryBy": "tomorrow_morning",
+        "creditDays": 7,
+        "outcome": "quoted",
+        "saidFinal": true
+      }
+    },
+    {
+      "id": "balaji-match",
+      "source": "persona:regular_match",
+      "note": "Card D match call: first rate before the citation (₹2,04,300), then ₹2,00,100",
+      "round": "match",
+      "items": [
+        {
+          "id": "steel",
+          "material": "tmt_steel",
+          "diameterMm": 12,
+          "grade": "Fe500D",
+          "tier": "local_isi",
+          "quantity": 2,
+          "unit": "ton"
+        },
+        {
+          "id": "cement",
+          "material": "cement",
+          "cementType": "PPC",
+          "tier": "any",
+          "quantity": 150,
+          "unit": "bag"
+        }
+      ],
+      "citedRupees": 198830,
+      "transcript": "assistant: नमस्ते जी, ये मोलभाव से AI कॉल है, रमेश जी की तरफ़ से, और कॉल रिकॉर्ड हो रही है। रमेश जी आपको भी मौका देना चाहते हैं: दो टन बारह mm लोकल ISI सरिया Fe500D, और डेढ़ सौ बोरी PPC सीमेंट, मानसरोवर साइट पे कल सुबह।\nuser: हाँ जी, बोलिए।\nassistant: पूरा माल स्टॉक में है?\nuser: हाँ जी, पूरा माल है।\nassistant: कुछ dealers से रेट ले रहे हैं। कौन सा brand, और रेट क्या रहेगा?\nuser: सरिया शक्ति TMT, अड़सठ हज़ार पाँच सौ रुपये टन, GST मिलाके।\nassistant: मतलब अड़सठ हज़ार पाँच सौ रुपये टन, सही?\nuser: हाँ जी।\nassistant: और सीमेंट का?\nuser: सीमेंट जयपुर गोल्ड, चार सौ पैंतालीस रुपये बोरी, GST मिलाके।\nassistant: मतलब चार सौ पैंतालीस रुपये बोरी, सही?\nuser: हाँ जी।\nassistant: पक्के बिल पे, GST मिलाके, साइट पे उतार के, सब मिलाके कितना होगा?\nuser: डिलीवरी फ्री, उतराई पाँच सौ पचास रुपये, पक्का बिल।\nassistant: साइट पे कब तक पहुँचा देंगे?\nuser: कल सुबह तक पहुँचा देंगे।\nassistant: पंद्रह दिन के उधार पे रेट यही रहेगा या अलग?\nuser: पंद्रह दिन उधार दे देंगे, रेट यही रहेगा।\nassistant: तौल कांटे की होगी या standard?\nuser: कांटे पे।\nassistant: तो सरिया शक्ति TMT अड़सठ हज़ार पाँच सौ रुपये टन GST मिलाके, सीमेंट जयपुर गोल्ड चार सौ पैंतालीस रुपये बोरी GST मिलाके, भाड़ा फ्री, उतराई पाँच सौ पचास, पक्का बिल, कांटे की तौल, पंद्रह दिन उधार, कल सुबह। सही है?\nuser: हाँ, सही है।\nassistant: जी, एक सेकंड, नोट कर रहे हैं।\nassistant: बाज़ार में इसी तरह के brand का, लोकल ISI, पक्का बिल, GST, भाड़ा और उतराई जोड़के, सात दिन उधार के साथ, सब मिलाके एक लाख अट्ठानवे हज़ार आठ सौ तीस रुपये आया है। क्या आप इतना कर सकते हैं?\nuser: आप पुराने ग्राहक हो, सरिया सड़सठ हज़ार एक सौ पचास रुपये टन, सीमेंट चार सौ पैंतीस रुपये बोरी कर देते हैं। यही final है।\nassistant: तो सरिया शक्ति TMT सड़सठ हज़ार एक सौ पचास रुपये टन GST मिलाके, सीमेंट जयपुर गोल्ड चार सौ पैंतीस रुपये बोरी GST मिलाके, भाड़ा फ्री, उतराई पाँच सौ पचास, पक्का बिल, कांटे की तौल, पंद्रह दिन उधार, कल सुबह। सही है?\nuser: हाँ, सही है।\nassistant: धन्यवाद जी, रमेश जी आपसे बात कर लेंगे।",
+      "expected": {
+        "lines": [
+          {
+            "orderItemId": "steel",
+            "rate": 67150,
+            "rateUnit": "ton",
+            "gstMode": "included",
+            "brandOffered": "Shakti TMT",
+            "tierOffered": "local_isi",
+            "inStock": "yes"
+          },
+          {
+            "orderItemId": "cement",
+            "rate": 435,
+            "rateUnit": "bag",
+            "gstMode": "included",
+            "brandOffered": "Jaipur Gold",
+            "tierOffered": "any",
+            "inStock": "yes"
+          }
+        ],
+        "billType": "pakka",
+        "weightBasis": "kanta",
+        "deliveryCharge": 0,
+        "unloadingCharge": 550,
+        "deliveryBy": "tomorrow_morning",
+        "creditDays": 15,
+        "first": {
+          "lines": [
+            {
+              "orderItemId": "steel",
+              "rate": 68500,
+              "rateUnit": "ton",
+              "gstMode": "included",
+              "brandOffered": "Shakti TMT",
+              "tierOffered": "local_isi",
+              "inStock": "yes"
+            },
+            {
+              "orderItemId": "cement",
+              "rate": 445,
+              "rateUnit": "bag",
+              "gstMode": "included",
+              "brandOffered": "Jaipur Gold",
+              "tierOffered": "any",
+              "inStock": "yes"
+            }
+          ],
+          "billType": "pakka",
+          "weightBasis": "kanta",
+          "deliveryCharge": 0,
+          "unloadingCharge": 550,
+          "deliveryBy": "tomorrow_morning",
+          "creditDays": 15
+        },
+        "outcome": "quoted",
+        "saidFinal": true
+      }
+    },
+    {
+      "id": "mahaveer-cement-only",
+      "source": "persona:cement_only",
+      "note": "No steel today: steel line not in stock, cement quoted",
+      "round": "quote",
+      "items": [
+        {
+          "id": "steel",
+          "material": "tmt_steel",
+          "diameterMm": 12,
+          "grade": "Fe500D",
+          "tier": "local_isi",
+          "quantity": 2,
+          "unit": "ton"
+        },
+        {
+          "id": "cement",
+          "material": "cement",
+          "cementType": "PPC",
+          "tier": "any",
+          "quantity": 150,
+          "unit": "bag"
+        }
+      ],
+      "transcript": "assistant: नमस्ते जी, ये मोलभाव से AI कॉल है, रमेश जी की तरफ़ से, और कॉल रिकॉर्ड हो रही है। मानसरोवर साइट पे कल सुबह दो टन बारह mm लोकल ISI सरिया Fe500D, और डेढ़ सौ बोरी PPC सीमेंट चाहिए, स्टॉक में है?\nuser: सरिया अभी नहीं है जी, सीमेंट मिल जाएगा।\nassistant: कुछ dealers से रेट ले रहे हैं। कौन सा brand, और रेट क्या रहेगा?\nuser: सीमेंट जयपुर गोल्ड, तीन सौ पचहत्तर रुपये बोरी, GST अलग।\nassistant: मतलब तीन सौ पचहत्तर रुपये बोरी, सही?\nuser: हाँ जी।\nassistant: पक्के बिल पे, GST मिलाके, साइट पे उतार के, सब मिलाके कितना होगा?\nuser: डिलीवरी फ्री, उतराई छह सौ रुपये, पक्का बिल।\nassistant: साइट पे कब तक पहुँचा देंगे?\nuser: कल सुबह तक पहुँचा देंगे।\nassistant: पंद्रह दिन के उधार पे रेट यही रहेगा या अलग?\nuser: सात दिन उधार दे देंगे, रेट यही रहेगा।\nassistant: तौल कांटे की होगी या standard?\nuser: कांटे पे।\nassistant: तो सीमेंट जयपुर गोल्ड तीन सौ पचहत्तर रुपये बोरी GST अलग, भाड़ा फ्री, उतराई छह सौ, पक्का बिल, कांटे की तौल, सात दिन उधार, कल सुबह। सही है?\nuser: हाँ, सही है।\nassistant: रेट के लिए धन्यवाद जी।",
+      "expected": {
+        "lines": [
+          {
+            "orderItemId": "steel",
+            "rate": 59.5,
+            "rateUnit": "kg",
+            "gstMode": "extra",
+            "brandOffered": "Shakti TMT",
+            "tierOffered": "local_isi",
+            "inStock": "no"
+          },
+          {
+            "orderItemId": "cement",
+            "rate": 375,
+            "rateUnit": "bag",
+            "gstMode": "extra",
+            "brandOffered": "Jaipur Gold",
+            "tierOffered": "any",
+            "inStock": "yes"
+          }
+        ],
+        "billType": "pakka",
+        "weightBasis": "kanta",
+        "deliveryCharge": 0,
+        "unloadingCharge": 600,
+        "deliveryBy": "tomorrow_morning",
+        "creditDays": 7,
+        "outcome": "quoted",
+        "saidFinal": false
+      }
+    },
+    {
+      "id": "bajrang-kachcha",
+      "source": "persona:kachcha_lowball",
+      "note": "Offers a no-bill rate first; the pakka-bill rate is the quote",
+      "round": "quote",
+      "items": [
+        {
+          "id": "steel",
+          "material": "tmt_steel",
+          "diameterMm": 12,
+          "grade": "Fe500D",
+          "tier": "local_isi",
+          "quantity": 2,
+          "unit": "ton"
+        },
+        {
+          "id": "cement",
+          "material": "cement",
+          "cementType": "PPC",
+          "tier": "any",
+          "quantity": 150,
+          "unit": "bag"
+        }
+      ],
+      "transcript": "assistant: नमस्ते जी, ये मोलभाव से AI कॉल है, रमेश जी की तरफ़ से, और कॉल रिकॉर्ड हो रही है। मानसरोवर साइट पे कल सुबह दो टन बारह mm लोकल ISI सरिया Fe500D, और डेढ़ सौ बोरी PPC सीमेंट चाहिए, स्टॉक में है?\nuser: हाँ जी, पूरा माल है।\nuser: बिना बिल लेंगे तो सस्ता पड़ेगा।\nassistant: जी, पक्के बिल का रेट ही चाहिए।\nassistant: कुछ dealers से रेट ले रहे हैं। कौन सा brand, और रेट क्या रहेगा?\nuser: सरिया शक्ति TMT, साठ रुपये किलो, GST अलग।\nassistant: मतलब साठ रुपये किलो, सही?\nuser: हाँ जी।\nassistant: और सीमेंट का?\nuser: सीमेंट जयपुर गोल्ड, तीन सौ तिरासी रुपये बोरी, GST अलग।\nassistant: मतलब तीन सौ तिरासी रुपये बोरी, सही?\nuser: हाँ जी।\nassistant: पक्के बिल पे, GST मिलाके, साइट पे उतार के, सब मिलाके कितना होगा?\nuser: डिलीवरी फ्री, उतराई छह सौ रुपये, पक्का बिल।\nassistant: साइट पे कब तक पहुँचा देंगे?\nuser: कल सुबह तक पहुँचा देंगे।\nassistant: पंद्रह दिन के उधार पे रेट यही रहेगा या अलग?\nuser: उधार नहीं, कैश ही चलेगा।\nassistant: तौल कांटे की होगी या standard?\nuser: कांटे पे।\nassistant: तो सरिया शक्ति TMT साठ रुपये किलो GST अलग, सीमेंट जयपुर गोल्ड तीन सौ तिरासी रुपये बोरी GST अलग, भाड़ा फ्री, उतराई छह सौ, पक्का बिल, कांटे की तौल, उधार नहीं, कल सुबह। सही है?\nuser: हाँ, सही है।\nassistant: रेट के लिए धन्यवाद जी।",
+      "expected": {
+        "lines": [
+          {
+            "orderItemId": "steel",
+            "rate": 60,
+            "rateUnit": "kg",
+            "gstMode": "extra",
+            "brandOffered": "Shakti TMT",
+            "tierOffered": "local_isi",
+            "inStock": "yes"
+          },
+          {
+            "orderItemId": "cement",
+            "rate": 383,
+            "rateUnit": "bag",
+            "gstMode": "extra",
+            "brandOffered": "Jaipur Gold",
+            "tierOffered": "any",
+            "inStock": "yes"
+          }
+        ],
+        "billType": "pakka",
+        "weightBasis": "kanta",
+        "deliveryCharge": 0,
+        "unloadingCharge": 600,
+        "deliveryBy": "tomorrow_morning",
+        "creditDays": 0,
+        "outcome": "quoted",
+        "saidFinal": false
+      }
+    },
+    {
+      "id": "quintal-gst-unclear",
+      "source": "handwritten",
+      "note": "Steel per quintal (अट्ठावन सौ = ₹5,800) with GST left unclear: quoted, but gst_unclear makes it not comparable",
+      "round": "quote",
+      "items": [
+        {
+          "id": "steel",
+          "material": "tmt_steel",
+          "diameterMm": 12,
+          "grade": "Fe500D",
+          "tier": "local_isi",
+          "quantity": 2,
+          "unit": "ton"
+        },
+        {
+          "id": "cement",
+          "material": "cement",
+          "cementType": "PPC",
+          "tier": "any",
+          "quantity": 150,
+          "unit": "bag"
+        }
+      ],
+      "transcript": "assistant: नमस्ते जी, ये मोलभाव से AI कॉल है, रमेश जी की तरफ़ से, और कॉल रिकॉर्ड हो रही है। मानसरोवर साइट पे कल सुबह दो टन बारह mm लोकल ISI सरिया Fe500D, और डेढ़ सौ बोरी PPC सीमेंट चाहिए, स्टॉक में है?\nuser: हाँ जी, सब है।\nassistant: कुछ dealers से रेट ले रहे हैं। कौन सा brand, और रेट क्या रहेगा?\nuser: सरिया श्री TMT, अट्ठावन सौ क्विंटल।\nassistant: मतलब पाँच हज़ार आठ सौ रुपये क्विंटल, सही?\nuser: हाँ जी।\nassistant: और सीमेंट का?\nuser: सीमेंट जयपुर गोल्ड, तीन सौ पचहत्तर।\nassistant: मतलब तीन सौ पचहत्तर रुपये बोरी, सही?\nuser: हाँ।\nassistant: पक्के बिल पे, GST मिलाके, साइट पे उतार के, सब मिलाके कितना होगा?\nuser: GST का बाद में देख लेंगे, भाड़ा एक हज़ार, उतराई हमारी तरफ़ से, पक्का बिल।\nassistant: साइट पे कब तक पहुँचा देंगे?\nuser: कल शाम तक।\nassistant: पंद्रह दिन के उधार पे रेट यही रहेगा या अलग?\nuser: उधार नहीं चलेगा, कैश।\nassistant: तौल कांटे की होगी या standard?\nuser: कांटे पे।\nassistant: तो सरिया श्री TMT पाँच हज़ार आठ सौ रुपये क्विंटल, सीमेंट जयपुर गोल्ड तीन सौ पचहत्तर रुपये बोरी, भाड़ा एक हज़ार, उतराई शामिल, पक्का बिल, कांटे की तौल, उधार नहीं। सही है?\nuser: हाँ, सही है।\nassistant: रेट के लिए धन्यवाद जी।",
+      "expected": {
+        "lines": [
+          {
+            "orderItemId": "steel",
+            "rate": 5800,
+            "rateUnit": "quintal",
+            "gstMode": "unknown",
+            "brandOffered": "Shree TMT",
+            "tierOffered": "local_isi",
+            "inStock": "yes"
+          },
+          {
+            "orderItemId": "cement",
+            "rate": 375,
+            "rateUnit": "bag",
+            "gstMode": "unknown",
+            "brandOffered": "Jaipur Gold",
+            "tierOffered": "any",
+            "inStock": "yes"
+          }
+        ],
+        "billType": "pakka",
+        "weightBasis": "kanta",
+        "deliveryCharge": 1000,
+        "unloadingCharge": 0,
+        "deliveryBy": "tomorrow",
+        "creditDays": 0,
+        "outcome": "quoted",
+        "saidFinal": false
+      }
+    },
+    {
+      "id": "corrects-own-number",
+      "source": "handwritten",
+      "note": "The dealer says ₹58/kg, then corrects himself to ₹57.50: the corrected rate is the quote (₹2,02,044)",
+      "round": "quote",
+      "items": [
+        {
+          "id": "steel",
+          "material": "tmt_steel",
+          "diameterMm": 12,
+          "grade": "Fe500D",
+          "tier": "local_isi",
+          "quantity": 2,
+          "unit": "ton"
+        },
+        {
+          "id": "cement",
+          "material": "cement",
+          "cementType": "PPC",
+          "tier": "any",
+          "quantity": 150,
+          "unit": "bag"
+        }
+      ],
+      "transcript": "assistant: नमस्ते जी, ये मोलभाव से AI कॉल है, रमेश जी की तरफ़ से, और कॉल रिकॉर्ड हो रही है। मानसरोवर साइट पे कल सुबह दो टन बारह mm लोकल ISI सरिया Fe500D, और डेढ़ सौ बोरी PPC सीमेंट चाहिए, स्टॉक में है?\nuser: हाँ जी, पूरा माल है।\nassistant: कुछ dealers से रेट ले रहे हैं। कौन सा brand, और रेट क्या रहेगा?\nuser: सरिया शक्ति TMT, अट्ठावन रुपये किलो, GST अलग।\nassistant: मतलब अट्ठावन रुपये किलो, सही?\nuser: नहीं नहीं, अट्ठावन नहीं, सत्तावन पचास। सत्तावन रुपये पचास पैसे।\nassistant: मतलब सत्तावन रुपये पचास पैसे किलो, सही?\nuser: हाँ जी।\nassistant: और सीमेंट का?\nuser: सीमेंट जयपुर गोल्ड, तीन सौ बहत्तर, GST अलग।\nassistant: मतलब तीन सौ बहत्तर रुपये बोरी, सही?\nuser: हाँ जी।\nassistant: पक्के बिल पे, GST मिलाके, साइट पे उतार के, सब मिलाके कितना होगा?\nuser: डिलीवरी फ्री, उतराई पाँच सौ रुपये, पक्का बिल।\nassistant: साइट पे कब तक पहुँचा देंगे?\nuser: कल सुबह तक पहुँचा देंगे।\nassistant: पंद्रह दिन के उधार पे रेट यही रहेगा या अलग?\nuser: दस दिन उधार दे देंगे, रेट यही रहेगा।\nassistant: तौल कांटे की होगी या standard?\nuser: कांटे पे।\nassistant: तो सरिया शक्ति TMT सत्तावन रुपये पचास पैसे किलो GST अलग, सीमेंट जयपुर गोल्ड तीन सौ बहत्तर रुपये बोरी GST अलग, भाड़ा फ्री, उतराई पाँच सौ, पक्का बिल, कांटे की तौल, दस दिन उधार, कल सुबह। सही है?\nuser: हाँ, सही है।\nassistant: रेट के लिए धन्यवाद जी।",
+      "expected": {
+        "lines": [
+          {
+            "orderItemId": "steel",
+            "rate": 57.5,
+            "rateUnit": "kg",
+            "gstMode": "extra",
+            "brandOffered": "Shakti TMT",
+            "tierOffered": "local_isi",
+            "inStock": "yes"
+          },
+          {
+            "orderItemId": "cement",
+            "rate": 372,
+            "rateUnit": "bag",
+            "gstMode": "extra",
+            "brandOffered": "Jaipur Gold",
+            "tierOffered": "any",
+            "inStock": "yes"
+          }
+        ],
+        "billType": "pakka",
+        "weightBasis": "kanta",
+        "deliveryCharge": 0,
+        "unloadingCharge": 500,
+        "deliveryBy": "tomorrow_morning",
+        "creditDays": 10,
+        "outcome": "quoted",
+        "saidFinal": false
+      }
+    }
+  ]
+}

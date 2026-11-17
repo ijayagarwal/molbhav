@@ -80,6 +80,25 @@ export interface ExtractPromptInput {
   citedRupees?: number;
 }
 
+/**
+ * The generateContent request for one extraction (convex/llm.ts and scripts/eval-extract.ts send the same
+ * one): JSON-schema output, temperature 0, the lowest thinking level (Gemini 2.5 Flash takes a budget,
+ * newer Flash models a level). Plain data; callers cast `config` to the SDK's type.
+ */
+export function extractRequest(model: string, input: ExtractPromptInput) {
+  return {
+    model,
+    contents: [{ role: "user", parts: [{ text: extractUserPrompt(input) }] }],
+    config: {
+      systemInstruction: EXTRACT_SYSTEM_PROMPT,
+      responseMimeType: "application/json",
+      responseSchema: EXTRACT_SCHEMA,
+      temperature: 0,
+      thinkingConfig: /2\.5/.test(model) ? { thinkingBudget: 0 } : { thinkingLevel: "MINIMAL" },
+    },
+  };
+}
+
 /** The user turn: the order items with ids (and how the agent said them), the call type, context, transcript. */
 export function extractUserPrompt(i: ExtractPromptInput): string {
   const items = i.items.map((it) => ({

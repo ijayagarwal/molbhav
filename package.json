@@ -13,6 +13,7 @@
     "e2e": "playwright test",
     "size": "size-limit",
     "measure": "tsx scripts/measure-app.ts",
+    "eval:extract": "tsx --env-file-if-exists=.env.local scripts/eval-extract.ts",
     "fonts": ".venv/bin/python scripts/fonts.py"
   },
   "dependencies": {
