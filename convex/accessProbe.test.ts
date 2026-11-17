@@ -48,6 +48,7 @@ const publicFns: PublicFn[] = Object.entries(loaded).flatMap(([path, mod]) => {
 const NOT_PROBED: Record<string, string> = {
   "contractors:create": "acts only on the caller's own profile (ctx.userId); covered in access.test.ts",
   "dealers:listForCity": "takes a city, returns publicDealer only; covered in access.test.ts and scanned below",
+  "sweep:start": "takes a mode and an array of dealer ids; another user, a signed-out caller and dealers it may not call are refused in engine.test.ts",
 };
 
 /** Sample values for string arguments, so the admin refusal probe can still call functions that take them. */

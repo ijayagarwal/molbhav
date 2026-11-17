@@ -253,6 +253,10 @@ export default defineSchema({
     ranking: v.optional(v.array(v.id("quotes"))),   // frozen at "ready"
     winningQuoteId: v.optional(v.id("quotes")),
     placeJobId: v.optional(v.string()),
+    undoUntil: v.optional(v.number()),   // end of the undo window after place (ms), so a reload can show the countdown
+    matchDealerId: v.optional(v.id("dealers")),  // the regular dealer held for the match call at sweep start (P1); absent when askFirst
+    haggleSkipped: v.optional(v.boolean()),       // fewer than 2 citable quotes: no haggle round (haggle.skipped, R15)
+    termsChangedQuoteIds: v.optional(v.array(v.id("quotes"))),  // winners whose dealer changed terms on the confirm call (C5); the runner-up is offered
     publicId: v.optional(v.string()),    // 16 random bytes as 22 base64url characters (128 bits), revocable
     shareMode: v.optional(v.union(v.literal("full"), v.literal("savings"), v.literal("munshi"))),
     expiresAt: v.optional(v.number()),   // sandbox: 24 h
@@ -275,6 +279,8 @@ export default defineSchema({
     provisionalTotal: v.optional(v.number()), // paise, from report_quote; display only, never cited
     slots: v.optional(v.object({ rate: v.boolean(), gst: v.boolean(), delivery: v.boolean(), credit: v.boolean() })),
     callbackWhenText: v.optional(v.string()),
+    citedQuoteId: v.optional(v.id("quotes")),    // haggle and match calls: the citable quote whose exact total was cited (C3)
+    confirmQuoteId: v.optional(v.id("quotes")),  // confirm calls: the approved quote being relayed (C5)
     extract: v.union(v.literal("pending"), v.literal("running"), v.literal("done"), v.literal("failed")),
     extractAttempts: v.number(),
     terminationReason: v.optional(v.string()),   // Bolna's, kept server-side
@@ -306,6 +312,7 @@ export default defineSchema({
     weightBasis: v.union(v.literal("kanta"), v.literal("standard"), v.literal("unknown")),
     validityText: v.optional(v.string()),
     firstTotal: v.optional(v.number()),  // match call: computed in code from what he said before any number was cited (R1)
+    firstComparable: v.optional(v.boolean()), // whether that first-rate quote was comparable; only then is it the savings basis (R17)
     saidFinal: v.boolean(),
     confidence: v.number(),
     readBackConfirmed: v.boolean(),      // computed in code from the transcript, not by the LLM

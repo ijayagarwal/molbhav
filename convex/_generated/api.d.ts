@@ -13,6 +13,8 @@ import type * as auth from "../auth.js";
 import type * as calls from "../calls.js";
 import type * as contractors from "../contractors.js";
 import type * as dealers from "../dealers.js";
+import type * as engine from "../engine.js";
+import type * as extract from "../extract.js";
 import type * as http from "../http.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_domainCheck from "../lib/domainCheck.js";
@@ -22,11 +24,17 @@ import type * as lib_live from "../lib/live.js";
 import type * as lib_optOut from "../lib/optOut.js";
 import type * as lib_projections from "../lib/projections.js";
 import type * as limits from "../limits.js";
+import type * as llm from "../llm.js";
 import type * as orders from "../orders.js";
+import type * as pools from "../pools.js";
 import type * as quotes from "../quotes.js";
 import type * as seed from "../seed.js";
 import type * as settings from "../settings.js";
+import type * as sim from "../sim.js";
+import type * as sim_groundTruth from "../sim/groundTruth.js";
 import type * as sim_personas from "../sim/personas.js";
+import type * as sim_script from "../sim/script.js";
+import type * as sweep from "../sweep.js";
 
 import type {
   ApiFromModules,
@@ -40,6 +48,8 @@ declare const fullApi: ApiFromModules<{
   calls: typeof calls;
   contractors: typeof contractors;
   dealers: typeof dealers;
+  engine: typeof engine;
+  extract: typeof extract;
   http: typeof http;
   "lib/access": typeof lib_access;
   "lib/domainCheck": typeof lib_domainCheck;
@@ -49,11 +59,17 @@ declare const fullApi: ApiFromModules<{
   "lib/optOut": typeof lib_optOut;
   "lib/projections": typeof lib_projections;
   limits: typeof limits;
+  llm: typeof llm;
   orders: typeof orders;
+  pools: typeof pools;
   quotes: typeof quotes;
   seed: typeof seed;
   settings: typeof settings;
+  sim: typeof sim;
+  "sim/groundTruth": typeof sim_groundTruth;
   "sim/personas": typeof sim_personas;
+  "sim/script": typeof sim_script;
+  sweep: typeof sweep;
 }>;
 
 /**
