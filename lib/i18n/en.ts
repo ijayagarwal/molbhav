@@ -391,4 +391,11 @@ export const en: Record<DictKey, string> = {
   "landing.rule1": "Every AI call says first that it's an AI and is being recorded.",
   "landing.rule2": "We quote only real rates, and never name a dealer.",
   "landing.rule3": "Your own dealer always gets a chance to match.",
+
+  "placed.undoIn": "Calling the dealer in {s} s",
+  "placed.callRunning": "Talking to the dealer",
+  "placed.retry": "Call again",
+  "placed.share": "Share the parchi",
+  "placed.deliverBy": "Delivery: {when}",
+  "placed.undone": "Order stopped",
 };

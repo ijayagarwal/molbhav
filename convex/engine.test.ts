@@ -547,11 +547,25 @@ describe("place and confirm (§6.7)", () => {
     expect(order.placeJobId).toBeUndefined();
   });
 
-  test("place refuses a winner that isn't the order's, and anything but ready", async () => {
-    const { as, orderId, winner, runnerUp } = await readyDemo();
-    expect(await errorCode(as.mutation(api.placing.place, { orderId, expectedQuoteId: runnerUp }))).toBe("winner_changed");
+  test("place refuses a quote that can't win, and anything but ready", async () => {
+    const { t, as, orderId, winner } = await readyDemo();
+    const { quotes } = await snapshot(t, orderId);
+    const notComparable = quotes.find((q) => !q.comparable)!._id;
+    expect(await errorCode(as.mutation(api.placing.place, { orderId, expectedQuoteId: notComparable }))).toBe("winner_changed");
     await as.mutation(api.placing.place, { orderId, expectedQuoteId: winner });
     expect(await errorCode(as.mutation(api.placing.place, { orderId, expectedQuoteId: winner }))).toBe("not_ready");
+  });
+
+  test("'उन्हीं से लीजिए': the contractor may place with another ranked offer; the confirm call goes to that dealer", async () => {
+    const { t, as, orderId, runnerUp } = await readyDemo();
+    await as.mutation(api.placing.place, { orderId, expectedQuoteId: runnerUp });
+    await runAll(t);
+    const { order, calls, quotes } = await snapshot(t, orderId);
+    const confirm = calls.filter((c) => c.round === "confirm");
+    expect(confirm).toHaveLength(1);
+    expect(confirm[0].confirmQuoteId).toBe(runnerUp);
+    expect(confirm[0].dealerId).toBe(quotes.find((q) => q._id === runnerUp)!.dealerId);
+    expect(order.status).toBe("placed");
   });
 
   test("undo inside the window cancels: no confirm call, back at ready; after the window it's too late", async () => {

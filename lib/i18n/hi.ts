@@ -399,6 +399,14 @@ export const hi = {
   "landing.rule1": "हर AI कॉल में पहले बताते हैं कि ये AI है और रिकॉर्ड हो रही है।",
   "landing.rule2": "सिर्फ असली रेट बताते हैं, किसी dealer का नाम नहीं।",
   "landing.rule3": "आपके dealer को match का मौका हमेशा मिलता है।",
+
+  // Placed.
+  "placed.undoIn": "{s} सेकंड में dealer को कॉल जाएगी",
+  "placed.callRunning": "dealer से बात चल रही है",
+  "placed.retry": "फिर से कॉल कीजिए",
+  "placed.share": "पर्ची भेजिए",
+  "placed.deliverBy": "डिलीवरी: {when}",
+  "placed.undone": "ऑर्डर रोक दिया",
 } as const;
 
 export type DictKey = keyof typeof hi;

@@ -12,8 +12,9 @@ import { requireOwnedOrder } from "./lib/access";
 import { userMutation } from "./lib/functions";
 
 /**
- * Places the order with the winner the contractor saw. Refuses (`winner_changed`) if `expectedQuoteId`
- * is no longer the order's winner. Starts the undo window (UNDO_WINDOW_SEC; 5 s for sim at demo pace):
+ * Places the order with the offer the contractor chose on Result: the winner, or another comparable
+ * standing offer from the frozen ranking ("उन्हीं से लीजिए": his own dealer, DESIGN §12.7). Refuses
+ * (`winner_changed`) anything else: a quote that can't win, one whose terms changed, or a stale screen. Starts the undo window (UNDO_WINDOW_SEC; 5 s for sim at demo pace):
  * the confirm call starts when it ends, unless undoPlace cancels it first. Returns when the window ends.
  */
 export const place = userMutation({
@@ -21,7 +22,10 @@ export const place = userMutation({
   handler: async (ctx, { orderId, expectedQuoteId }): Promise<{ undoUntil: number }> => {
     const order = await requireOwnedOrder(ctx, orderId);
     if (order.status !== "ready") throw new ConvexError({ code: "not_ready", status: order.status });
-    if (order.winningQuoteId === undefined || order.winningQuoteId !== expectedQuoteId) throw new ConvexError({ code: "winner_changed" });
+    const choosable =
+      expectedQuoteId === order.winningQuoteId ||
+      ((order.ranking ?? []).includes(expectedQuoteId) && !(order.termsChangedQuoteIds ?? []).includes(expectedQuoteId));
+    if (order.winningQuoteId === undefined || !choosable) throw new ConvexError({ code: "winner_changed" });
     // Live confirm calls arrive with Phase 8B (dial job + the call-hours warning before placing).
     if (order.mode === "live") throw new ConvexError({ code: "live_not_ready" });
     const undoUntil = Date.now() + undoWindowMs(order.mode);
@@ -69,7 +73,9 @@ export const startConfirm = internalMutation({
   args: { orderId: v.id("orders"), roundSeq: v.number(), quoteId: v.id("quotes") },
   handler: async (ctx, { orderId, roundSeq, quoteId }) => {
     const order = await ctx.db.get(orderId);
-    if (order === null || order.status !== "placing" || order.roundSeq !== roundSeq || order.winningQuoteId !== quoteId) return;
+    // The placed offer is the winner or another ranked offer the contractor chose (place checked which).
+    const chosen = quoteId === order?.winningQuoteId || (order?.ranking ?? []).includes(quoteId);
+    if (order === null || order.status !== "placing" || order.roundSeq !== roundSeq || !chosen) return;
     const quote = await ctx.db.get(quoteId);
     if (quote === null) return;
     if ((await roundCalls(ctx, order)).some((c) => c.round === "confirm" && !isFinal(c.status))) return;

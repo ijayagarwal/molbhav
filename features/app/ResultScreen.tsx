@@ -6,7 +6,6 @@
 // Special states: "आपके dealer ही सबसे सस्ते" (no tally) and "सिर्फ 1 रेट मिला". The result is spoken once
 // (V7) unless the contractor turned that off. Every number comes from lib/result.ts → lib/pricing.ts.
 import { useMutation, useQuery } from "convex/react";
-import { makeFunctionReference } from "convex/server";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { PrimaryButton, SecondaryButton } from "@/components/mb/Buttons";
@@ -33,9 +32,6 @@ import { speak } from "./HomeScreen";
 import { OrderLoading, OrderMissing } from "./OrderStates";
 import { useOrderScreen } from "./useOrderScreen";
 
-// The engine's place mutation (Phase 6B backend). Referenced by name until its module lands on main.
-const placeRef = makeFunctionReference<"mutation", { orderId: Id<"orders">; expectedQuoteId: Id<"quotes"> }, unknown>("placing:place");
-
 const UNIT_HI = { kg: "किलो", ton: "टन", quintal: "क्विंटल", bag: "बोरी" } as const;
 
 export function ResultScreen({ orderId }: { orderId: string }) {
@@ -43,7 +39,7 @@ export function ResultScreen({ orderId }: { orderId: string }) {
   const router = useRouter();
   const order = useOrderScreen(orderId, "result");
   const data = useQuery(api.board.get, order ? { orderId: order._id } : "skip");
-  const place = useMutation(placeRef);
+  const place = useMutation(api.placing.place);
   const prefs = usePrefs();
   const [placing, setPlacing] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
@@ -146,6 +142,11 @@ export function ResultScreen({ orderId }: { orderId: string }) {
 
   return (
     <AppFrame back={back} title={t("result.title")} deskDock={false} hasCommitAction phoneDock={confirmButton}>
+      {data.order.termsChangedQuoteIds.length > 0 ? (
+        <p role="alert" className="rounded-card border-[1.5px] border-lal bg-card px-4 py-3 text-label text-lal">
+          {t("placed.termsChanged")}
+        </p>
+      ) : null}
       <div className="flex items-center justify-between gap-3">
         <h1 className="font-display text-title-1">{s?.regularIsCheapest ? t("result.regularCheapest") : view.onlyOne ? t("result.onlyOne") : t("result.title")}</h1>
         <ModeBadge mode={data.order.mode} label={data.order.mode === "sim" ? t("badge.demo") : "LIVE"} />

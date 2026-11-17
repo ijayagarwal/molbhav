@@ -46,6 +46,8 @@ export function publicCall(c: Doc<"calls">) {
     slots: c.slots,
     callbackWhenText: c.callbackWhenText,
     hasRecording: c.recordingStorageId !== undefined,
+    /** Confirm calls: the offer being placed (the winner, or the one the contractor chose). */
+    confirmQuoteId: c.confirmQuoteId,
   };
 }
 export type PublicCall = ReturnType<typeof publicCall>;

@@ -4,7 +4,7 @@ import { PriceHero } from "./PriceHero";
 // Parchi (DESIGN §11, D2): the result receipt. White card, 2 px ink border, radius 4, perforated bottom,
 // painted ink shadow. Dealer name, landed total (price hero), item lines, GST, delivery and unloading,
 // chips for delivery time, credit, bill and weighing. In sim or sandbox: a "DEMO · काल्पनिक dealers" watermark,
-// drawn as in design/reference/SharedParchi.html: a small lal rubber stamp in the top-right corner, never over money.
+// drawn as in design/reference/SharedParchi.html: a small lal rubber stamp in the top-right corner, never over money or text.
 export interface ParchiLine {
   label: string;
   /** paise, or a word such as "मुफ़्त" */
@@ -26,18 +26,20 @@ interface Props {
 export function Parchi({ heading, status, dealerName, totalPaise, allInLabel, lines, chips, watermark }: Props) {
   return (
     <article className="relative overflow-hidden rounded-parchi border-2 border-ink bg-card shadow-paint-lg">
-      {watermark ? (
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute right-3 top-3.5 z-10 -rotate-6 whitespace-nowrap rounded-parchi border-[1.5px] border-lal bg-card px-2 py-0.5 font-mono text-meta font-semibold tracking-[0.04em] text-lal opacity-90"
-        >
-          {watermark}
-        </span>
-      ) : null}
       <div className="relative flex flex-col gap-3 px-4 pb-6 pt-4">
-        <header className="mb-1 flex items-center gap-2 text-meta">
+        {/* The stamp sits in the header row (top-right), so it never covers the status or the money; on a
+            narrow card it wraps under the header instead of overlapping it. */}
+        <header className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-2 text-meta">
           <span className="text-ink-2">{heading}</span>
           <span className="font-ui-semibold text-hara">{status}</span>
+          {watermark ? (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none ml-auto -rotate-6 whitespace-nowrap rounded-parchi border-[1.5px] border-lal bg-card px-2 py-0.5 font-mono text-meta font-semibold tracking-[0.04em] text-lal opacity-90"
+            >
+              {watermark}
+            </span>
+          ) : null}
         </header>
         <h3 className="font-display text-title-2">{dealerName}</h3>
         <div className="min-w-0 overflow-hidden">

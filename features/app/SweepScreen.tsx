@@ -26,6 +26,7 @@ import { formatPaise } from "@/lib/numbers";
 import { parseTurns } from "@/lib/transcript";
 import { AppFrame } from "./AppFrame";
 import { OrderLoading, OrderMissing } from "./OrderStates";
+import { useNow } from "./useNow";
 import { useOrderScreen } from "./useOrderScreen";
 
 const KIND: Record<BoardRow["kind"], { state: RowState; label: DictKey }> = {
@@ -45,16 +46,6 @@ const KIND: Record<BoardRow["kind"], { state: RowState; label: DictKey }> = {
   held: { state: "held", label: "status.matchLater" },
   notComparable: { state: "notComparable", label: "status.notComparable" },
 };
-
-/** A clock for revealing scripted sim lines (4 Hz is plenty for a 1 s timer). */
-function useNow(ms = 250) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), ms);
-    return () => window.clearInterval(id);
-  }, [ms]);
-  return now;
-}
 
 export function SweepScreen({ orderId }: { orderId: string }) {
   const { t, lang } = useT();

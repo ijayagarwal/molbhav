@@ -58,6 +58,12 @@ async function view(ctx: QueryCtx, publicId: string) {
     .withIndex("by_contractor", (q) => q.eq("contractorId", order.contractorId!))
     .collect();
   const regular = relations.find((r) => r.relation === "regular")?.dealerId ?? null;
+  // Once placed, the parchi shows the offer actually placed (the latest confirm call's), not just the cheapest.
+  const confirms = await ctx.db
+    .query("calls")
+    .withIndex("by_order", (q) => q.eq("orderId", order._id))
+    .collect();
+  const placedQuote = confirms.filter((c) => c.round === "confirm" && c.confirmQuoteId).at(-1)?.confirmQuoteId;
   const result = buildResult({
     quotes: quotes.map(
       (q): ResultQuote => ({
@@ -75,7 +81,7 @@ async function view(ctx: QueryCtx, publicId: string) {
     ),
     regularDealerId: regular,
     wantsCredit: (order.creditDaysWanted ?? 0) > 0,
-    winningQuoteId: order.winningQuoteId,
+    winningQuoteId: placedQuote ?? order.winningQuoteId,
   });
   const winner = result.winner;
   if (!winner) return null;
