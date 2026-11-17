@@ -12,7 +12,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 describe("transcribe (Saaras, codemix)", () => {
   test("posts multipart with the key header, saaras:v4, codemix, hi-IN and keyterms; returns the transcript", async () => {
-    const fetchImpl = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) =>
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
       jsonResponse({ request_id: "r1", transcript: "कल सुबह तक 2 ton 12mm सरिया", language_code: "hi-IN" }),
     );
     const out = await transcribe(new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm;codecs=opus" }), "hi", { fetchImpl });
@@ -34,7 +34,7 @@ describe("transcribe (Saaras, codemix)", () => {
 
   test("keyterms are sent only to saaras:v4 (v3 answers 400 to them); the model is overridable", async () => {
     vi.stubEnv("SARVAM_STT_MODEL", "saaras:v3");
-    const fetchImpl = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => jsonResponse({ transcript: "x" }));
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ transcript: "x" }));
     await transcribe(new Blob(["a"], { type: "audio/mp4" }), "en", { fetchImpl });
     const form = fetchImpl.mock.calls[0][1]?.body as FormData;
     expect(form.get("model")).toBe("saaras:v3");
@@ -77,7 +77,7 @@ describe("transcribe (Saaras, codemix)", () => {
 describe("synthesize (Bulbul v4 Flash)", () => {
   test("posts JSON with bulbul:v4-flash, a Hindi persona and mp3; decodes the base64 audio", async () => {
     const mp3 = Buffer.from([0xff, 0xfb, 0x90, 0x00]);
-    const fetchImpl = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => jsonResponse({ request_id: "t1", audios: [mp3.toString("base64")] }));
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ request_id: "t1", audios: [mp3.toString("base64")] }));
     const out = await synthesize("सही हो तो शुरू कीजिए।", "hi", { fetchImpl });
     expect(out.contentType).toBe("audio/mpeg");
     expect([...out.audio]).toEqual([...mp3]);
@@ -96,7 +96,7 @@ describe("synthesize (Bulbul v4 Flash)", () => {
   test("speaker and model come from env; English uses the English persona", async () => {
     vi.stubEnv("SARVAM_TTS_SPEAKER_EN", "simran_en_customer");
     vi.stubEnv("SARVAM_TTS_MODEL", "bulbul:v4-flash");
-    const fetchImpl = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => jsonResponse({ audios: ["AAAA"] }));
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ audios: ["AAAA"] }));
     await synthesize("If that's right, start.", "en", { fetchImpl });
     expect(JSON.parse(String(fetchImpl.mock.calls[0][1]?.body))).toMatchObject({ language_code: "en-IN", speaker: "simran_en_customer" });
   });

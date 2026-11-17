@@ -1,7 +1,7 @@
 // The read-back on Confirm (DESIGN §13, V3): at most 3 sentences, in this order: what and how much (with
-// the tier), then the delivery time only if it was said, then credit; it ends with a statement because
-// the mic is closed. Built from the draft in code, never from free text. The browser speaks it today
-// (speechSynthesis hi-IN); Phase 4's POST /api/tts builds the same text on the server for Bulbul.
+// the tier), then the site and delivery time only if they differ from the defaults, then credit; it ends
+// with a statement because the mic is closed. Built from the draft in code, never from free text. POST
+// /api/tts builds it on the server for Bulbul; the browser's speechSynthesis hi-IN is the fallback.
 import { DELIVER_BY } from "./config";
 import type { DeliverBy, OrderItem } from "./domain";
 import { hindiNumberWords, hindiRupees, spokenOrder } from "./numbers";
@@ -10,6 +10,13 @@ export interface ReadBackInput {
   items: OrderItem[];
   deliverBy?: DeliverBy;
   creditDaysWanted?: number;
+  /** The site's area from CITY_AREAS (R7), passed only when it isn't the contractor's default site. */
+  site?: { hi: string; en: string };
+}
+
+/** Whether every item can be spoken (quantity and unit known); the read-back waits until then. */
+export function readBackReady(items: OrderItem[]): boolean {
+  return items.length > 0 && items.every((i) => i.quantity !== undefined && i.quantity > 0 && i.unit !== undefined);
 }
 
 function englishItem(i: OrderItem): string {
@@ -28,6 +35,7 @@ export function readBackText(input: ReadBackInput, lang: "hi" | "en"): string {
   if (lang === "hi") {
     sentences.push(`${spokenOrder(input.items)}।`);
     const tail: string[] = [];
+    if (input.site) tail.push(`${input.site.hi} साइट`);
     if (input.deliverBy && input.deliverBy !== "flexible") tail.push(`${DELIVER_BY[input.deliverBy].spokenHi} तक`);
     if (input.creditDaysWanted) tail.push(`${hindiNumberWords(input.creditDaysWanted)} दिन उधार`);
     if (tail.length > 0) sentences.push(`${tail.join(", ")}।`);
@@ -36,6 +44,7 @@ export function readBackText(input: ReadBackInput, lang: "hi" | "en"): string {
     const items = input.items.map(englishItem);
     sentences.push(`${items.length > 1 ? `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}` : items[0]}.`);
     const tail: string[] = [];
+    if (input.site) tail.push(`to the ${input.site.en} site`);
     if (input.deliverBy && input.deliverBy !== "flexible") tail.push(`by ${DELIVER_BY[input.deliverBy].en.toLowerCase()}`);
     if (input.creditDaysWanted) tail.push(`${input.creditDaysWanted} days credit`);
     if (tail.length > 0) sentences.push(`${tail.join(", ").replace(/^./, (c) => c.toUpperCase())}.`);

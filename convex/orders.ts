@@ -1,10 +1,13 @@
 import { ConvexError, v } from "convex/values";
-import type { Tier } from "../lib/domain";
+import { CITIES, CITY_AREAS, type City } from "../lib/config";
+import type { OrderItem, Tier } from "../lib/domain";
 import { DEMO_CREDIT_DAYS, DEMO_DELIVER_BY, DEMO_ITEMS, DEMO_TRANSCRIPT } from "../lib/fixtures/demoOrder";
+import { PARSE_LIMITS, PARSE_NOTES, cleanText, itemsAreSanitized, missingFields, resolveSite } from "../lib/parse";
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { requireOwnedOrder } from "./lib/access";
 import { contractorMutation, userMutation, userQuery } from "./lib/functions";
+import { rateLimiter } from "./limits";
 
 const deliverBy = v.union(
   v.literal("today"), v.literal("tomorrow_morning"), v.literal("tomorrow"),
@@ -84,6 +87,121 @@ export const createExampleDraft = contractorMutation({
       status: "draft",
       selectedDealerIds: [],
     });
+  },
+});
+
+/** One parsed item, as POST /api/voice/order sends it (lib/parse.ts toDraft); re-checked in the handler. */
+const draftItem = v.object({
+  id: v.string(),
+  material: v.union(v.literal("tmt_steel"), v.literal("cement")),
+  diameterMm: v.optional(v.number()),
+  grade: v.optional(v.union(v.literal("Fe500"), v.literal("Fe500D"), v.literal("Fe550D"))),
+  cementType: v.optional(v.union(v.literal("OPC43"), v.literal("OPC53"), v.literal("PPC"), v.literal("PSC"))),
+  tier: v.optional(v.union(v.literal("branded"), v.literal("local_isi"), v.literal("any"), v.literal("both"))),
+  brand: v.optional(v.string()),
+  quantity: v.optional(v.number()),
+  unit: v.optional(v.union(v.literal("kg"), v.literal("ton"), v.literal("quintal"), v.literal("bag"))),
+});
+
+/** A contractor keeps at most this many sites; past it, an unknown spoken area is asked on Confirm instead. */
+const MAX_SITES = 10;
+/** Raw display strings longer than this are refused, not trimmed (they can't come from the parse). */
+const MAX_RAW_TEXT = 200;
+
+/**
+ * The voice order's draft (ARCHITECTURE §6.1 step 5): written by POST /api/voice/order as the user, after
+ * STT and the Gemini parse. Sim mode (hard rule 1). Everything is re-checked here, because any signed-in
+ * client can call it directly:
+ * - items must already be in lib/parse.ts's sanitized form (enums, config brands, TMT sizes, stable ids);
+ * - the site is matched IN CODE from siteText (R7): nothing said → the default site; an area from the city's
+ *   list → the contractor's site there, or a new site for that area; anything else → no site, asked on Confirm;
+ * - cement without a tier gets the contractor's last choice, else "any", pre-selected (R8); steel is asked;
+ * - `missing` is computed here, never taken from the client.
+ */
+export const createDraft = contractorMutation({
+  args: {
+    transcript: v.string(),
+    items: v.array(draftItem),
+    siteText: v.optional(v.string()),
+    deliverBy: v.optional(deliverBy),
+    deliverByText: v.optional(v.string()),
+    creditDaysWanted: v.optional(v.number()),
+    notes: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, a) => {
+    const transcript = a.transcript.length > PARSE_LIMITS.maxTranscriptChars * 2 ? undefined : cleanText(a.transcript, PARSE_LIMITS.maxTranscriptChars);
+    if (transcript === undefined) throw new ConvexError({ code: "invalid_transcript" });
+    if ((a.siteText?.length ?? 0) > MAX_RAW_TEXT || (a.deliverByText?.length ?? 0) > MAX_RAW_TEXT) throw new ConvexError({ code: "invalid_text" });
+    const credit = a.creditDaysWanted;
+    if (credit !== undefined && (!Number.isInteger(credit) || credit < 0 || credit > PARSE_LIMITS.maxCreditDays)) throw new ConvexError({ code: "invalid_days" });
+    const notes = [...new Set(a.notes ?? [])];
+    if (notes.some((n) => !(PARSE_NOTES as readonly string[]).includes(n))) throw new ConvexError({ code: "invalid_notes" });
+
+    const sites = await ctx.db
+      .query("sites")
+      .withIndex("by_contractor", (q) => q.eq("contractorId", ctx.contractor._id))
+      .collect();
+    const home = sites.find((s) => s.isDefault) ?? sites[0];
+    const city: City = home !== undefined && (CITIES as readonly string[]).includes(home.city) ? (home.city as City) : "Jaipur";
+    if (!itemsAreSanitized(a.items, city)) throw new ConvexError({ code: "invalid_items" });
+
+    const limited = await rateLimiter.limit(ctx, "draftCreate", { key: ctx.userId });
+    if (!limited.ok) throw new ConvexError({ code: "rate_limited", retryAfterMs: Math.ceil(limited.retryAfter) });
+
+    const siteText = cleanText(a.siteText, PARSE_LIMITS.maxDisplayChars);
+    const match = resolveSite(siteText, sites.map((s) => ({ id: s._id, name: s.name, area: s.area, isDefault: s.isDefault })), city);
+    let siteId: Doc<"sites">["_id"] | undefined;
+    if (match.kind === "site") siteId = sites.find((s) => s._id === match.siteId)?._id;
+    else if (match.kind === "area" && sites.length < MAX_SITES) {
+      const area = CITY_AREAS[city].find((x) => x.key === match.areaKey);
+      if (area !== undefined) {
+        siteId = await ctx.db.insert("sites", { contractorId: ctx.contractor._id, name: area.hi, city, area: area.key, isDefault: false });
+      }
+    }
+
+    const pref = ctx.contractor.tierPrefs?.cement;
+    const cementDefault: Tier = pref === "branded" || pref === "any" ? pref : "any";
+    const items: OrderItem[] = a.items.map((i) => (i.material === "cement" && i.tier === undefined ? { ...i, tier: cementDefault } : { ...i }));
+    const missing = [...missingFields(items), ...(siteId === undefined ? ["site"] : [])];
+
+    return await ctx.db.insert("orders", {
+      ownerUserId: ctx.userId,
+      contractorId: ctx.contractor._id,
+      kind: "app",
+      siteId,
+      mode: "sim",
+      roundSeq: 0,
+      transcript,
+      siteText,
+      items,
+      deliverBy: a.deliverBy,
+      deliverByText: cleanText(a.deliverByText, PARSE_LIMITS.maxDisplayChars),
+      creditDaysWanted: credit,
+      missing,
+      notes: notes.length > 0 ? notes : undefined,
+      status: "draft",
+      selectedDealerIds: [],
+    });
+  },
+});
+
+/**
+ * What POST /api/tts needs to build the read-back on the server (V3), for one of the caller's orders: the
+ * status, items, delivery time and credit, and the site's area only when it isn't the default site.
+ */
+export const readBack = userQuery({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, { orderId }) => {
+    const order = await requireOwnedOrder(ctx, orderId);
+    const site = order.siteId === undefined ? null : await ctx.db.get(order.siteId);
+    const area = site === null || site.isDefault ? undefined : CITY_AREAS[site.city as City]?.find((x) => x.key === site.area);
+    return {
+      status: order.status,
+      items: order.items,
+      deliverBy: order.deliverBy ?? null,
+      creditDaysWanted: order.creditDaysWanted ?? null,
+      site: area === undefined ? null : { hi: area.hi, en: area.en },
+    };
   },
 });
 
