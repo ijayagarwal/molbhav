@@ -123,7 +123,8 @@ export function DealersScreen({ orderId }: { orderId: string }) {
 
   return (
     <AppFrame back={back} title={t("dealers.title")} deskDock={false} phoneDock={footer} hasCommitAction>
-      <div className="hidden items-center justify-between gap-3 lg:flex">
+      {/* Phone: the top bar carries the title and DEMO; the heading stays for screen readers. */}
+      <div className="flex items-center justify-between gap-3 max-lg:sr-only">
         <h1 className="font-display text-title-1">{t("dealers.title")}</h1>
         <ModeBadge mode="sim" label={t("badge.demo")} />
       </div>

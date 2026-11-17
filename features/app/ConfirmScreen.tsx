@@ -116,7 +116,7 @@ export function ConfirmScreen({ orderId }: { orderId: string }) {
         </PrimaryButton>
       }
     >
-      <h1 className="hidden font-display text-title-1 lg:block">{t("confirm.title")}</h1>
+      <h1 className="font-display text-title-1 max-lg:sr-only">{t("confirm.title")}</h1>
       <TranscriptCard text={order.transcript} fixLabel={t("confirm.fix")} />
       {order.items.map(itemCard)}
       <FactTiles

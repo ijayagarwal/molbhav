@@ -229,10 +229,10 @@ export function SweepScreen({ orderId }: { orderId: string }) {
       </p>
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <span className="flex items-center gap-2 text-meta text-ink-2">
+          <span className="hidden items-center gap-2 text-meta text-ink-2 lg:flex">
             <ModeBadge mode={order.mode} label={order.mode === "sim" ? t("badge.demo") : t("badge.live")} />
           </span>
-          <h1 className="hidden font-display text-title-1 lg:block">{title}</h1>
+          <h1 className="font-display text-title-1 max-lg:sr-only">{title}</h1>
         </div>
         <span className="hidden lg:block">{stop}</span>
       </div>
