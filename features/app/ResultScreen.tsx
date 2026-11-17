@@ -9,6 +9,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { PrimaryButton, SecondaryButton } from "@/components/mb/Buttons";
+import { DeskActionBar } from "@/components/mb/DeskActionBar";
 import { ComparisonTable } from "@/components/mb/ComparisonTable";
 import { CheckBold } from "@/components/mb/icons";
 import { ModeBadge } from "@/components/mb/ModeBadge";
@@ -234,7 +235,7 @@ export function ResultScreen({ orderId }: { orderId: string }) {
       ) : null}
 
       {winner ? <SecondaryButton onClick={() => setSharing(true)}>{t("result.share")}</SecondaryButton> : null}
-      <div className="hidden lg:block">{confirmButton}</div>
+      {confirmButton ? <DeskActionBar>{confirmButton}</DeskActionBar> : null}
       <ShareSheet orderId={order._id} open={sharing} onClose={() => setSharing(false)} />
       {!winner ? (
         <SecondaryButton onClick={() => router.push("/app")}>{t("result.newOrder")}</SecondaryButton>

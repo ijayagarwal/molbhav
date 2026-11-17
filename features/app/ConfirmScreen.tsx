@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BottomSheet } from "@/components/mb/AppShell";
 import { PrimaryButton, SecondaryButton } from "@/components/mb/Buttons";
+import { DeskActionBar } from "@/components/mb/DeskActionBar";
 import { Chip, TierChips } from "@/components/mb/Chip";
 import { CheckBold, SoundOnBold } from "@/components/mb/icons";
 import { FactTiles, ItemCard, TranscriptCard } from "@/components/mb/OrderCards";
@@ -129,12 +130,12 @@ export function ConfirmScreen({ orderId }: { orderId: string }) {
         </SecondaryButton>
       </div>
 
-      {/* Desk: the primary action sits in the column (the phone keeps it in the bottom dock, one-handed). */}
-      <div className="hidden lg:block">
+      {/* Desk: the primary action stays in view at the bottom of the column (the phone keeps it in the bottom dock). */}
+      <DeskActionBar>
         <PrimaryButton icon={<CheckBold className="size-6" />} onClick={start} disabled={incomplete || starting} aria-busy={starting}>
           {starting ? t("confirm.starting") : t("confirm.start")}
         </PrimaryButton>
-      </div>
+      </DeskActionBar>
 
       <BottomSheet open={sheet === "when"} title={t("confirm.whenTitle")} onClose={() => setSheet(null)} closeLabel={t("panel.close")}>
         <div className="flex flex-wrap gap-2">

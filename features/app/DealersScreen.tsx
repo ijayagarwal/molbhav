@@ -7,6 +7,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PrimaryButton } from "@/components/mb/Buttons";
+import { DeskActionBar } from "@/components/mb/DeskActionBar";
 import { CheckBold, PhoneBold } from "@/components/mb/icons";
 import { ModeBadge } from "@/components/mb/ModeBadge";
 import { api } from "@/convex/_generated/api";
@@ -171,7 +172,7 @@ export function DealersScreen({ orderId }: { orderId: string }) {
         </section>
       ) : null}
 
-      <div className="hidden lg:block">{footer}</div>
+      <DeskActionBar>{footer}</DeskActionBar>
     </AppFrame>
   );
 }

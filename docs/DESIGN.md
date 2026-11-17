@@ -506,6 +506,7 @@ Breakpoints: base under 640 (phone) · `sm` 640 · `md` 768 (tablet) · `lg` 102
   - ≥1536: a 300 px "Bahi" order list, main (max 840) and a 420 px call panel.
 - **Sweep on desktop:** a ledger table. Columns: Dealer (1fr, with the latest line as the row's second line) · Status 144 · Landed 140 (right-aligned, tabular) · Credit 80 · Delivery 104. Rows are 72 px. Clicking a row selects it; the panel shows the recording player, the transcript (after the call in live mode) and "What we understood", marked "read back and confirmed" when true.
 - **Voice dock:** at the bottom of the main column, a 64 px mic plus a typed composer ("New order: speak or type"). Hold Space to talk and ⌘K to type (§13).
+- **Action bar:** on screens whose next step is one button (Confirm, Choose dealers, Result), that button takes the dock's place: a bar stuck to the bottom of the main column (paper background, a rule above), so a long table never hides it.
 - **Hover and focus:** rows get a paper background on hover; nothing is hover-only. Focus ring: 2 px ink `outline` with `outline-offset: 2px`.
 - **Keyboard:** ↑/↓ move between rows, P plays or pauses, Esc closes, ? lists shortcuts (all can be turned off).
 
