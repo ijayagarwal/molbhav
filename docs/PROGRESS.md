@@ -64,8 +64,8 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 | 2B | Component library, phone shell, Munshi desk, mic gestures, Space push-to-talk | Done, reviewed | `phase-2B` |
 | 5 / 6A / 6B engine | Sim sweep, extraction job, haggle, match, ranking, place + undo + confirm call | Done in sim (live dial waits for 8B; the extraction golden set waits for a Gemini key) | `f571ea4`, `b06d39a`, `10fb8c7`, `a701ce6` |
 | App screens | Onboarding, Home, Settings (language switch), Confirm | Done (sim; voice and typed parsing come with Phase 4) | `6caaa21` |
-| App screens 2 | Choose dealers, Sweep board, Result, Placed, Share, landing, PWA | Done in sim; full flow verified in a browser | `f32e70f` … `17ead0b` |
-| 4 | Real voice: recorder, Sarvam STT, Gemini parse, read-back TTS | Waiting for keys (see §6) | — |
+| App screens 2 | Choose dealers, Sweep board, Result, Placed, Share, landing, PWA | Done in sim; reviewed (17 defects fixed); verified on production | `f32e70f` … `8781d88` |
+| 4 | Real voice: recorder, Sarvam STT, Gemini parse, read-back TTS | Server half in progress (keyless, mocked); live test waits for keys (§6) | — |
 | 8B / 8C | Bolna dial, webhooks, report_quote; recordings and retention | Later (needs a Bolna account) | — |
 | Team test | Real AI calls to teammates' verified phones | Later | — |
 | 1C, 7, 9, 10 | Landing and waitlist; sandbox and presenter; hardening; go-live | Later | — |
@@ -112,12 +112,19 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
   - Result and share use the engine's frozen ranking (the outlier rule no longer runs twice). Placing errors
     are shown. Units come from the dictionary. "Buy from them", not "him".
   - Desk: the main action (confirm, start calling) stays in view at the bottom of the column.
-  - A parallel agent is fixing the remaining screen findings: the signed-out crash on app links, the sweep
-    phase title, the first-quote announcement, the Dealers back link, focus in bottom sheets, truncation at
-    360 px, a ledger overlap and leftover hard-coded copy.
+  - Screens (a parallel agent, merged): app links opened without a session land on onboarding instead of
+    crashing, and /app has a proper error page; the board shows the haggle and match phases and announces the
+    first quote; the Dealers back link no longer loops; bottom sheets are real modals (focus in, Tab trapped,
+    focus returned); nothing truncates at 360 px (buttons wrap); the desk ledger flag stays in its cell; the
+    last hard-coded copy moved to the dictionary (Confirm no longer invents "PPC"); Home's running banner
+    shows "· 3/4 रेट मिले". On phone the title and DEMO show once, in the top bar.
 - **Production re-verified after the fixes** (1440 px, Hindi): board prices visible, placed at 113 s, the share
   link and its preview image (correct Hindi shaping) work, no console errors.
-- **Next:** merge the screen fixes, deploy, re-verify on production; then Phase 4 once the keys arrive.
+- **All review fixes deployed and re-verified on production** at 360 px (English) and 1440 px (Hindi).
+- **Phase 4 started without keys:** an agent is building the server half (parse schema and prompt, Sarvam
+  and Gemini clients, `/api/voice/order` and `/api/tts` with BotID, rate limits and a daily ₹ cap, the
+  20-utterance golden set), tested with mocks so it works the moment the keys are set. The client half
+  (real recorder, mic primer, wiring) follows.
 
 ### 17 Nov 2026
 - **The user asked for:**
