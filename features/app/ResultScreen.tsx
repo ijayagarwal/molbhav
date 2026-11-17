@@ -30,7 +30,7 @@ import { resultSummaryText } from "@/lib/readback";
 import { buildResult, type ResultQuote } from "@/lib/result";
 import { ShareSheet } from "@/features/share/ShareSheet";
 import { AppFrame } from "./AppFrame";
-import { speak } from "./HomeScreen";
+import { speak } from "@/lib/client/speak";
 import { OrderLoading, OrderMissing } from "./OrderStates";
 import { useOrderScreen } from "./useOrderScreen";
 

@@ -2,6 +2,7 @@
 // Gemini calls (ARCHITECTURE §6.5, §7, §8.2). Internal only. Runs only with SIM_EXTRACT=llm in sim, and for
 // live calls (Phase 8B). Live transcripts go only to the billed key (GEMINI_API_KEY_BILLED; guard 8 makes
 // sure it exists before any live dial); the free key is for sim personas and fixtures only.
+import { DEFAULT_GEMINI_FLASH_MODEL } from "../lib/llm/thinking";
 import { NonRetryableError } from "@convex-dev/workpool";
 import { v } from "convex/values";
 import { extractRequest } from "../lib/llm/extractPrompt";
@@ -25,8 +26,8 @@ export const extractQuote = internalAction({
   },
   handler: async (_ctx, a): Promise<string> => {
     const apiKey = a.live ? process.env.GEMINI_API_KEY_BILLED : process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL;
-    if (!apiKey || !model) throw new NonRetryableError("gemini_not_configured");
+    const model = process.env.GEMINI_MODEL || DEFAULT_GEMINI_FLASH_MODEL;
+    if (!apiKey) throw new NonRetryableError("gemini_not_configured");
     // Loaded here, not at module scope, so test runs that import every module never load the SDK.
     const { GoogleGenAI } = await import("@google/genai");
     const ai = new GoogleGenAI({ apiKey });

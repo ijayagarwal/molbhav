@@ -1,6 +1,7 @@
 // The quote-extraction prompt and response schema (ARCHITECTURE §8.2). Pure data: convex/llm.ts sends it
 // to Gemini, scripts/eval-extract.ts scores it on evals/extract.golden.json, and lib/extraction.ts maps
 // the answer strictly. Gemini's responseSchema is an OpenAPI subset: "nullable", never null in a type.
+import { lowestThinking } from "./thinking";
 import type { OrderItem, Round } from "../domain";
 import { spokenItem } from "../numbers";
 import type { ExtractedTerms } from "../extraction";
@@ -82,8 +83,7 @@ export interface ExtractPromptInput {
 
 /**
  * The generateContent request for one extraction (convex/llm.ts and scripts/eval-extract.ts send the same
- * one): JSON-schema output, temperature 0, the lowest thinking level (Gemini 2.5 Flash takes a budget,
- * newer Flash models a level). Plain data; callers cast `config` to the SDK's type.
+ * one): JSON-schema output, temperature 0, the lowest thinking level the model accepts (lib/llm/thinking.ts). Plain data; callers cast `config` to the SDK's type.
  */
 export function extractRequest(model: string, input: ExtractPromptInput) {
   return {
@@ -94,7 +94,7 @@ export function extractRequest(model: string, input: ExtractPromptInput) {
       responseMimeType: "application/json",
       responseSchema: EXTRACT_SCHEMA,
       temperature: 0,
-      thinkingConfig: /2\.5/.test(model) ? { thinkingBudget: 0 } : { thinkingLevel: "MINIMAL" },
+      thinkingConfig: lowestThinking(model),
     },
   };
 }

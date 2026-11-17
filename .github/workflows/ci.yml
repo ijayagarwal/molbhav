@@ -39,6 +39,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
         env:
-          # The build needs a Convex URL to compile the client provider; nothing connects to it in CI.
-          NEXT_PUBLIC_CONVEX_URL: https://ci-placeholder.convex.cloud
+          # The dev deployment's public URL (it ships in every client bundle anyway). The /app measurement
+          # below loads the page as a signed-out visitor, so `contractors.me` returns null and onboarding loads
+          # exactly as it does for a new contractor. Nothing is written.
+          NEXT_PUBLIC_CONVEX_URL: https://adorable-clam-29.convex.cloud
       - run: pnpm size
+      # The real budget (DESIGN §20): /app's first render, fonts ≤ 250 KB and JS ≤ 200 KB, on a Pixel 7 profile.
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Measure /app's first render
+        run: |
+          pnpm start &
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:3000/ && break; sleep 1; done
+          pnpm measure http://localhost:3000 /app

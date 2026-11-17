@@ -7,9 +7,9 @@
     "limit": "260 KB"
   },
   {
-    "name": "All client JS chunks, gzipped (coarse gate; /app's initial JS must stay under 200 KB)",
+    "name": "All client JS chunks of every route, gzipped (runaway guard only; the real budget, /app's first render under 200 KB, is checked by `pnpm measure` in CI)",
     "path": ".next/static/chunks/**/*.js",
     "gzip": true,
-    "limit": "450 KB"
+    "limit": "540 KB"
   }
 ]

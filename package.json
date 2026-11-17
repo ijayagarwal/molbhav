@@ -17,7 +17,8 @@
     "eval:parse": "tsx --env-file-if-exists=.env.local scripts/eval-parse.ts",
     "fonts": ".venv/bin/python scripts/fonts.py",
     "icons": "tsx scripts/icons.ts",
-    "postinstall": "node scripts/og-wasm.mjs"
+    "postinstall": "node scripts/og-wasm.mjs",
+    "icons:bold": "tsx scripts/icons-bold.ts"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",
@@ -25,7 +26,6 @@
     "@convex-dev/rate-limiter": "^0.4.3",
     "@convex-dev/workpool": "^0.4.16",
     "@google/genai": "^3.3.0",
-    "@phosphor-icons/react": "^2.1.10",
     "botid": "1.5.12",
     "clsx": "^2.1.1",
     "convex": "1.50.0",
@@ -41,6 +41,7 @@
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
+    "@phosphor-icons/react": "^2.1.10",
     "@playwright/test": "^1.65.1",
     "@size-limit/file": "^14.3.0",
     "@tailwindcss/turbopack": "4.3.3",

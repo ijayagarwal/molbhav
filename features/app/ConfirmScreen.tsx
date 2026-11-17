@@ -22,7 +22,7 @@ import { useT } from "@/lib/i18n/useT";
 import { itemTitle } from "@/lib/orderLabel";
 import { readBackText } from "@/lib/readback";
 import { AppFrame } from "./AppFrame";
-import { speak } from "./HomeScreen";
+import { speak } from "@/lib/client/speak";
 import { OrderMissing, OrderLoading } from "./OrderStates";
 import { useOrderScreen } from "./useOrderScreen";
 
