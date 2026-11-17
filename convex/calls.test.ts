@@ -24,7 +24,7 @@ const BASE_ENV: Record<string, string> = {
   HASH_SECRET: "test-secret",
   LIVE_CALLS_ENABLED: "true",
   BOLNA_FROM_NUMBER: "+919999900000",
-  GEMINI_API_KEY_BILLED: "billed",
+  OPENAI_API_KEY: "sk-test",
   BOLNA_TRIAL: "false",
   LIVE_CONCURRENCY: "2",
   A2P_DECLARED: "true",
@@ -138,7 +138,7 @@ describe("claimDial: the transaction", () => {
 
   test("a refusal cancels the call with its reason and logs nothing; clients see only the group", async () => {
     const { t, contractorId, dealerId, orderId } = await basic();
-    setEnv({ GEMINI_API_KEY_BILLED: "" });
+    setEnv({ OPENAI_API_KEY: "" });
     const callId = await queueCall(t, orderId, dealerId);
     expect(await claim(t, callId)).toEqual({ kind: "refuse", reason: "no_billed_key" });
     const call = await getCall(t, callId);

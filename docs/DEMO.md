@@ -41,7 +41,7 @@ The rule for this demo (G7): **show what is real, label what is simulated, and s
 ## Fallbacks
 1. **Hotspot.** If even Convex is unreachable, play the backup video.
 2. **Mic or STT fails on the demo line:** the canned parse for that exact sentence takes over (logged), or type it in the composer.
-3. **Gemini fails on extraction:** the personas' ground-truth quotes are used (demo deployment only).
+3. **OpenAI fails on extraction:** the personas' ground-truth quotes are used (demo deployment only).
 4. **"Reset demo"** reseeds the demo rows and returns to Home in one tap.
 5. **A full backup run** (screen plus audio, 1440 × 900), recorded the day before, sits on the laptop desktop and plays offline.
 

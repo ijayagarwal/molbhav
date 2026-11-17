@@ -20,7 +20,7 @@ const SUN_11 = MON_11 - 24 * 3600_000;
 const GOOD_ENV = {
   LIVE_CALLS_ENABLED: "true",
   BOLNA_FROM_NUMBER: "+919999900000",
-  GEMINI_API_KEY_BILLED: "gem-secret-xyz",
+  OPENAI_API_KEY: "sk-secret-xyz",
   TEST_PHONE_HASHES: HASH,
 };
 const live = (over: Record<string, string | undefined> = {}) => readLiveEnv({ ...GOOD_ENV, ...over });
@@ -134,7 +134,7 @@ const GUARDS: { name: string; env?: Record<string, string | undefined>; f?: Part
   { name: "6 slot full waits", f: { activeLiveCalls: 2 }, off: "wait", on: "wait" },
   { name: "7 no registered number", env: { BOLNA_FROM_NUMBER: undefined }, off: "no_from_number", on: null },
   { name: "7 test_ok phone not listed (any mode, R18)", dealer: { phoneHash: OTHER_HASH }, off: "test_phone_unlisted", on: "test_phone_unlisted" },
-  { name: "8 no billed Gemini key", env: { GEMINI_API_KEY_BILLED: "" }, off: "no_billed_key", on: "no_billed_key" },
+  { name: "8 no OpenAI key", env: { OPENAI_API_KEY: "" }, off: "no_billed_key", on: "no_billed_key" },
   { name: "9 landline / invalid number", dealer: { phoneE164: "+911412345678" }, off: "invalid_number", on: "invalid_number" },
   { name: "9 demo number", dealer: { phoneE164: "+910000000001", phoneHash: null }, off: "invalid_number", on: "invalid_number" },
   { name: "9 demo dealer", dealer: { isDemo: true }, off: "demo_dealer", on: "demo_dealer" },
@@ -224,7 +224,7 @@ describe("liveAvailability", () => {
     expect(liveAvailability(live(), verified, 0, MON_11)).toEqual({ available: true, reason: null });
     expect(liveAvailability(live({ LIVE_CALLS_ENABLED: "false" }), verified, 0, MON_11).reason).toBe("live_off");
     expect(liveAvailability(live({ BOLNA_FROM_NUMBER: undefined }), verified, 0, MON_11).reason).toBe("live_off");
-    expect(liveAvailability(live({ GEMINI_API_KEY_BILLED: undefined }), verified, 0, MON_11).reason).toBe("live_off");
+    expect(liveAvailability(live({ OPENAI_API_KEY: undefined }), verified, 0, MON_11).reason).toBe("live_off");
     expect(liveAvailability(live({ LIVE_CONCURRENCY: "x" }), verified, 0, MON_11).reason).toBe("live_off");
     expect(liveAvailability(trial({ TEST_PHONE_HASHES: "" }), verified, 0, MON_11).reason).toBe("live_off");
     expect(liveAvailability(live(), { verified: false, liveDailyCap: 2 }, 0, MON_11).reason).toBe("not_verified");
@@ -239,6 +239,6 @@ describe("liveChecklist", () => {
     const text = JSON.stringify(liveChecklist(live()));
     expect(text).not.toContain("+919999900000");
     expect(text).not.toContain(HASH);
-    expect(text).not.toContain("gem-secret");
+    expect(text).not.toContain("sk-secret");
   });
 });

@@ -27,7 +27,7 @@ function deps(over: Partial<VoiceOrderDeps> = {}) {
     missingConfig: () => null,
     consume: vi.fn(async () => ({ ok: true as const })),
     transcribe: vi.fn(async () => HEARD),
-    parse: vi.fn(async () => ({ draft: DRAFT, model: "gemini-3.6-flash", keyTier: "free" })),
+    parse: vi.fn(async () => ({ draft: DRAFT, model: "gpt-5.4-mini" })),
     createDraft: vi.fn(async () => "order123"),
     log: (e) => logs.push(e),
     now: () => 1000,
@@ -77,7 +77,7 @@ describe("POST /api/voice/order: the happy paths", () => {
       },
       "jwt",
     );
-    expect(logs.at(-1)).toMatchObject({ evt: "voice_order", outcome: "draft", input: "audio", bytes: 3, model: "gemini-3.6-flash" });
+    expect(logs.at(-1)).toMatchObject({ evt: "voice_order", outcome: "draft", input: "audio", bytes: 3, model: "gpt-5.4-mini" });
   });
 
   test("the transcript reaches the client before the parse finishes (streamed, F3)", async () => {
@@ -86,7 +86,7 @@ describe("POST /api/voice/order: the happy paths", () => {
     const { d } = deps({
       parse: async () => {
         await gate;
-        return { draft: DRAFT, model: "m", keyTier: "free" };
+        return { draft: DRAFT, model: "m" };
       },
     });
     const res = await handleVoiceOrder(audioRequest(), d);
@@ -183,7 +183,7 @@ describe("POST /api/voice/order: failures after the stream starts", () => {
       { type: "transcript", text: HEARD },
       { type: "error", code: "parse_failed" },
     ]);
-    const empty = deps({ parse: async () => ({ draft: { ...DRAFT, items: [] }, model: "m", keyTier: "free" }) });
+    const empty = deps({ parse: async () => ({ draft: { ...DRAFT, items: [] }, model: "m" }) });
     expect((await lines(await handleVoiceOrder(audioRequest(), empty.d))).at(-1)).toEqual({ type: "error", code: "parse_failed" });
     expect(empty.d.createDraft).not.toHaveBeenCalled();
   });

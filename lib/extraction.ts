@@ -129,7 +129,7 @@ function mapTerms(raw: Raw, itemIds: ReadonlySet<string>): ExtractedTerms {
 }
 
 /**
- * Maps raw JSON (Gemini's answer to the §8.2 schema, or a job argument) to an Extraction. Never trusts
+ * Maps raw JSON (the LLM's answer to the §8.2 schema, or a job argument) to an Extraction. Never trusts
  * it: unknown item ids, units and enum values are dropped, nulls become "not said", negative or
  * non-numeric figures are ignored, text is trimmed, and confidence is clamped to 0..1.
  */

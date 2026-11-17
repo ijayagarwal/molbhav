@@ -1,7 +1,7 @@
 // Quote extraction (ARCHITECTURE §6.5): one llm-pool job per completed call, the same for sim and live.
 //   begin   (mutation)  stale check, extract → running, and what to extract from: the persona's ground truth
-//                       (sim, SIM_EXTRACT=groundtruth), extractCache, or Gemini;
-//   run     (action)    the job: calls Gemini only when needed (convex/llm.ts), caches its answer;
+//                       (sim, SIM_EXTRACT=groundtruth), extractCache, or OpenAI;
+//   run     (action)    the job: calls OpenAI only when needed (convex/llm.ts), caches its answer;
 //   apply   (mutation)  the code checks (S5 disclosure, every figure said by the dealer, the read-back "हाँ"),
 //                       inheritance (§6.6 2a), lib/pricing.ts, the quotes row and calls.outcome (R4), then
 //                       moves the order on;
@@ -12,6 +12,7 @@ import { vOnCompleteArgs } from "@convex-dev/workpool";
 import { v } from "convex/values";
 import { checkCall, parseExtraction, toFacts, type Extraction } from "../lib/extraction";
 import { EXTRACT_PROMPT_VERSION } from "../lib/llm/extractPrompt";
+import { openaiModel } from "../lib/llm/openai";
 import { priceQuote, type QuoteFacts } from "../lib/pricing";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
@@ -33,7 +34,6 @@ import { personaCall } from "./sim/personas";
 const jobArgs = { callId: v.id("calls"), roundSeq: v.number() };
 
 type LlmInput = {
-  live: boolean;
   transcript: string;
   itemsJson: string;
   round: Doc<"calls">["round"];
@@ -78,16 +78,16 @@ export const begin = internalMutation({
     const cited = call.citedQuoteId === undefined ? null : await ctx.db.get(call.citedQuoteId);
     const prev = call.round === "haggle" ? await earlierQuote(ctx, order, call) : null;
     const input: LlmInput = {
-      live: call.mode === "live",
       transcript: call.transcript ?? "",
       itemsJson: JSON.stringify(order.items),
       round: call.round,
     };
     if (prev !== null) input.earlierJson = JSON.stringify(termsFromFacts(factsFromQuote(prev), false));
     if (cited !== null) input.citedRupees = cited.landed.total / 100;
-    const model = process.env.GEMINI_MODEL ?? "";
+    // The model convex/llm.ts will call, so a cached answer is only reused for the same model and prompt.
+    const model = openaiModel(process.env);
     // Identical sim calls (same persona, items, round and citation) give identical transcripts, so they hit the cache.
-    const hash = await sha256Hex(JSON.stringify({ v: EXTRACT_PROMPT_VERSION, model, ...input, live: undefined }));
+    const hash = await sha256Hex(JSON.stringify({ v: EXTRACT_PROMPT_VERSION, model, ...input }));
     const cached = await ctx.db
       .query("extractCache")
       .withIndex("by_hash", (q) => q.eq("hash", hash))

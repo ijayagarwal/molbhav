@@ -31,9 +31,9 @@ Molbhav is a voice-first buying agent for small building contractors (thekedars)
   - Phosphor icons, Bold weight (`/ssr` in server components).
   - Fonts via `next/font/local` from `scripts/fonts.py`.
 - **Voice:** Sarvam Saaras STT (`mode: codemix`) and Bulbul v4 Flash TTS. The voice route (`/api/voice/order`) and the read-back route (`POST /api/tts` with `{ draftId }`, text built on the server) run on Vercel, pinned to `bom1`.
-- **LLM:** Gemini Flash via `@google/genai`, JSON-schema output, lowest thinking level.
-  - Free-tier key: fixtures and demo data only.
-  - Billed key: anything real.
+- **LLM:** OpenAI `gpt-5.4-mini` via `lib/llm/openai.ts` (plain `fetch` to Chat Completions, no SDK), strict JSON-schema output, lowest reasoning effort (R19).
+  - One key, `OPENAI_API_KEY`, in Vercel and Convex env (OpenAI doesn't train on API data, so there is no free/billed split).
+  - `OPENAI_MODEL` overrides the model for both the parse and the extraction.
 - **Calls:** Bolna (outbound agents, webhooks to Convex HTTP actions, the `report_quote` custom function).
 - **Other services:** `@vercel/og` **1.0.3** for share images (installed as the npm alias `vercel-og`, because Next aliases `@vercel/og` to its own HarfBuzz-less copy; see `next.config.ts`); **Vercel BotID** (free Basic level, no keys) on the voice, read-back and sandbox routes.
 - **Tooling:**
@@ -50,7 +50,7 @@ Still off-limits without the human's explicit go-ahead in that moment: placing o
 - Convex: run `npx convex dev --once` to push functions and regenerate `convex/_generated` after any change in `convex/` and before a typecheck. You may run the `npx convex dev` watcher in the background when it helps; if the human says they run one in their own terminal, don't start a second. `npx convex run`, `npx convex env`, `npx convex logs` and `npx convex data` are fine on dev. CI uses the committed `convex/_generated` and needs no deploy key.
 - `pnpm dev` (Next.js): start it in the background when you need the app; same rule if the human runs their own.
 - `pnpm test`, `pnpm typecheck`, and `pnpm lint` (= `eslint .`; `next lint` no longer exists).
-- `pnpm eval:parse`, `pnpm eval:extract` (golden sets in `evals/`). They need the billed Gemini key once real transcripts are in them.
+- `pnpm eval:parse`, `pnpm eval:extract` (golden sets in `evals/`). They call OpenAI and need `OPENAI_API_KEY` (from `.env.local` or the shell); `OPENAI_MODEL` is optional.
 - `pnpm size` (size-limit) and `pnpm e2e` (Playwright).
 - Convex secrets: `npx convex env set NAME value` (add `--prod` for production). Next.js server secrets go in Vercel project env for deployed builds; for local dev they go in `.env.local` (gitignored) or come from `vercel env pull .env.local`. Never commit them, never prefix them `NEXT_PUBLIC_`, and start every module that reads them with `import "server-only"`.
 - Test on a real phone **only over HTTPS** (a tunnel or a Vercel preview). A LAN `http://` URL blocks the mic. The tunnel is `cloudflared` (a free tool, no account needed); `next.config.ts` sets `allowedDevOrigins: ['*.trycloudflare.com']` so the dev server accepts it.
@@ -66,7 +66,7 @@ Still off-limits without the human's explicit go-ahead in that moment: placing o
    - a registered `BOLNA_FROM_NUMBER` (or trial mode with listed test phones only, B9);
    - a valid Indian mobile number and a non-demo dealer (B10);
    - for opted-in (real) dealers: `A2P_DECLARED` and the live stage (Milestone 2, Phase 10);
-   - `GEMINI_API_KEY_BILLED` set.
+   - `OPENAI_API_KEY` set.
 
    A failed guard means no dial. Never bypass a guard, even "just to test". Never retry a dial with an unknown outcome. Never call Bolna's dialing endpoints directly (no make-call or batch skills, no curl to `/call` or batches, no `transfer_call` tool), and never buy or connect a number: the only dial path is claimDial. Agent configuration through `pnpm bolna:sync` and read-only checks (`pnpm bolna:check`, execution lookups) are allowed (R12).
 3. **Every call discloses "AI" and "रिकॉर्ड" in its first sentence** (and repeats it if the dealer cuts in), and a code check enforces it (S5). Never let an agent claim to be human. Use the respectful "आप" form everywhere, with **no gendered first-person verbs** in agent or app copy.

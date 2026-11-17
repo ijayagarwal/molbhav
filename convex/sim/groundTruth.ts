@@ -1,5 +1,5 @@
 // SIM_EXTRACT=groundtruth (ARCHITECTURE §6.4): the extraction job takes the persona's ground truth instead
-// of calling Gemini, in exactly the shape the LLM returns (lib/extraction.ts), so the same inheritance, code
+// of calling OpenAI, in exactly the shape the LLM returns (lib/extraction.ts), so the same inheritance, code
 // checks and pricing run on it. Pure TypeScript, no Convex imports.
 import type { ExtractedTerms, Extraction } from "../../lib/extraction";
 import type { QuoteFacts } from "../../lib/pricing";

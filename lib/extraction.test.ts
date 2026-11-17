@@ -29,8 +29,8 @@ const CTX: PricingContext = {
   bands: PRICE_BAND_SEEDS.Jaipur.map((b) => ({ material: b.material, unit: b.unit as "kg" | "bag", minPaise: b.minRupees * 100, maxPaise: b.maxRupees * 100, updatedAt: NOW })),
 };
 
-/** A Gemini answer to the §8.2 schema, as the SDK would hand it back (nulls for "not said"). */
-const GEMINI_ANSWER = {
+/** An LLM answer to the §8.2 schema, as strict mode hands it back (nulls for "not said"). */
+const LLM_ANSWER = {
   outcome: "quoted",
   callbackWhenText: null,
   lines: [
@@ -54,8 +54,8 @@ const GEMINI_ANSWER = {
 };
 
 describe("parseExtraction: the LLM's answer, mapped strictly", () => {
-  test("a clean Gemini answer becomes Card A's quote (₹2,00,610)", () => {
-    const ex = parseExtraction(GEMINI_ANSWER, ITEMS);
+  test("a clean LLM answer becomes Card A's quote (₹2,00,610)", () => {
+    const ex = parseExtraction(LLM_ANSWER, ITEMS);
     expect(ex).toMatchObject({ outcome: "quoted", deliveryCharge: 0, unloadingCharge: 600, creditDays: 7, billType: "pakka", weightBasis: "kanta", confidence: 0.92 });
     expect(ex.lines).toHaveLength(2);
     expect(ex.first).toBeUndefined();
@@ -117,7 +117,7 @@ describe("parseExtraction: the LLM's answer, mapped strictly", () => {
   });
 
   test("the match call's first stage is mapped the same way", () => {
-    const ex = parseExtraction({ ...GEMINI_ANSWER, first: { ...GEMINI_ANSWER, lines: [GEMINI_ANSWER.lines[0]] } }, ITEMS);
+    const ex = parseExtraction({ ...LLM_ANSWER, first: { ...LLM_ANSWER, lines: [LLM_ANSWER.lines[0]] } }, ITEMS);
     expect(ex.first?.lines.map((l) => l.orderItemId)).toEqual(["steel"]);
   });
 });
@@ -139,7 +139,7 @@ describe("the prompt and schema (§8.2)", () => {
 });
 
 describe("toFacts: haggle and match-final quotes inherit (§6.6 2a)", () => {
-  const cardA: QuoteFacts = toFacts({ terms: parseExtraction(GEMINI_ANSWER, ITEMS), round: "quote", confidence: 0.9, readBackConfirmed: true, ratesInTranscript: true });
+  const cardA: QuoteFacts = toFacts({ terms: parseExtraction(LLM_ANSWER, ITEMS), round: "quote", confidence: 0.9, readBackConfirmed: true, ratesInTranscript: true });
 
   test("only the steel rate and the unloading change: ₹1,98,830 (golden 'Haggle inherit')", () => {
     const haggle = parseExtraction(

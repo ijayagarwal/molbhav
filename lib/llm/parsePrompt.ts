@@ -1,8 +1,8 @@
-// The order-parse prompt and response schema (ARCHITECTURE §8.1). Pure data: lib/server/gemini.ts sends it
+// The order-parse prompt and response schema (ARCHITECTURE §8.1). Pure data: lib/server/llm.ts sends it
 // from the voice route, scripts/eval-parse.ts scores it on evals/parse.golden.json, and lib/parse.ts
-// validates and maps the answer. Gemini's responseSchema is an OpenAPI subset: "nullable", never null in a
-// type or an enum (the SDK's upper-case type names, as in lib/llm/extractPrompt.ts).
-import { lowestThinking } from "./thinking";
+// validates and maps the answer. The schema is written in the OpenAPI subset (upper-case types, `nullable`,
+// as in lib/llm/extractPrompt.ts); lib/llm/openai.ts strictSchema() turns it into OpenAI's strict JSON Schema.
+import { chatBody, type SchemaNode } from "./openai";
 
 /** Bump when the prompt or schema changes. */
 export const PARSE_PROMPT_VERSION = 1;
@@ -20,7 +20,7 @@ Rules:
 - deliverBy: map the delivery time to one of today, tomorrow_morning, tomorrow, day_after, this_week, flexible; null if not said or unclear.
 Output only JSON matching the schema.`;
 
-const nullable = <T extends object>(s: T) => ({ ...s, nullable: true });
+const nullable = <const T extends object>(s: T) => ({ ...s, nullable: true as const });
 const STR = { type: "STRING" } as const;
 const NUM = { type: "NUMBER" } as const;
 const enumOf = (values: readonly string[]) => ({ type: "STRING", enum: [...values] }) as const;
@@ -32,7 +32,7 @@ export const PARSE_TIERS = ["branded", "local_isi", "any", "both"] as const;
 export const PARSE_UNITS = ["kg", "ton", "quintal", "bag"] as const;
 export const PARSE_DELIVER_BY = ["today", "tomorrow_morning", "tomorrow", "day_after", "this_week", "flexible"] as const;
 
-/** Gemini responseSchema: §8.1 exactly (OpenAPI subset, `nullable` style). */
+/** §8.1 exactly (OpenAPI subset, `nullable` style; strictSchema() makes it OpenAI strict JSON Schema). */
 export const PARSE_SCHEMA = {
   type: "OBJECT",
   properties: {
@@ -64,20 +64,10 @@ export const PARSE_SCHEMA = {
 } as const;
 
 /**
- * The generateContent request for one parse (lib/server/gemini.ts and scripts/eval-parse.ts send the same
- * one): JSON-schema output, temperature 0, the lowest thinking level the model accepts. Plain data; callers
- * cast `config` to the SDK's type. The transcript is the only user content: no site list, no history.
+ * The Chat Completions request for one parse (lib/server/llm.ts and scripts/eval-parse.ts send the same one):
+ * strict JSON-schema output at the lowest reasoning effort the model accepts (lib/llm/openai.ts). The
+ * transcript is the only user content: no site list, no history.
  */
-export function parseRequest(model: string, transcript: string) {
-  return {
-    model,
-    contents: [{ role: "user", parts: [{ text: transcript }] }],
-    config: {
-      systemInstruction: PARSE_SYSTEM_PROMPT,
-      responseMimeType: "application/json",
-      responseSchema: PARSE_SCHEMA,
-      temperature: 0,
-      thinkingConfig: lowestThinking(model),
-    },
-  };
+export function parseBody(model: string, transcript: string) {
+  return chatBody({ model, system: PARSE_SYSTEM_PROMPT, user: transcript, schema: PARSE_SCHEMA satisfies SchemaNode, name: "order_parse" });
 }

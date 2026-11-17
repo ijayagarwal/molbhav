@@ -1,4 +1,4 @@
-// The order parse, the code side (ARCHITECTURE §6.1, §8.1; DECISIONS F3, S3, R7, R8, R10, P7). Gemini says
+// The order parse, the code side (ARCHITECTURE §6.1, §8.1; DECISIONS F3, S3, R7, R8, R10, P7). The LLM says
 // WHAT the contractor said; this file decides what to believe. It validates the raw JSON with zod (one bad
 // field becomes "not said" instead of failing the order), turns null into undefined, maps it to the draft's
 // OrderItem shape with stable ids, keeps brands only from the config list, never maps "suta" to a size,
@@ -79,7 +79,7 @@ export interface RawParse {
 }
 
 /**
- * Validates Gemini's answer. Returns null only when it isn't an object with an `items` array; a single bad
+ * Validates the LLM's answer. Returns null only when it isn't an object with an `items` array; a single bad
  * field (wrong type, unknown enum) becomes null, and an item with an unknown material is dropped.
  */
 export function validateParse(raw: unknown): RawParse | null {

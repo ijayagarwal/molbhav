@@ -1,23 +1,28 @@
 "use node";
-// Gemini calls (ARCHITECTURE §6.5, §7, §8.2). Internal only. Runs only with SIM_EXTRACT=llm in sim, and for
-// live calls (Phase 8B). Live transcripts go only to the billed key (GEMINI_API_KEY_BILLED; guard 8 makes
-// sure it exists before any live dial); the free key is for sim personas and fixtures only.
-import { DEFAULT_GEMINI_FLASH_MODEL } from "../lib/llm/thinking";
+// OpenAI calls from Convex (ARCHITECTURE §6.5, §7, §8.2; DECISIONS R19). Internal only. Runs only with
+// SIM_EXTRACT=llm in sim, and for live calls (Phase 8B). One key, OPENAI_API_KEY, for both (OpenAI does
+// not train on API data); guard 8 makes sure it exists before any live dial. Plain fetch through
+// lib/llm/openai.ts, the same request the eval script sends.
 import { NonRetryableError } from "@convex-dev/workpool";
 import { v } from "convex/values";
-import { extractRequest } from "../lib/llm/extractPrompt";
+import { extractBody } from "../lib/llm/extractPrompt";
+import { LlmError, chatJson, llmRetryable, openaiKey, openaiModel } from "../lib/llm/openai";
 import { internalAction } from "./_generated/server";
 
 const round = v.union(v.literal("quote"), v.literal("haggle"), v.literal("match"), v.literal("confirm"));
 
+/** A long call's transcript at the lowest reasoning effort takes a few seconds; a stuck request is retried. */
+export const EXTRACT_TIMEOUT_MS = 45_000;
+
 /**
- * One extraction from Gemini Flash with the §8.2 JSON schema at the lowest thinking level. Returns the raw
- * JSON text; lib/extraction.ts parseExtraction maps it strictly before anything is believed. Throws on a
- * transport error or non-JSON answer so the llm pool retries (3 retries with backoff).
+ * One extraction with the §8.2 schema as a strict JSON Schema at the lowest reasoning effort. Returns the
+ * raw JSON text; lib/extraction.ts parseExtraction maps it strictly before anything is believed. For the
+ * llm pool (3 retries with backoff): a missing key or a 4xx other than 429 throws NonRetryableError (the
+ * same request would fail again); timeouts, network failures, 429, 5xx and empty, refused or non-JSON
+ * answers throw a plain error and are retried. Errors never carry the key.
  */
 export const extractQuote = internalAction({
   args: {
-    live: v.boolean(),
     transcript: v.string(),
     itemsJson: v.string(),
     round,
@@ -25,23 +30,22 @@ export const extractQuote = internalAction({
     citedRupees: v.optional(v.number()),
   },
   handler: async (_ctx, a): Promise<string> => {
-    const apiKey = a.live ? process.env.GEMINI_API_KEY_BILLED : process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL || DEFAULT_GEMINI_FLASH_MODEL;
-    if (!apiKey) throw new NonRetryableError("gemini_not_configured");
-    // Loaded here, not at module scope, so test runs that import every module never load the SDK.
-    const { GoogleGenAI } = await import("@google/genai");
-    const ai = new GoogleGenAI({ apiKey });
-    const req = extractRequest(model, {
+    const apiKey = openaiKey(process.env);
+    if (apiKey === null) throw new NonRetryableError("openai_not_configured");
+    const body = extractBody(openaiModel(process.env), {
       transcript: a.transcript,
       items: JSON.parse(a.itemsJson),
       round: a.round,
       earlier: a.earlierJson === undefined ? undefined : JSON.parse(a.earlierJson),
       citedRupees: a.citedRupees,
     });
-    // The schema is the OpenAPI subset Gemini documents; the SDK's config types describe the same shape.
-    const res = await ai.models.generateContent(req as unknown as Parameters<typeof ai.models.generateContent>[0]);
-    const text = res.text;
-    if (text === undefined || text.trim() === "") throw new Error("gemini: empty answer");
+    let text: string;
+    try {
+      text = await chatJson({ apiKey, body, timeoutMs: EXTRACT_TIMEOUT_MS });
+    } catch (e) {
+      if (e instanceof LlmError && !llmRetryable(e)) throw new NonRetryableError(e.message);
+      throw e;
+    }
     JSON.parse(text); // a non-JSON answer throws here and is retried
     return text;
   },

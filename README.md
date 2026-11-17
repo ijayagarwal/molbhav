@@ -27,7 +27,7 @@ The same mockups live on an editable design canvas, "Molbhav UI design", in your
 - **Checked against vendor docs in November 2026:**
   - Bolna: call API, webhooks, custom functions, trial limits, the Indian-number compliance needs, `total_cost` in US cents.
   - Sarvam: STT endpoint, limits and pricing, ₹100 of free credit.
-  - Gemini: free-tier data use.
+  - OpenAI: API data is not used for training (so one key, R19); gpt-5.4-mini pricing.
   - Next.js: CVE-2026-94545, fixed in 16.3.6.
   - `@vercel/og` 1.0.3 renders Devanagari conjuncts.
   - TRAI: the September 2026 A2P amendment.

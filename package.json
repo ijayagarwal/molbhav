@@ -25,7 +25,6 @@
     "@convex-dev/auth": "0.0.98",
     "@convex-dev/rate-limiter": "^0.4.3",
     "@convex-dev/workpool": "^0.4.16",
-    "@google/genai": "^3.3.0",
     "botid": "1.5.12",
     "clsx": "^2.1.1",
     "convex": "1.50.0",

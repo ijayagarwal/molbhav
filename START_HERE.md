@@ -226,13 +226,13 @@ Claude Code sets every env var itself (`.env.local`, Convex dev and prod, Vercel
 | 2A | **The design gate.** Take a ₹12k-class Android outside at noon, auto brightness on, and play the money shot; then watch it on a 1440 px laptop. If anything looks generic, cramped or hard to read, say so precisely. Claude carries on with non-UI work meanwhile. | — |
 | 2B | Compare `/styleguide` with `design/reference` at 360, 1280 and 1536 px. Have the Hindi reviewer read every string. | — |
 | C2 (from 3) | Open `/app` on the presenter laptop once | `ADMIN_USER_IDS` |
-| 4 | A Sarvam API key; a free Gemini key (Google AI Studio); a billed Gemini key (a Google Cloud project with billing, a budget alert and a daily quota); the demo line recorded in Voice Memos as `~/Downloads/demo.m4a`; your phone for the HTTPS test; say the demo line 10 times in a noisy place | `.env.local` and Vercel: `SARVAM_API_KEY`, `SARVAM_STT_MODEL`, `SARVAM_TTS_MODEL`, `SARVAM_TTS_SPEAKER`, `GEMINI_MODEL`, `GEMINI_API_KEY` (local only), `GEMINI_API_KEY_BILLED` (Vercel), `HASH_SECRET`; Convex: `VOICE_DAILY_INR_CAP`; `e2e/demo.wav` (`afconvert -f WAVE -d LEI16@16000 -c 1 ~/Downloads/demo.m4a e2e/demo.wav`) |
-| 5–6B | Run the whole flow on your phone and a laptop. Try to break it: leave mid-sweep, go offline, say "confirm मत करो". | Convex dev: `GEMINI_API_KEY`, `GEMINI_MODEL`, `SIM_PACE=demo`, `SIM_EXTRACT=groundtruth`, `HASH_SECRET`; for 6A also `SARVAM_API_KEY`, `SARVAM_TTS_MODEL`, `SARVAM_TTS_SPEAKER` |
+| 4 | A Sarvam API key; an OpenAI API key (a project with billing and a monthly budget limit; R19); the demo line recorded in Voice Memos as `~/Downloads/demo.m4a`; your phone for the HTTPS test; say the demo line 10 times in a noisy place | `.env.local` and Vercel: `SARVAM_API_KEY`, `SARVAM_STT_MODEL`, `SARVAM_TTS_MODEL`, `SARVAM_TTS_SPEAKER`, `SARVAM_TTS_SPEAKER_EN`, `OPENAI_API_KEY`, `OPENAI_MODEL` (optional), `HASH_SECRET`; Convex: `VOICE_DAILY_INR_CAP`; `e2e/demo.wav` (`afconvert -f WAVE -d LEI16@16000 -c 1 ~/Downloads/demo.m4a e2e/demo.wav`) |
+| 5–6B | Run the whole flow on your phone and a laptop. Try to break it: leave mid-sweep, go offline, say "confirm मत करो". | Convex dev: `OPENAI_API_KEY`, `OPENAI_MODEL` (optional), `SIM_PACE=demo`, `SIM_EXTRACT=groundtruth`, `HASH_SECRET`; for 6A also `SARVAM_API_KEY`, `SARVAM_TTS_MODEL`, `SARVAM_TTS_SPEAKER` |
 | 8A | Nothing external; read the guard tests if you like | — |
 | 8B–8C | A Bolna account (trial; **don't buy a number**), its API key, and each teammate's phone verified in Bolna; say "go" before the first live sweep, then start it from the app yourself with the teammates ready | C5 |
 | Team test | Run `docs/TEAM_TEST.md` Runs 1–6 with your teammates. Save the run log and the clips. | `LIVE_CONCURRENCY=2`, `TEST_DAILY_CALLS=15` and `MAX_LIVE_SWEEPS_PER_HOUR=6` on test days, reset afterwards |
 | 1C | The team WhatsApp Business number; share the landing link only after the lawyer has read `/privacy` (Part B8) | `CONVEX_SERVER_SECRET`, `HASH_SECRET`, `NEXT_PUBLIC_WHATSAPP_NUMBER` in `.env.local`, Convex dev and prod, and Vercel |
-| 7 | A second billed Google Cloud project's key, for the sandbox. Rehearse `docs/DEMO.md` in `/present`; try `/try` on someone else's phone. | Convex dev: `DEMO_DEPLOYMENT=true`, `SANDBOX_DAILY_INR_CAP`; Vercel: `GEMINI_API_KEY_SANDBOX` |
+| 7 | Nothing new for the sandbox: it uses the same `OPENAI_API_KEY`, bounded by its own daily ₹ cap (R19). Rehearse `docs/DEMO.md` in `/present`; try `/try` on someone else's phone. | Convex dev: `DEMO_DEPLOYMENT=true`, `SANDBOX_DAILY_INR_CAP` |
 | 9 | Run the failure drills with Claude Code; record the backup video | The demo deployment, per `docs/DEPLOYMENTS.md` |
 
 ### C4. Deploying (set up in Phase 1A, then automatic)
@@ -250,7 +250,7 @@ Claude Code does this with the Vercel and Convex CLIs after you approve the two 
    - adds each teammate's phone as a dealer with consent `test_ok`, named as in `docs/TEAM_TEST.md` Setup;
    - copies each phone's hash (`addDealer` returns it);
    - sets the Jaipur price bands (`admin:setPriceBand`) to the Team test card ranges.
-3. **Claude Code** sets the Convex dev env: `BOLNA_API_KEY`, `BOLNA_WEBHOOK_SECRET` (generated), `BOLNA_TRIAL=true`, `TEST_PHONE_HASHES`, `GEMINI_API_KEY_BILLED`, `REC_TOKEN_SECRET` (generated).
+3. **Claude Code** sets the Convex dev env: `BOLNA_API_KEY`, `BOLNA_WEBHOOK_SECRET` (generated), `BOLNA_TRIAL=true`, `TEST_PHONE_HASHES`, `OPENAI_API_KEY`, `REC_TOKEN_SECRET` (generated).
 4. **Claude Code** runs `pnpm bolna:sync` (written in 8B): it creates the four agents from `bolna/agents/` with the webhook `https://<your-dev>.convex.site/bolna/webhook`, the `x-molbhav-secret` header and `report_quote` pointing at `https://<your-dev>.convex.site/bolna/report-quote`. It then sets the four agent ids, and sets `LIVE_CALLS_ENABLED=true` (dev only) once you say go.
 5. Trial mode skips the call-hours guard for listed test phones only, so you can test at any time. Real dealers are only ever called 10:00–19:00 IST.
 

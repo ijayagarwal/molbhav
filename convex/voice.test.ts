@@ -203,13 +203,13 @@ describe("limits.consumeVoice", () => {
   });
 
   test("the daily ₹ cap is shared by voice and read-back, refuses without consuming, and 0 or junk turns it off", async () => {
-    vi.stubEnv("VOICE_DAILY_INR_CAP", "1"); // 100 paise: two spoken orders (35 each) and a 25-paise read-back
+    vi.stubEnv("VOICE_DAILY_INR_CAP", "1"); // 100 paise: two spoken orders (40 each) and a 15-paise read-back
     const t = setup();
     const a = await user(t);
     const b = await user(t);
     expect(await a.as.mutation(api.limits.consumeVoice, { serverSecret: SECRET, kind: "order_audio", ipHash: IP })).toEqual({ ok: true });
     expect(await b.as.mutation(api.limits.consumeVoice, { serverSecret: SECRET, kind: "order_audio", ipHash: IP })).toEqual({ ok: true });
-    expect(await a.as.mutation(api.limits.consumeVoice, { serverSecret: SECRET, kind: "tts", ttsChars: 250 })).toEqual({ ok: true });
+    expect(await a.as.mutation(api.limits.consumeVoice, { serverSecret: SECRET, kind: "tts", ttsChars: 150 })).toEqual({ ok: true });
     expect(await b.as.mutation(api.limits.consumeVoice, { serverSecret: SECRET, kind: "order_text", ipHash: IP })).toMatchObject({ ok: false, code: "cap_reached" });
     expect(await b.as.mutation(api.limits.consumeVoice, { serverSecret: SECRET, kind: "tts", ttsChars: 50 })).toEqual({ ok: true }); // 5 paise still fit
     vi.stubEnv("VOICE_DAILY_INR_CAP", "0");
@@ -241,7 +241,7 @@ describe("limits.consumeVoice", () => {
     vi.stubEnv("VOICE_DAILY_INR_CAP", "1");
     const { as } = await user();
     const go = () => as.mutation(api.limits.consumeVoice, { serverSecret: SECRET, kind: "order_audio", ipHash: IP });
-    expect([await go(), await go()]).toEqual([{ ok: true }, { ok: true }]); // 70 of 100 paise, 2 of 8 tries
+    expect([await go(), await go()]).toEqual([{ ok: true }, { ok: true }]); // 80 of 100 paise, 2 of 8 tries
     for (let i = 0; i < 8; i++) expect(await go()).toMatchObject({ ok: false, code: "cap_reached" });
     vi.stubEnv("VOICE_DAILY_INR_CAP", "500");
     for (let i = 0; i < 6; i++) expect(await go()).toEqual({ ok: true });

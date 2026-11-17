@@ -2,9 +2,9 @@ import { describe, expect, test } from "vitest";
 import { IST_MIDNIGHT_EPOCH_MS, dailyCapPaise, voiceCostPaise } from "./voiceCost";
 
 describe("voice spend estimates", () => {
-  test("a spoken order ≈ ₹0.35, a typed one ₹0.10, the read-back ₹1 per 1,000 characters", () => {
-    expect(voiceCostPaise("order_audio")).toBe(35);
-    expect(voiceCostPaise("order_text")).toBe(10);
+  test("a spoken order ≈ ₹0.40, a typed one ₹0.15, the read-back ₹1 per 1,000 characters", () => {
+    expect(voiceCostPaise("order_audio")).toBe(40);
+    expect(voiceCostPaise("order_text")).toBe(15);
     expect(voiceCostPaise("tts", 120)).toBe(12);
     expect(voiceCostPaise("tts", 1)).toBe(1);
     expect(voiceCostPaise("tts", 0)).toBe(1);
