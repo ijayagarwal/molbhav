@@ -120,6 +120,28 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
   - 8A (live-call guards), pulled forward while 2A was in review. A red team and a correctness review found and fixed S5 false passes, trusted round labels and leaky refusal codes.
 - 2B was built: every component in hi and en, the phone shell and the Munshi desk at 1024, 1280 and 1536 px.
 
+## 4b. Design direction inspections (repeated at each milestone)
+
+### 17 Nov 2026: who it's for, and does the design fit them?
+
+**The user:** a thekedar in Jaipur, 30–55. Hindi first; reads Devanagari and some Roman Hindi, little English. Lives on WhatsApp. Uses a ₹10–15k Android, often outdoors at noon, sometimes with dusty hands. Trusts dealers he knows, the bahi-khata and paper parchis.
+
+**What fits, and should stay:**
+- The visual language is paper, ink and haldi (bahi-khata and parchi) with high contrast. All primary text and prices are at 7:1 or better, and buttons press into the paper. It reads in sunlight and feels like the ledger they already keep, not like a fintech app.
+- Big targets everywhere: 56 px minimum, a 64 px primary button, an 88 px mic, a one-handed bottom dock. Language comes first in onboarding, as 120 px buttons.
+- Hindi is the default and English is a full switch, now in Settings and the top bar. Mixed script ("dealer", "GST", "PPC") matches how they actually talk.
+- Western digits with Indian grouping (₹1,98,830): the way dealers write and read rates.
+- Honesty signals everywhere: DEMO badges and a stamp in sim, "हर call में बताएँगे कि ये AI है", "सिर्फ असली रेट बताया, नाम नहीं". For a buyer who fears being cheated, these build trust.
+- Signature moments that mean something: the stamp when a rate lands, the red strike when a price drops, yellow only for the winner. The "₹5,470 कम" tally is the shareable proof.
+
+**Risks to watch (with what we do about each):**
+1. **Latin "match" inside Hindi** ("match कॉल", "आख़िर में match का मौका"). Most contractors say "मैच". Action: native-speaker review of every Hindi string before launch; consider "मैच".
+2. **Reading load on Confirm.** Two item cards, tier questions and tiles is a lot of text for a low-literacy user. The read-back (Listen) carries it. Action: in Phase 4, play the read-back automatically after a voice order (V3), and keep tier questions to one tap.
+3. **The browser's Hindi voice** varies by phone. Action: Sarvam Bulbul read-back in Phase 4 (needs the Sarvam key).
+4. **Typing a name** in Devanagari on Android is slow. Roman names are accepted; speaking the name comes with Phase 4.
+5. **Voice is the core promise and isn't live yet.** Until the keys arrive, Home leads with the example order, and the mic says plainly that voice is coming. No fake understanding.
+6. **The desk is dense** (ledger, panel, Bahi). That suits the munshi persona; the phone stays single-column.
+
 ## 5. Key decisions to know (full list in DECISIONS.md)
 
 - **R1:** phone agents never add numbers up; code computes every total.

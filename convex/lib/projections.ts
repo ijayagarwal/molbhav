@@ -49,3 +49,30 @@ export function publicCall(c: Doc<"calls">) {
   };
 }
 export type PublicCall = ReturnType<typeof publicCall>;
+
+/** A quote as its order's owner sees it: the landed breakdown and terms, never the call's provider data. */
+export function publicQuote(q: Doc<"quotes">) {
+  return {
+    _id: q._id,
+    dealerId: q.dealerId,
+    callId: q.callId,
+    round: q.round,
+    total: q.landed.total,
+    landed: q.landed,
+    lines: q.lines,
+    comparable: q.comparable,
+    citable: q.citable,
+    flags: q.flags,
+    firstTotal: q.firstTotal,
+    creditDays: q.creditDays,
+    deliveryBy: q.deliveryBy,
+    deliveryEtaText: q.deliveryEtaText,
+    billType: q.billType,
+    weightBasis: q.weightBasis,
+    saidFinal: q.saidFinal,
+    readBackConfirmed: q.readBackConfirmed,
+    totalSource: q.totalSource,
+    lumpSumIncludes: q.lumpSumIncludes,
+  };
+}
+export type PublicQuote = ReturnType<typeof publicQuote>;

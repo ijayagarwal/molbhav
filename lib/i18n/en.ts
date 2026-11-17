@@ -333,4 +333,16 @@ export const en: Record<DictKey, string> = {
   "dealers.start": "Start calling",
   "dealers.pickOne": "Pick at least one dealer",
   "dealers.demo": "Demo: these dealers are fictional; no real call goes out",
+
+  "sweep.waiting": "Quotes coming in…",
+  "sweep.announce": "{dealer}: quote {total}",
+  "sweep.announceBest": "Cheapest: {dealer} {total}",
+  "sweep.stopped": "Calls stopped · showing what came in",
+  "round.quote": "Quote call",
+  "round.haggle": "Bargaining call",
+  "round.match": "Match call",
+  "round.confirm": "Confirm call",
+  "call.noCallYet": "Not called yet",
+  "call.cash": "No credit, cash",
+  "call.delivery": "Delivery",
 };

@@ -337,6 +337,19 @@ export const hi = {
   "dealers.start": "कॉल शुरू कीजिए",
   "dealers.pickOne": "कम से कम एक dealer चुनिए",
   "dealers.demo": "डेमो: ये काल्पनिक dealers हैं, कोई असली कॉल नहीं जाएगी",
+
+  // Sweep board.
+  "sweep.waiting": "रेट आ रहे हैं…",
+  "sweep.announce": "{dealer}: रेट मिला {total}",
+  "sweep.announceBest": "सबसे सस्ता: {dealer} {total}",
+  "sweep.stopped": "कॉल रोक दीं · जो रेट मिले वो दिखा रहे हैं",
+  "round.quote": "रेट कॉल",
+  "round.haggle": "मोलभाव कॉल",
+  "round.match": "match कॉल",
+  "round.confirm": "पक्का करने की कॉल",
+  "call.noCallYet": "अभी कॉल नहीं हुई",
+  "call.cash": "उधार नहीं, कैश",
+  "call.delivery": "डिलीवरी",
 } as const;
 
 export type DictKey = keyof typeof hi;
