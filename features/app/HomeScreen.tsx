@@ -10,6 +10,8 @@ import { useState } from "react";
 import { PrimaryButton, SecondaryButton } from "@/components/mb/Buttons";
 import { NextBold, PinBold, PlayBold, WaveformBold } from "@/components/mb/icons";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+import { buildBoard } from "@/lib/board";
 import { CITY_AREAS } from "@/lib/config";
 import { DEMO_TRANSCRIPT } from "@/lib/fixtures/demoOrder";
 import { formatDate } from "@/lib/i18n/format";
@@ -17,7 +19,9 @@ import { useT } from "@/lib/i18n/useT";
 import { itemsLabel } from "@/lib/orderLabel";
 import { ORDER_STATUS_KEY, orderPath, RUNNING } from "@/lib/orderRoute";
 import { AppFrame } from "./AppFrame";
+import { toBoardData } from "./boardData";
 import { Onboarding } from "./Onboarding";
+import { useNow } from "./useNow";
 
 /** Speaks a line with the browser's voice (no key needed); the read-back moves to Sarvam in Phase 4. */
 export function speak(text: string, lang: "hi" | "en") {
@@ -36,6 +40,25 @@ function Skeleton() {
         <span key={i} className="block rounded-card bg-cement" style={{ height: h }} />
       ))}
     </div>
+  );
+}
+
+/**
+ * The running sweep's banner (DESIGN §12.2, Main.html): "मोलभाव चल रहा है · 3/4 रेट मिले", counted exactly as
+ * the board counts (lib/board.ts; sim lines reveal by time, hence the 1 s clock). Its own component, so
+ * only the banner re-renders on that clock.
+ */
+function RunningBanner({ orderId, href }: { orderId: Id<"orders">; href: string }) {
+  const { t } = useT();
+  const data = useQuery(api.board.get, { orderId });
+  const now = useNow(1000);
+  const progress = data ? buildBoard(toBoardData(data), now).progress : null;
+  return (
+    <Link href={href} className="flex min-h-14 w-full items-center gap-3 rounded-card border-[1.5px] border-neel bg-card px-4 py-2 text-label text-neel">
+      <WaveformBold className="size-5 shrink-0" />
+      <span className="flex-1">{progress && progress.total > 0 ? t("home.activeSweep", { done: progress.done, total: progress.total }) : t("order.running")}</span>
+      <NextBold className="size-5 shrink-0" />
+    </Link>
   );
 }
 
@@ -100,16 +123,7 @@ export function HomeScreen() {
         </div>
       </section>
 
-      {running ? (
-        <Link
-          href={orderPath(running._id, running.status)}
-          className="flex min-h-14 w-full items-center gap-3 rounded-card border-[1.5px] border-neel bg-card px-4 text-label text-neel"
-        >
-          <WaveformBold className="size-5" />
-          <span className="flex-1">{t("order.running")}</span>
-          <NextBold className="size-5" />
-        </Link>
-      ) : null}
+      {running ? <RunningBanner orderId={running._id} href={orderPath(running._id, running.status)} /> : null}
 
       <section className="flex flex-col gap-1" aria-labelledby="home-recent">
         <h2 id="home-recent" className="font-display text-title-2">
