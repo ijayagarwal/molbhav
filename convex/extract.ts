@@ -10,6 +10,7 @@
 // Every step carries (callId, roundSeq) and does nothing when stale (B4).
 import { vOnCompleteArgs } from "@convex-dev/workpool";
 import { v } from "convex/values";
+import { callbackDelayMs } from "../lib/callback";
 import { checkCall, parseExtraction, toFacts, type Extraction } from "../lib/extraction";
 import { EXTRACT_PROMPT_VERSION } from "../lib/llm/extractPrompt";
 import { openaiModel } from "../lib/llm/openai";
@@ -26,6 +27,7 @@ import {
   setAsidePlaced,
   simExtract,
 } from "./engine";
+import { scheduleRetry } from "./lib/liveCalls";
 import { applyOptOut } from "./lib/optOut";
 import { simCallInput } from "./sim";
 import { extractionFromPersona, termsFromFacts } from "./sim/groundTruth";
@@ -143,7 +145,8 @@ export const onComplete = internalMutation({
     if (result.kind === "success") return;
     const call = await ctx.db.get(context.callId);
     if (call === null || call.extract === "done" || call.extract === "failed") return;
-    await ctx.db.patch(call._id, { extract: "failed" });
+    // A provisional outcome from report_quote isn't confirmed without extraction; an opt-out stands (R15).
+    await ctx.db.patch(call._id, { extract: "failed", outcome: call.outcome === "opted_out" ? "opted_out" : undefined });
     const order = await ctx.db.get(call.orderId);
     if (order !== null && roundOpen(order, call)) await afterCallSettled(ctx, call);
   },
@@ -192,6 +195,12 @@ export async function applyExtraction(ctx: MutationCtx, order: Doc<"orders">, ca
   if (ex.outcome === "declined" || ex.outcome === "callback" || ex.outcome === "no_quote" || ex.outcome === "confirmed" || ex.outcome === "terms_changed") {
     const outcome: Outcome = ex.outcome === "declined" ? "declined" : ex.outcome === "callback" ? "callback_requested" : "no_quote";
     await finish(outcome, ex.callbackWhenText === undefined ? {} : { callbackWhenText: ex.callbackWhenText });
+    // Live: one retry at the dealer's time, if he gave one within 30 minutes and the round is still open (P8).
+    // The round then waits for it (calls.retryAt). Sim never retries.
+    if (outcome === "callback_requested" && call.mode === "live") {
+      const delay = callbackDelayMs(ex.callbackWhenText);
+      if (delay !== null) await scheduleRetry(ctx, order, call, delay);
+    }
     await afterCallSettled(ctx, call);
     return;
   }

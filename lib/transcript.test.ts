@@ -37,6 +37,45 @@ describe("welcomes in docs/CALL_SCRIPT.md (hard rule 3, C1)", () => {
   });
 });
 
+// R18 / hard rule 3: the configs `pnpm bolna:sync` sends to Bolna (bolna/agents/*.json), not only the doc.
+const GENDERED_FIRST_PERSON = /(रहा|रही|गया|गई|सकता|सकती|करता|करती|चाहता|चाहती|देता|देती|बोलता|बोलती|बताता|बताती) (हूँ|हूं|था|थी)/u;
+const SYNCED = ["quote", "haggle", "match", "confirm"].map((agent) => ({
+  agent,
+  config: JSON.parse(readFileSync(fileURLToPath(new URL(`../bolna/agents/${agent}.json`, import.meta.url)), "utf8")),
+}));
+
+/** Every line an agent speaks word for word: the welcome, the "are you there?" check, the tool filler, the hand-off lines. */
+function fixedLines(config: { agent_config: { agent_welcome_message: string; tasks: { task_config: Record<string, unknown>; tools_config: Record<string, unknown> }[] } }): string[] {
+  const task = config.agent_config.tasks[0];
+  const online = task.task_config.check_user_online_message as Record<string, string>;
+  const tools = (task.tools_config.api_tools as { tools: { pre_call_message: string }[] }).tools;
+  const langs = (task.tools_config.multilingual_config as { languages: Record<string, { handoff_message?: string }> }).languages;
+  return [config.agent_config.agent_welcome_message, ...Object.values(online), ...tools.map((t) => t.pre_call_message), ...Object.values(langs).map((l) => l.handoff_message ?? "")].filter((s) => s !== "");
+}
+
+describe("the synced agent configs in bolna/agents/ (R18, hard rule 3)", () => {
+  test("there are four, and each welcome is the doc's", () => {
+    expect(SYNCED.map((s) => s.agent)).toEqual(["quote", "haggle", "match", "confirm"]);
+    const docWelcomes = welcomes().map((w) => w.text);
+    for (const { config } of SYNCED) expect(docWelcomes).toContain(config.agent_config.agent_welcome_message.replace(/\s+/g, " "));
+  });
+  test.each(SYNCED)("$agent: the welcome's first sentence says AI and रिकॉर्ड", ({ config }) => {
+    const first = firstSentence(config.agent_config.agent_welcome_message);
+    expect(first.length).toBeGreaterThan(10);
+    expect(scriptDiscloses(first)).toBe(true);
+  });
+  test.each(SYNCED)("$agent: no gendered first-person verb in any line it speaks as written", ({ config }) => {
+    for (const line of fixedLines(config)) {
+      expect(line).not.toMatch(GENDERED_FIRST_PERSON);
+      expect(line).not.toMatch(/(दूँगा|दूँगी|दूंगा|दूंगी|करूँगा|करूँगी)/u);
+      expect(line).not.toMatch(/मैं/u);
+    }
+  });
+  test.each(SYNCED)("$agent: the prompt tells it never to claim to be human", ({ config }) => {
+    expect(config.agent_prompts.task_1.system_prompt).toMatch(/You are an AI|You are Molbhav's AI/);
+  });
+});
+
 describe("firstSentence / scriptDiscloses", () => {
   test("stops at the first danda or question mark", () => {
     expect(firstSentence("नमस्ते जी, ये AI कॉल है। आगे बात।")).toBe("नमस्ते जी, ये AI कॉल है।");

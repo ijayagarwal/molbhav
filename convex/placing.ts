@@ -26,8 +26,8 @@ export const place = userMutation({
       expectedQuoteId === order.winningQuoteId ||
       ((order.ranking ?? []).includes(expectedQuoteId) && !(order.termsChangedQuoteIds ?? []).includes(expectedQuoteId));
     if (order.winningQuoteId === undefined || !choosable) throw new ConvexError({ code: "winner_changed" });
-    // Live confirm calls arrive with Phase 8B (dial job + the call-hours warning before placing).
-    if (order.mode === "live") throw new ConvexError({ code: "live_not_ready" });
+    // A live confirm call dials through claimDial like every live call (call hours and kill switches still
+    // apply; Result warns before placing too close to closing time).
     const undoUntil = Date.now() + undoWindowMs(order.mode);
     const placeJobId = await ctx.scheduler.runAt(undoUntil, internal.placing.startConfirm, { orderId, roundSeq: order.roundSeq, quoteId: expectedQuoteId });
     await ctx.db.patch(order._id, { status: "placing", placeJobId, undoUntil, placedQuoteId: expectedQuoteId });
@@ -56,7 +56,7 @@ export const retryConfirm = userMutation({
   args: { orderId: v.id("orders") },
   handler: async (ctx, { orderId }): Promise<boolean> => {
     const order = await requireOwnedOrder(ctx, orderId);
-    if (order.status !== "placing" || order.placeJobId !== undefined || order.mode === "live") return false;
+    if (order.status !== "placing" || order.placeJobId !== undefined) return false;
     const confirms = (await roundCalls(ctx, order)).filter((c) => c.round === "confirm");
     const last = confirms[confirms.length - 1];
     if (last === undefined || !isFinal(last.status)) return false;

@@ -89,6 +89,28 @@ export const overview = adminQuery({
 });
 
 /**
+ * /app/admin/agents: which of the four Bolna agents this deployment can reach, as booleans (never the ids or
+ * the key). The browser web call itself is minted by POST /bolna/web-call-session (convex/bolnaHttp.ts), which
+ * checks the admin again on the server.
+ */
+export const agentsStatus = adminQuery({
+  args: {},
+  handler: async () => {
+    const set = (name: string) => (process.env[name]?.trim() ?? "") !== "";
+    return {
+      apiKeySet: set("BOLNA_API_KEY"),
+      webhookSecretSet: (process.env.BOLNA_WEBHOOK_SECRET?.length ?? 0) >= 24,
+      agents: {
+        quote: set("BOLNA_QUOTE_AGENT_ID"),
+        haggle: set("BOLNA_HAGGLE_AGENT_ID"),
+        match: set("BOLNA_MATCH_AGENT_ID"),
+        confirm: set("BOLNA_CONFIRM_AGENT_ID"),
+      },
+    };
+  },
+});
+
+/**
  * "Reset demo" (B8, §6.12): wipes and re-creates the demo rows only. Price bands are refreshed only on the
  * demo deployment (DEMO_DEPLOYMENT=true), never on production, where they hold real field data.
  */

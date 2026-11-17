@@ -18,7 +18,10 @@
     "fonts": ".venv/bin/python scripts/fonts.py",
     "icons": "tsx scripts/icons.ts",
     "postinstall": "node scripts/og-wasm.mjs",
-    "icons:bold": "tsx scripts/icons-bold.ts"
+    "icons:bold": "tsx scripts/icons-bold.ts",
+    "bolna:build": "tsx scripts/bolna-sync.ts --build-only",
+    "bolna:sync": "tsx --env-file-if-exists=.env.local scripts/bolna-sync.ts",
+    "bolna:check": "tsx --env-file-if-exists=.env.local scripts/bolna-check.ts"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",
@@ -39,6 +42,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@bolna/web-call": "3.0.1",
     "@edge-runtime/vm": "^5.0.0",
     "@phosphor-icons/react": "^2.1.10",
     "@playwright/test": "^1.65.1",

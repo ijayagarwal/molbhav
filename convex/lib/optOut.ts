@@ -8,8 +8,8 @@ import type { MutationCtx } from "../_generated/server";
  * Opts out the number, not just one row: every dealer row with the same phone hash becomes opted_out,
  * their queued calls are cancelled (and each affected order moves on without them), and deleting their
  * recordings is scheduled to start at once.
- * A live call already past claimDial is stopped through Bolna by Phase 8B (an action), and the dial
- * action re-reads consent right before it calls Bolna.
+ * A live call already past claimDial is stopped through Bolna (bolna.stopCall), and the dial job
+ * re-reads consent right before it calls Bolna (bolna.prepareDial, R18).
  */
 export async function applyOptOut(ctx: MutationCtx, dealerId: Id<"dealers">, now: number) {
   const dealer = await ctx.db.get(dealerId);
@@ -34,6 +34,19 @@ export async function applyOptOut(ctx: MutationCtx, dealerId: Id<"dealers">, now
       // "dealer से बात नहीं हो पाई" and chooseAnother (no retry to an opted-out dealer).
       if (call.round !== "confirm") moveOn.add(call.orderId);
       cancelled++;
+    }
+    // Live calls already handed to Bolna but not answered yet are stopped there too (Bolna can stop a call
+    // only while it is queued at its end). A call in progress ends with the agent's own goodbye.
+    for (const status of ["dialing", "ringing"] as const) {
+      const inFlight = await ctx.db
+        .query("calls")
+        .withIndex("by_dealer_status", (q) => q.eq("dealerId", row._id).eq("status", status))
+        .collect();
+      for (const call of inFlight) {
+        if (call.mode === "live" && call.providerExecutionId !== undefined) {
+          await ctx.scheduler.runAfter(0, internal.bolna.stopCall, { executionId: call.providerExecutionId });
+        }
+      }
     }
     await ctx.scheduler.runAfter(0, internal.calls.deleteDealerRecordings, { dealerId: row._id });
   }

@@ -1,6 +1,7 @@
 // Compile-time check that lib/domain.ts (pure types used by lib/pricing.ts and friends) matches the
 // Convex schema. If a validator in convex/schema.ts changes, the typecheck fails here until both agree.
 import type { Infer } from "convex/values";
+import type { CallStatus } from "../../lib/bolna/status";
 import type * as Lib from "../../lib/domain";
 import type { Doc } from "../_generated/dataModel";
 import type { orderItem, quoteLine } from "../schema";
@@ -20,4 +21,5 @@ export type DomainChecks = [
   Assert<Equal<NonNullable<Doc<"quotes">["lumpSumIncludes"]>[number], string>>,
   Assert<Equal<Doc<"dealers">["consent"], Lib.Consent>>,
   Assert<Equal<NonNullable<Doc<"calls">["cancelReason"]>, Lib.CancelReason>>,
+  Assert<Equal<Doc<"calls">["status"], CallStatus>>,
 ];

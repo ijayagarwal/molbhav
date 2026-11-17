@@ -164,6 +164,7 @@ export default defineSchema({
     provisionalTotal: v.optional(v.number()), // paise, from report_quote; display only, never cited
     slots: v.optional(v.object({ rate: v.boolean(), gst: v.boolean(), delivery: v.boolean(), credit: v.boolean() })),
     callbackWhenText: v.optional(v.string()),
+    retryAt: v.optional(v.number()),     // live only: this call's one retry is scheduled then (no answer: +3 min; callback: the dealer's time, ≤ 30 min; P8, R15); the round waits for it
     citedQuoteId: v.optional(v.id("quotes")),    // haggle and match calls: the citable quote whose exact total was cited (C3)
     confirmQuoteId: v.optional(v.id("quotes")),  // confirm calls: the approved quote being relayed (C5)
     extract: v.union(v.literal("pending"), v.literal("running"), v.literal("done"), v.literal("failed")),
