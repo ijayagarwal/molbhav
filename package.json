@@ -13,7 +13,8 @@
     "e2e": "playwright test",
     "size": "size-limit",
     "measure": "tsx scripts/measure-app.ts",
-    "fonts": ".venv/bin/python scripts/fonts.py"
+    "fonts": ".venv/bin/python scripts/fonts.py",
+    "icons": "tsx scripts/icons.ts"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",

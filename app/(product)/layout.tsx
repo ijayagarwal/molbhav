@@ -1,5 +1,6 @@
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import type { Metadata } from "next";
+import { ServiceWorker } from "@/features/app/ServiceWorker";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 
 // Product surfaces are never indexed (they hold sessions and private data).
@@ -9,7 +10,10 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 export default function ProductLayout({ children }: { children: React.ReactNode }) {
   return (
     <ConvexAuthNextjsServerProvider>
-      <ConvexClientProvider>{children}</ConvexClientProvider>
+      <ConvexClientProvider>
+        {children}
+        <ServiceWorker />
+      </ConvexClientProvider>
     </ConvexAuthNextjsServerProvider>
   );
 }
