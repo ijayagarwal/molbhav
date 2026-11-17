@@ -3,7 +3,7 @@
 // /app Home (DESIGN §12.2, design/reference/Main.html). Not onboarded → Onboarding. Otherwise: greeting,
 // the title, the site, the "ऐसे बोलिए" example (hear it, or start with it: the demo order as a draft, the
 // path that works before voice arrives in Phase 4), a running sweep banner, recent orders and the mic.
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -41,8 +41,9 @@ function Skeleton() {
 export function HomeScreen() {
   const { t, lang } = useT();
   const router = useRouter();
+  const { isAuthenticated } = useConvexAuth();
   const me = useQuery(api.contractors.me, {});
-  const orders = useQuery(api.orders.listMine, me ? {} : "skip");
+  const orders = useQuery(api.orders.listMine, isAuthenticated && me ? {} : "skip");
   const createExample = useMutation(api.orders.createExampleDraft);
   const [starting, setStarting] = useState(false);
 

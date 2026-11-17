@@ -5,7 +5,7 @@
 //
 // Until Phase 4 (real speech, needs the Sarvam and Gemini keys) the mic runs on the fake recorder and says
 // honestly that voice orders are coming; it never pretends to understand speech.
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
@@ -50,7 +50,9 @@ export function AppFrame({ children, back, title, phoneDock, deskDock = true, pa
   const pathname = usePathname();
   const prefs = usePrefs();
   const isDesk = useMedia("(min-width: 1024px)");
-  const orders = useQuery(api.orders.listMine, {});
+  // listMine needs a session; a signed-out visitor (fresh browser) would otherwise crash the frame.
+  const { isAuthenticated } = useConvexAuth();
+  const orders = useQuery(api.orders.listMine, isAuthenticated ? {} : "skip");
   const recorder = useMemo(() => createFakeRecorder(), []);
   const [notice, setNotice] = useState<string | null>(null);
   const [composer, setComposer] = useState("");
