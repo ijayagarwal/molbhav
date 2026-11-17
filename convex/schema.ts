@@ -158,8 +158,9 @@ export default defineSchema({
     startedAt: v.optional(v.number()), endedAt: v.optional(v.number()),
     durationSec: v.optional(v.number()),
     costUsdCents: v.optional(v.number()),// Bolna total_cost is in US cents
-    recordingStorageId: v.optional(v.id("_storage")),
+    recordingStorageId: v.optional(v.id("_storage")),   // live only: copied from Bolna by media.copyRecording (B6); served only via /rec
     transcript: v.optional(v.string()),
+    purgeAt: v.optional(v.number()),     // live only: when the recording and transcript are deleted (30 days after the call, B6, §6.11)
     lastCaption: v.optional(v.string()), // sim only; denormalised for cheap rendering
     provisionalTotal: v.optional(v.number()), // paise, from report_quote; display only, never cited
     slots: v.optional(v.object({ rate: v.boolean(), gst: v.boolean(), delivery: v.boolean(), credit: v.boolean() })),
@@ -173,7 +174,8 @@ export default defineSchema({
     cancelReason: v.optional(cancelReason),      // set with status "cancelled" (R18); safe to show
   }).index("by_order", ["orderId"]).index("by_execution", ["providerExecutionId"]).index("by_deadline", ["deadlineAt"])
     .index("by_mode_status", ["mode", "status"])    // claimDial counts active live calls (R2)
-    .index("by_dealer_status", ["dealerId", "status"]),   // opt-outs cancel a dealer's queued calls and recordings (R15)
+    .index("by_dealer_status", ["dealerId", "status"])    // opt-outs cancel a dealer's queued calls and recordings (R15)
+    .index("by_purgeAt", ["purgeAt"]),                     // the 30-day recording and transcript cron (§6.11)
 
   callEvents: defineTable({
     callId: v.id("calls"), orderId: v.id("orders"),
@@ -252,7 +254,8 @@ export default defineSchema({
     contractorId: v.id("contractors"),                // per-contractor daily cap (guard 2, R18)
     opensSlot: v.boolean(),                           // this call used a daily order slot (opening, or no earlier opening, R18)
   }).index("by_phoneHash_at", ["phoneHash", "at"]).index("by_order", ["orderId"])
-    .index("by_contractor_at", ["contractorId", "at"]),
+    .index("by_contractor_at", ["contractorId", "at"])
+    .index("by_at", ["at"]),                          // the 1-year retention cron (§6.11)
 
   priceBands: defineTable({              // dated sanity bands for citing (C4); seeded from lib/config.ts, set with admin:setPriceBand (R13, R18)
     city: v.string(), material,

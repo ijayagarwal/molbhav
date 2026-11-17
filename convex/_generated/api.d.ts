@@ -30,6 +30,8 @@ import type * as lib_optOut from "../lib/optOut.js";
 import type * as lib_projections from "../lib/projections.js";
 import type * as limits from "../limits.js";
 import type * as llm from "../llm.js";
+import type * as media from "../media.js";
+import type * as mediaHttp from "../mediaHttp.js";
 import type * as orders from "../orders.js";
 import type * as placing from "../placing.js";
 import type * as pools from "../pools.js";
@@ -73,6 +75,8 @@ declare const fullApi: ApiFromModules<{
   "lib/projections": typeof lib_projections;
   limits: typeof limits;
   llm: typeof llm;
+  media: typeof media;
+  mediaHttp: typeof mediaHttp;
   orders: typeof orders;
   placing: typeof placing;
   pools: typeof pools;
