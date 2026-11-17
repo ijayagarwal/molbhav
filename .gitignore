@@ -38,3 +38,6 @@ molbhav-build-pack.zip
 
 # font sources downloaded by scripts/fonts.py
 scripts/.font-cache/
+
+# Agent worktrees (local only)
+.claude/worktrees/
