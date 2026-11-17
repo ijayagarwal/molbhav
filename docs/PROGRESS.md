@@ -165,6 +165,15 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
   A test call also slipped into "बोल रहा हूँ": the shared prompt now spells out हम / impersonal phrasing. The
   webhook secret now rides in the URL (`?token=`), so no manual dashboard step is ever needed. `pnpm team:setup`
   (or `--solo` when a founder plays the dealer on their own phone) sets the test numbers; solo is set now.
+- **Live calls work (18 Nov, 02:45–04:10, dev, the founder's own phone as the test dealer):** four live calls
+  through `claimDial` → Bolna → webhooks → extraction. Lessons, each fixed and re-synced: the Quote agent took
+  too many turns and accepted a per-piece rate (R22: five combined questions and an honest best-price ask); it
+  spoke a tool call aloud and switched to English (R23: gpt-4.1-mini, tools on Match only, Hindi only); a live
+  order held the fictional regular dealer (live sweeps now use only callable dealers); the founder hit the
+  3-live-orders-a-day cap (test account raised to 20; Choose dealers now says why Live is unavailable). The
+  third call asked every step and produced a comparable quote (₹3,62,520 all-in, GST extra, 6 days' credit);
+  the read-back still added an unsaid term and skipped re-confirming a correction (fixed in the prompt). Dealers
+  who ask get the buyer's number (R21, Settings switch).
 - **Phase 8C merged:** live calls' recordings are copied into Convex storage, played through 10-minute signed links
   (`/rec`, seekable) on the board and on Result; recordings and transcripts are deleted at 30 days, callLog after a
   year, never-onboarded anonymous users after 7 days. Inert until live calls exist.
