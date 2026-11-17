@@ -1,0 +1,79 @@
+// Place and confirm (ARCHITECTURE §6.7, DECISIONS C5, R9, R15, R18). Public functions go through the guarded
+// builders and the order's ownership check; they return plain values. The confirm call only relays terms
+// the contractor approved: if anything differs the dealer gets no deal, the order goes back to ready and
+// the runner-up is offered (extract.ts confirmResult).
+import { ConvexError, v } from "convex/values";
+import { CALLS } from "../lib/config";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import { internalMutation } from "./_generated/server";
+import { createCall, isFinal, roundCalls, undoWindowMs } from "./engine";
+import { requireOwnedOrder } from "./lib/access";
+import { userMutation } from "./lib/functions";
+
+/**
+ * Places the order with the winner the contractor saw. Refuses (`winner_changed`) if `expectedQuoteId`
+ * is no longer the order's winner. Starts the undo window (UNDO_WINDOW_SEC; 5 s for sim at demo pace):
+ * the confirm call starts when it ends, unless undoPlace cancels it first. Returns when the window ends.
+ */
+export const place = userMutation({
+  args: { orderId: v.id("orders"), expectedQuoteId: v.id("quotes") },
+  handler: async (ctx, { orderId, expectedQuoteId }): Promise<{ undoUntil: number }> => {
+    const order = await requireOwnedOrder(ctx, orderId);
+    if (order.status !== "ready") throw new ConvexError({ code: "not_ready", status: order.status });
+    if (order.winningQuoteId === undefined || order.winningQuoteId !== expectedQuoteId) throw new ConvexError({ code: "winner_changed" });
+    // Live confirm calls arrive with Phase 8B (dial job + the call-hours warning before placing).
+    if (order.mode === "live") throw new ConvexError({ code: "live_not_ready" });
+    const undoUntil = Date.now() + undoWindowMs(order.mode);
+    const placeJobId = await ctx.scheduler.runAt(undoUntil, internal.placing.startConfirm, { orderId, roundSeq: order.roundSeq, quoteId: expectedQuoteId });
+    await ctx.db.patch(order._id, { status: "placing", placeJobId, undoUntil });
+    return { undoUntil };
+  },
+});
+
+/** "रद्द" inside the undo window: no call is made and the order is back at ready. False once the window has passed. */
+export const undoPlace = userMutation({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, { orderId }): Promise<boolean> => {
+    const order = await requireOwnedOrder(ctx, orderId);
+    if (order.status !== "placing" || order.placeJobId === undefined) return false;
+    await ctx.scheduler.cancel(order.placeJobId as Id<"_scheduled_functions">);
+    await ctx.db.patch(order._id, { status: "ready", placeJobId: undefined, undoUntil: undefined });
+    return true;
+  },
+});
+
+/**
+ * A confirm call that didn't connect (no answer, busy, failed) or didn't settle anything leaves the order
+ * placing ("dealer से बात नहीं हो पाई"); this places one more confirm call to the same dealer. Per order and
+ * dealer: the confirm call plus one retry (R15, R18). False when there is nothing to retry.
+ */
+export const retryConfirm = userMutation({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, { orderId }): Promise<boolean> => {
+    const order = await requireOwnedOrder(ctx, orderId);
+    if (order.status !== "placing" || order.placeJobId !== undefined || order.mode === "live") return false;
+    const confirms = (await roundCalls(ctx, order)).filter((c) => c.round === "confirm");
+    const last = confirms[confirms.length - 1];
+    if (last === undefined || !isFinal(last.status)) return false;
+    if (last.status === "completed" && last.extract !== "done" && last.extract !== "failed") return false;
+    if (last.outcome === "confirmed" || last.outcome === "terms_changed") return false;
+    if (confirms.filter((c) => c.dealerId === last.dealerId).length >= CALLS.maxConfirmCallsPerOrderPerDealer) return false;
+    await createCall(ctx, order, { dealerId: last.dealerId, round: "confirm", confirmQuoteId: last.confirmQuoteId, delayMs: 0 });
+    return true;
+  },
+});
+
+/** The end of the undo window: the confirm call to the winner, relaying the approved terms only (C5). */
+export const startConfirm = internalMutation({
+  args: { orderId: v.id("orders"), roundSeq: v.number(), quoteId: v.id("quotes") },
+  handler: async (ctx, { orderId, roundSeq, quoteId }) => {
+    const order = await ctx.db.get(orderId);
+    if (order === null || order.status !== "placing" || order.roundSeq !== roundSeq || order.winningQuoteId !== quoteId) return;
+    const quote = await ctx.db.get(quoteId);
+    if (quote === null) return;
+    if ((await roundCalls(ctx, order)).some((c) => c.round === "confirm" && !isFinal(c.status))) return;
+    await ctx.db.patch(order._id, { placeJobId: undefined, undoUntil: undefined });
+    await createCall(ctx, { ...order, placeJobId: undefined }, { dealerId: quote.dealerId, round: "confirm", confirmQuoteId: quoteId, delayMs: 0 });
+  },
+});
