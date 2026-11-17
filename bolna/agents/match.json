@@ -49,8 +49,8 @@
             "language": "hi",
             "stream": true,
             "endpointing": 500,
-            "keywords": "TMT,Fe500D,Fe550D,Fe500,PPC,OPC,ISI,GST,mm,सरिया,सीमेंट,बोरी,कट्टा,क्विंटल,टन,किलो,भाड़ा,उतराई,हमाली,कांटा,पक्का बिल,कच्चा बिल,उधार,कैश,Tata Tiscon,JSW Neosteel,SAIL,Jindal Panther,Shakti TMT,Shree TMT,UltraTech,ACC,Ambuja,Shree,JK Lakshmi,JK Cement",
-            "context": "Phone call from a buyer's AI assistant to a building-material dealer in Jaipur, India. The dealer quotes TMT steel (सरिया) and cement rates in Hindi or Hinglish: rupees per kg, quintal, ton or bag, GST, delivery (भाड़ा) and unloading (उतराई) charges, credit days (उधार)."
+            "keywords": "TMT,Fe500D,Fe550D,Fe500,PPC,OPC,ISI,GST,mm,सरिया,सीमेंट,बोरी,कट्टा,क्विंटल,टन,किलो,भाड़ा,उतराई,हमाली,कांटा,पक्का बिल,कच्चा बिल,उधार,कैश,GST अलग,GST मिलाके,अलग,मिलाके,सहित,Tata Tiscon,JSW Neosteel,SAIL,Jindal Panther,Shakti TMT,Shree TMT,UltraTech,ACC,Ambuja,Shree,JK Lakshmi,JK Cement",
+            "context": "Phone call from a buyer's AI assistant to a building-material dealer in Jaipur, India. The dealer quotes TMT steel (सरिया) and cement rates in Hindi or Hinglish: rupees per kg, quintal, ton or bag, GST अलग (extra) or GST मिलाके (included), delivery (भाड़ा) and unloading (उतराई) charges, credit days (उधार)."
           },
           "input": {
             "provider": "plivo",

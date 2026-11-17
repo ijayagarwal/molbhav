@@ -177,13 +177,15 @@ export function transcriberKeywords(): string[] {
   const terms = [
     "TMT", "Fe500D", "Fe550D", "Fe500", "PPC", "OPC", "ISI", "GST", "mm", "सरिया", "सीमेंट", "बोरी", "कट्टा", "क्विंटल", "टन", "किलो",
     "भाड़ा", "उतराई", "हमाली", "कांटा", "पक्का बिल", "कच्चा बिल", "उधार", "कैश",
+    // A live call heard "GST अलग" as "GST सरला": the GST answers are words the transcriber must expect.
+    "GST अलग", "GST मिलाके", "अलग", "मिलाके", "सहित",
     ...t.steelBranded, ...t.steelLocalIsi, ...t.cementBranded,
   ];
   return [...new Set(terms)].slice(0, 50);
 }
 
 const TRANSCRIBER_CONTEXT =
-  "Phone call from a buyer's AI assistant to a building-material dealer in Jaipur, India. The dealer quotes TMT steel (सरिया) and cement rates in Hindi or Hinglish: rupees per kg, quintal, ton or bag, GST, delivery (भाड़ा) and unloading (उतराई) charges, credit days (उधार).";
+  "Phone call from a buyer's AI assistant to a building-material dealer in Jaipur, India. The dealer quotes TMT steel (सरिया) and cement rates in Hindi or Hinglish: rupees per kg, quintal, ton or bag, GST अलग (extra) or GST मिलाके (included), delivery (भाड़ा) and unloading (उतराई) charges, credit days (उधार).";
 
 /**
  * Appended to every system prompt: the variables the prompts can't name themselves and how report_quote's
