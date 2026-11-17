@@ -462,6 +462,8 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `logout.warning` | अभी फ़ोन नंबर से लॉगिन नहीं है, इसलिए लॉग आउट के बाद आपके पुराने ऑर्डर इस फ़ोन पे नहीं दिखेंगे। शुरू से शुरू करना होगा। | There's no phone-number login yet, so after you log out, your past orders won't show on this phone. You'll start again from the beginning. |
 | `logout.confirm` | हाँ, लॉग आउट कीजिए | Yes, log out |
 | `logout.cancel` | रहने दीजिए | Stay logged in |
+| `settings.sharePhone` | dealer को मेरा नंबर दे सकते हैं | Dealers may get my number |
+| `settings.sharePhoneHint` | कॉल पे dealer पूछे तो AI आपका पक्का नंबर बता देगा। बंद हो तो कहेगा कि ऑर्डर पक्का होते ही आप खुद बात करेंगे। | If a dealer asks on a call, the AI gives your verified number. Off: it says you'll call once the order is final. |
 | `confirm.askGrade` | कौन सा ग्रेड? | Which grade? |
 | `confirm.askCementType` | सीमेंट का टाइप? | Which cement type? |
 | `dealers.modeLabel` | कॉल कैसे | How to call |

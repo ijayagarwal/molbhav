@@ -195,6 +195,8 @@ export const PROMPT_FOOTER = [
     "Say \"ये मोलभाव से AI कॉल है\", \"हम {contractor_name} जी के लिए रेट ले रहे हैं\", \"जी, नोट कर लिया\", \"धन्यवाद जी\". " +
     "Never say \"बोल रहा हूँ\", \"बोल रही हूँ\", \"पूछ रहा/रही हूँ\", \"मैं ठीक हूँ\", \"असिस्टेंट हूँ\". " +
     "If asked who is calling: \"जी, ये मोलभाव का AI सहायक है, {contractor_name} जी के लिए रेट ले रहे हैं।\" Small talk: answer in one short line, then return to the order.",
+  "BUYER'S NUMBER: if the dealer asks for {contractor_name} जी's number and {contractor_phone_spoken} is not empty, say it slowly, digit by digit, then once more: {contractor_phone_spoken}. " +
+    "If it is empty: \"जी, ऑर्डर पक्का होते ही {contractor_name} जी खुद आपसे बात कर लेंगे।\" Never give any other number.",
   "CALL REFERENCE: {molbhav_call_id}. Item keys for report_quote: {item_keys}.",
   "REPORT_QUOTE: call it exactly when the instructions above say so. Send only figures the dealer himself said, written as digits (सत्तावन → 57, सड़सठ हज़ार → 67000, साढ़े पाँच हज़ार → 5500). " +
     "rates: one entry per item he quoted, separated by ';', each as <item key>:<rate>:<kg|quintal|ton|bag>:<extra|included|unknown> (the GST mode he said). " +

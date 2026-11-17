@@ -142,7 +142,7 @@ export interface UserDataInput {
   cited?: { totalPaise: number; facts: QuoteFacts; totalSource: "computed" | "stated" };
   /** Confirm calls: the approved quote and its total (paise), relayed only (C5, R9). */
   approved?: { totalPaise: number; facts: QuoteFacts };
-  /** Confirm calls only, after the contractor approved: his verified number. */
+  /** His verified number, for when a dealer asks (R21); absent when he turned sharing off in Settings. */
   contractorPhoneE164?: string;
 }
 
@@ -176,7 +176,7 @@ export function buildUserData(i: UserDataInput): UserData {
     competing_terms_spoken: needsCite && i.cited !== undefined ? termsSpoken(i.cited.facts, i.items) : "",
     competing_lines_spoken: needsCite && i.cited !== undefined ? linesSpoken(i.cited.facts, i.items, i.cited.totalSource, wantsCredit) : "",
     final_summary_spoken: i.round === "confirm" && i.approved !== undefined ? finalSummarySpoken(i.approved.facts, i.approved.totalPaise, i.items, i.city) : "",
-    contractor_phone_spoken: i.round === "confirm" && i.contractorPhoneE164 !== undefined ? phoneSpoken(i.contractorPhoneE164) : "",
+    contractor_phone_spoken: i.contractorPhoneE164 !== undefined ? phoneSpoken(i.contractorPhoneE164) : "",
   };
   for (const key of USER_DATA_KEYS) {
     const value = data[key];

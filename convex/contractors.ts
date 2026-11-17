@@ -24,6 +24,7 @@ export const me = optionalUserQuery({
       name: c.name,
       language: c.language,
       verified: c.verified,
+      sharePhoneWithDealers: c.sharePhoneWithDealers !== false,
       tierPrefs: c.tierPrefs ?? null,
       site: site === null ? null : { _id: site._id, area: site.area, city: site.city },
     };
@@ -81,5 +82,13 @@ export const setLanguage = contractorMutation({
   args: { language },
   handler: async (ctx, { language }) => {
     await ctx.db.patch(ctx.contractor._id, { language });
+  },
+});
+
+/** R21: whether the phone agents may give the contractor's verified number when a dealer asks (default yes). */
+export const setSharePhone = contractorMutation({
+  args: { share: v.boolean() },
+  handler: async (ctx, { share }) => {
+    await ctx.db.patch(ctx.contractor._id, { sharePhoneWithDealers: share });
   },
 });

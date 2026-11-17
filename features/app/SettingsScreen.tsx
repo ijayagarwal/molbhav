@@ -4,7 +4,7 @@
 // shortcuts (WCAG 2.1.4), the demo-mode note and privacy. Settings belong to a session: a signed-out
 // visitor (a fresh browser) is sent to /app, where onboarding starts one.
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { BottomSheet } from "@/components/mb/AppShell";
@@ -56,6 +56,7 @@ export function SettingsScreen() {
   const signedIn = useRequireSession();
   const me = useQuery(api.contractors.me, {});
   const { signOut } = useAuthActions();
+  const setSharePhone = useMutation(api.contractors.setSharePhone);
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState<"ask" | "busy" | null>(null);
   useEffect(() => setSoundEnabled(prefs.sound), [prefs.sound]);
@@ -139,6 +140,16 @@ export function SettingsScreen() {
           sheet says plainly that past orders won't come back on this phone. */}
       <Group title={t("settings.account")}>
         {me ? <p className="text-body">{me.name}</p> : null}
+        {me ? (
+          <Toggle
+            label={t("settings.sharePhone")}
+            hint={t("settings.sharePhoneHint")}
+            on={me.sharePhoneWithDealers}
+            onChange={(v) => void setSharePhone({ share: v })}
+            onLabel={t("settings.on")}
+            offLabel={t("settings.off")}
+          />
+        ) : null}
         <SecondaryButton tone="lal" onClick={() => setLoggingOut("ask")}>
           {t("logout.button")}
         </SecondaryButton>

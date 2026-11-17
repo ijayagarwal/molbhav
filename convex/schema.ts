@@ -82,6 +82,7 @@ export default defineSchema({
     consentAt: v.number(),               // privacy notice accepted
     tierPrefs: v.optional(v.object({ tmt_steel: v.optional(tier), cement: v.optional(tier) })),
     isDemo: v.optional(v.boolean()),     // the seeded demo contractor (B8); admin.claimDemoContractor touches only these
+    sharePhoneWithDealers: v.optional(v.boolean()),  // R21: agents may give his verified number when a dealer asks; absent = yes
   }).index("by_user", ["userId"]).index("by_phone", ["phoneE164"]),   // one verified contractor per phone (R18)
 
   sites: defineTable({

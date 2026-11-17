@@ -206,7 +206,8 @@ export const prepareDial = internalMutation({
         ...(theirs === null ? {} : { theirTotalPaise: theirs.landed.total }),
         ...(cited === null ? {} : { cited: { totalPaise: cited.landed.total, facts: factsFromQuote(cited), totalSource: cited.totalSource } }),
         ...(approved === null ? {} : { approved: { totalPaise: approved.landed.total, facts: factsFromQuote(approved) } }),
-        ...(call.round === "confirm" && contractor.phoneE164 !== undefined ? { contractorPhoneE164: contractor.phoneE164 } : {}),
+        // R21: any call may give the buyer's verified number when the dealer asks, unless the contractor turned it off.
+        ...(contractor.phoneE164 !== undefined && contractor.sharePhoneWithDealers !== false ? { contractorPhoneE164: contractor.phoneE164 } : {}),
       });
       return { kind: "go", agentId, userData };
     } catch (e) {

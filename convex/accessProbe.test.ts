@@ -64,6 +64,7 @@ const NOT_PROBED: Record<string, string> = {
 const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   "orders:setItemTier": { itemId: "steel", tier: "local_isi" },
   "orders:setItemSize": { itemId: "steel", diameterMm: 12 },
+  "contractors:setSharePhone": { share: true },
   "orders:setItemGrade": { itemId: "steel", grade: "Fe500D" },
   "orders:setItemCementType": { itemId: "cement", cementType: "PPC" },
   "orders:setDeliverBy": { deliverBy: "today" },

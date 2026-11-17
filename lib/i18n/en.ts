@@ -319,6 +319,8 @@ export const en: Record<DictKey, string> = {
   "settings.mode": "Demo mode",
   "settings.modeHint": "Fictional dealers; no real calls go out. Real calls need verification by our team.",
   "settings.site": "Site",
+  "settings.sharePhone": "Dealers may get my number",
+  "settings.sharePhoneHint": "If a dealer asks on a call, the AI gives your verified number. Off: it says you'll call once the order is final.",
   "settings.account": "Account",
   "logout.button": "Log out",
   "logout.title": "Log out of this phone?",

@@ -323,6 +323,8 @@ export const hi = {
   "settings.mode": "डेमो मोड",
   "settings.modeHint": "काल्पनिक dealers, कोई असली कॉल नहीं जाती। असली कॉल के लिए टीम से पहचान ज़रूरी है।",
   "settings.site": "साइट",
+  "settings.sharePhone": "dealer को मेरा नंबर दे सकते हैं",
+  "settings.sharePhoneHint": "कॉल पे dealer पूछे तो AI आपका पक्का नंबर बता देगा। बंद हो तो कहेगा कि ऑर्डर पक्का होते ही आप खुद बात करेंगे।",
   "settings.account": "खाता",
   "logout.button": "लॉग आउट",
   "logout.title": "इस फ़ोन से लॉग आउट करें?",
