@@ -94,7 +94,7 @@ convex/
   contractors.ts sites.ts dealers.ts orders.ts calls.ts quotes.ts share.ts waitlist.ts events.ts admin.ts
   sandbox.ts settings.ts limits.ts tts.ts
   lib/access.ts                requireContractor, requireOwner, requireAdmin
-  lib/functions.ts             the guarded builders for every public function
+  lib/functions.ts             the guarded builders for every public function (serverMutation: CONVEX_SERVER_SECRET, no session)
   lib/projections.ts lib/hash.ts  publicDealer/publicCall; HMAC phone and IP hashes
   lib/live.ts lib/optOut.ts    callLog counts for claimDial; the opt-out that acts at once
   pools.ts                     workpool definitions (dial, llm, media)
@@ -333,8 +333,8 @@ export default defineSchema({
   waitlist: defineTable({
     name: v.string(), phoneE164: v.string(), city: v.string(),  // city defaults to "Jaipur" on /dealer
     area: v.optional(v.string()), materials: v.optional(v.array(v.string())),
-    role: v.union(v.literal("contractor"), v.literal("dealer"), v.literal("home_builder")),
-    nextOrder: v.optional(v.string()), ref: v.optional(v.string()),
+    role: v.union(v.literal("contractor"), v.literal("munshi"), v.literal("other"), v.literal("dealer"), v.literal("home_builder")), // home_builder: old rows only
+    nextOrder: v.optional(v.string()), ref: v.optional(v.string()),  // nextOrder: this_week | this_month | later
     consentContact: v.boolean(),
     consentAiCalls: v.optional(v.boolean()),  // dealers from /dealer: agrees to AI quote calls
     ipHash: v.string(), createdAt: v.number(),
@@ -485,10 +485,12 @@ The route `POST /api/voice/order?sandbox=1` calls `checkBotId()` and refuses bot
 `/present` embeds `/app?embed=1` in an iframe signed in as the **demo contractor** (sim only). Anonymous sign-in always makes a new user, so on the demo deployment an admin runs `admin.claimDemoContractor` once from the presenter laptop: it re-points the seeded demo contractor's `userId` to that session (admin only, demo deployment only, `isDemo` rows only). No public function can switch identity. The right-hand panel subscribes to that session's orders only. Cost and readiness views need the admin role. "Reset demo" calls `admin.resetDemo`, which touches demo rows only.
 
 ### 6.13 Waitlist, dealer opt-in and analytics (G5, G6, S2)
-- The landing page and `/dealer` are server components. Their forms post to a **server action** that hashes the IP (HMAC-SHA256 with `HASH_SECRET`, B10) and calls `waitlist.join({ serverSecret, ipHash, ... })`. That mutation checks `CONVEX_SERVER_SECRET` and consumes a rate limit keyed by the IP hash (5 per hour). The consent checkbox is required.
+- The landing page and `/dealer` are server components; only their forms are small client components (`features/marketing/WaitlistForm.tsx`, `DealerForm.tsx`). The forms post to **server actions** (`features/marketing/actions.ts`) that check the fields (`lib/waitlist.ts`, the same check `waitlist.join` runs), hash the IP (HMAC-SHA256 with `HASH_SECRET`, B10) and call `waitlist.join({ serverSecret, ipHash, role, name, phone, city, nextOrder, ref, area, materials, consentContact, consentAiCalls })`. The consent checkbox is required.
+- `waitlist.join` and `events.track` are built with `serverMutation` (`convex/lib/functions.ts`): marketing visitors have no Convex session, so the builder checks `CONVEX_SERVER_SECRET` instead of `ctx.auth` before the handler (unset or short: `not_configured`; wrong: `forbidden`). `waitlist.join` consumes `waitlistIp` (5 an hour per IP hash) and a deployment-wide `waitlistAll`, stores the phone in E.164 (`lib/phone.ts`) with the IP hash, and keeps one row per number and role (joining again updates it). Roles: `contractor`, `munshi`, `other` (landing) and `dealer` (`/dealer`). `ref` is a short slug from the query string (`/p` sends `parchi_<mode>`).
 - `/dealer` writes `role: "dealer"` with `consentAiCalls`. This never makes a number callable by itself: an admin calls the dealer back, confirms, and only then runs `admin.addDealer` with `consent: "opted_in"` (S2).
-- Analytics: `POST /api/e` (Vercel route, rate-limited) → `events.track({ serverSecret, name, props, path })`. Only the event names in G6 are accepted. No phone numbers, names or free text go in `props`.
-- WhatsApp click-to-chat (`wa.me/<team number>?text=…`) is the main call to action; the form is the fallback.
+- Analytics: `POST /api/e` (Vercel route; same-origin, at most 1 KB) → `events.track({ serverSecret, ipHash, name, props, path })`, rate-limited by the IP hash (`eventsIp`, plus `eventsAll`); the hash is not stored. Only the event names in G6 are accepted, and `props` only from each event's fixed value lists (`lib/analytics.ts`: `waitlist_submit {role, ref: none|parchi|other}`, `parchi_share|open|cta {mode}`, the rest none), so no phone numbers, names, link ids or free text can be stored. `path` is reduced to its route (`/p/[id]`). The browser sends `parchi_share` (share sheet) and `parchi_cta` (the `/p` CTA) with `navigator.sendBeacon` (`features/marketing/beacon.ts`); the server records `waitlist_submit`, `dealer_optin` and `parchi_open` itself, after the response (`after()`).
+- WhatsApp click-to-chat (`wa.me/<team number>?text=…`) is the main call to action; the form is the fallback. With `NEXT_PUBLIC_WHATSAPP_NUMBER` unset, no WhatsApp link renders.
+- SEO: `app/robots.ts` allows `/`, `/dealer`, `/privacy` and disallows `/app`, `/try`, `/p/`, `/present`, `/styleguide`, `/api/`. `/` has a static bilingual og:image (`app/(marketing)/opengraph-image.tsx`, rendered at build time with `vercel-og`), inherited by `/dealer` and `/privacy`.
 
 ## 7. External APIs (verified November 2026)
 

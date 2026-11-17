@@ -15,6 +15,7 @@ import type * as calls from "../calls.js";
 import type * as contractors from "../contractors.js";
 import type * as dealers from "../dealers.js";
 import type * as engine from "../engine.js";
+import type * as events from "../events.js";
 import type * as extract from "../extract.js";
 import type * as http from "../http.js";
 import type * as lib_access from "../lib/access.js";
@@ -38,6 +39,7 @@ import type * as sim_groundTruth from "../sim/groundTruth.js";
 import type * as sim_personas from "../sim/personas.js";
 import type * as sim_script from "../sim/script.js";
 import type * as sweep from "../sweep.js";
+import type * as waitlist from "../waitlist.js";
 
 import type {
   ApiFromModules,
@@ -53,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   contractors: typeof contractors;
   dealers: typeof dealers;
   engine: typeof engine;
+  events: typeof events;
   extract: typeof extract;
   http: typeof http;
   "lib/access": typeof lib_access;
@@ -76,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   "sim/personas": typeof sim_personas;
   "sim/script": typeof sim_script;
   sweep: typeof sweep;
+  waitlist: typeof waitlist;
 }>;
 
 /**

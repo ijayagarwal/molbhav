@@ -215,8 +215,9 @@ export default defineSchema({
   waitlist: defineTable({
     name: v.string(), phoneE164: v.string(), city: v.string(),  // city defaults to "Jaipur" on /dealer
     area: v.optional(v.string()), materials: v.optional(v.array(v.string())),
-    role: v.union(v.literal("contractor"), v.literal("dealer"), v.literal("home_builder")),
-    nextOrder: v.optional(v.string()), ref: v.optional(v.string()),
+    // munshi and other: the landing form's roles (Phase 1C); dealer: /dealer; home_builder: kept for old rows.
+    role: v.union(v.literal("contractor"), v.literal("munshi"), v.literal("other"), v.literal("dealer"), v.literal("home_builder")),
+    nextOrder: v.optional(v.string()), ref: v.optional(v.string()),  // nextOrder: this_week | this_month | later
     consentContact: v.boolean(),
     consentAiCalls: v.optional(v.boolean()),  // dealers from /dealer: agrees to AI quote calls
     ipHash: v.string(), createdAt: v.number(),

@@ -492,6 +492,70 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `confirm.askSize` | सरिया का साइज़ (mm) सुनाई नहीं दिया। | We didn't catch the bar size (mm). |
 | `confirm.askSuta` | साइज़ ‘सूत’ में बताया था। mm में बताइए, जैसे 12mm या 16mm। | The size was given in ‘suta’. Please give it in mm, like 12mm or 16mm. |
 | `confirm.heard` / `confirm.yourSite` | सुना: “{text}” / {site} · आपकी साइट | Heard: “{text}” / {site} · your site |
+| `landing.navDealers` | Dealers के लिए | For dealers |
+| `landing.whatsapp` | WhatsApp पे बात कीजिए | Chat on WhatsApp |
+| `landing.whatsappText` | नमस्ते, मोलभाव के बारे में जानना है। | Hi, I'd like to know about Molbhav. |
+| `landing.dealersTitle` | Dealers के लिए: असली ऑर्डर, असली quantity | For dealers: real orders, real quantities |
+| `landing.dealersBody` | हर कॉल के पीछे असली ठेकेदार का असली ऑर्डर और साइट होती है। छोटी कॉल, काम के समय में। अपनी दुकान जोड़िए, हमारी टीम आपसे बात करेगी। | Behind every call is a real contractor with a real order and a real site. Short calls, during working hours. Add your shop and our team will talk to you. |
+| `landing.dealersCta` | अपनी दुकान जोड़िए | Add your shop |
+| `landing.footerMade` | जयपुर में बना | Made in Jaipur |
+| `landing.footerPrivacy` | प्राइवेसी | Privacy |
+| `waitlist.title` | जयपुर में पहले जुड़िए | Get early access in Jaipur |
+| `waitlist.body` | मोलभाव असली ऑर्डर के लिए तैयार होते ही हम आपको WhatsApp पे बताएँगे। आपका नंबर सिर्फ इसी काम के लिए। | We'll tell you on WhatsApp as soon as Molbhav is ready for real orders. Your number is used only for that. |
+| `waitlist.whatsapp` | WhatsApp पे जुड़िए | Join on WhatsApp |
+| `waitlist.orForm` | या ये फ़ॉर्म भरिए | Or fill in this form |
+| `waitlist.name` | आपका नाम | Your name |
+| `waitlist.phone` | WhatsApp नंबर | WhatsApp number |
+| `waitlist.city` | शहर | City |
+| `waitlist.cityDefault` | जयपुर | Jaipur |
+| `waitlist.role` | आपका काम | Your work |
+| `waitlist.roleContractor` | ठेकेदार | Contractor |
+| `waitlist.roleMunshi` | मुंशी | Munshi |
+| `waitlist.roleOther` | कुछ और | Something else |
+| `waitlist.nextOrder` | अगला ऑर्डर कब? (ज़रूरी नहीं) | Next order (optional) |
+| `waitlist.nextNone` | पता नहीं | Not sure |
+| `waitlist.nextWeek` | इस हफ़्ते | This week |
+| `waitlist.nextMonth` | इस महीने | This month |
+| `waitlist.nextLater` | बाद में | Later |
+| `waitlist.notice` | हम आपका नाम, WhatsApp नंबर, शहर और काम रखेंगे, ताकि तैयार होने पर आपको WhatsApp पे बता सकें। नंबर किसी और को नहीं देंगे। कभी भी कहिए, हम ये जानकारी मिटा देंगे। | We'll keep your name, WhatsApp number, city and work so we can tell you on WhatsApp when we're ready. We never give your number to anyone else. Ask any time and we'll delete it. |
+| `waitlist.consent` | मैं सहमत हूँ कि मोलभाव की टीम मुझसे WhatsApp पे संपर्क करे। | I agree that the Molbhav team may contact me on WhatsApp. |
+| `waitlist.privacyLink` | प्राइवेसी नोटिस पढ़िए | Read the privacy notice |
+| `waitlist.submit` | जुड़िए | Join early access |
+| `waitlist.sending` | भेज रहे हैं… | Sending… |
+| `waitlist.doneTitle` | धन्यवाद, आप जुड़ गए | Thank you, you're on the list |
+| `waitlist.done` | तैयार होते ही हम WhatsApp पे बताएँगे। | We'll tell you on WhatsApp as soon as we're ready. |
+| `waitlist.errName` | अपना नाम लिखिए, सिर्फ अक्षर। | Please write your name, in letters. |
+| `waitlist.errPhone` | 10 अंकों का मोबाइल नंबर लिखिए, जैसे 98123 45678। | Please enter a 10-digit mobile number, like 98123 45678. |
+| `waitlist.errCity` | शहर का नाम लिखिए। | Please write your city. |
+| `waitlist.errRole` | अपना काम चुनिए। | Please choose your work. |
+| `waitlist.errConsent` | आगे बढ़ने के लिए सहमति का बॉक्स चुनिए। | Please tick the box to agree. |
+| `waitlist.errBusy` | एक घंटे में बहुत बार भेजा गया। थोड़ी देर बाद फिर से कोशिश कीजिए। | Too many tries in an hour. Please try again a little later. |
+| `waitlist.errServer` | हमारी तरफ़ से कुछ गड़बड़ हुई। फिर से कोशिश कीजिए। | Something went wrong on our side. Please try again. |
+| `dealer.title` | Dealer हैं? मोलभाव से जुड़िए | A dealer? Join Molbhav |
+| `dealer.intro` | मोलभाव जयपुर के ठेकेदारों के लिए सरिया और सीमेंट के रेट लेता है। हर कॉल के पीछे असली ठेकेदार का असली ऑर्डर होता है। | Molbhav gets steel and cement rates for building contractors in Jaipur. Every call is for a real contractor's real order. |
+| `dealer.pilot` | अभी जयपुर पायलट में हमारी टीम खुद कॉल करती है। AI कॉल: जल्द। | In the Jaipur pilot, our team makes the calls. AI calls: coming soon. |
+| `dealer.rulesTitle` | AI कॉल के नियम | Rules for AI calls |
+| `dealer.ruleDisclose` | हर कॉल की पहली बात: ये AI है, और कॉल रिकॉर्ड हो रही है। | The first thing every call says: it's an AI, and the call is recorded. |
+| `dealer.ruleCap` | एक दिन में ज़्यादा से ज़्यादा 2 ऑर्डर के लिए AI कॉल। | AI calls for at most 2 orders a day. |
+| `dealer.ruleStop` | “आगे कॉल मत करना” बोलिए, AI कॉल तुरंत बंद। | Say “आगे कॉल मत करना” (don't call again) and AI calls stop at once. |
+| `dealer.ruleConfirm` | हमारी टीम आपसे बात करके पक्का करेगी, उससे पहले आपके नंबर पर कोई AI कॉल नहीं। | Our team will speak to you first; no AI call goes to your number before that. |
+| `dealer.formTitle` | अपनी दुकान जोड़िए | Add your shop |
+| `dealer.shop` | दुकान का नाम | Shop name |
+| `dealer.area` | इलाका (जयपुर) | Area (Jaipur) |
+| `dealer.areaPick` | इलाका चुनिए | Choose an area |
+| `dealer.materials` | क्या बेचते हैं? | What do you sell? |
+| `dealer.notice` | हम दुकान का नाम, इलाका, सामान और नंबर रखेंगे। आपका नंबर किसी ठेकेदार को नहीं दिखाते। कभी भी कहिए, हम ये जानकारी मिटा देंगे। | We'll keep the shop name, area, materials and number. We never show your number to contractors. Ask any time and we'll delete it. |
+| `dealer.consent` | मैं सहमत हूँ कि मोलभाव की टीम मुझसे संपर्क करे, और बात पक्की होने के बाद ठेकेदारों के ऑर्डर का रेट पूछने के लिए AI कॉल करे। कॉल रिकॉर्ड होंगी। | I agree that the Molbhav team may contact me and, once we've agreed, make AI calls to ask rates for contractors' orders. Calls are recorded. |
+| `dealer.submit` | दुकान जोड़िए | Add my shop |
+| `dealer.doneTitle` | धन्यवाद, दुकान जुड़ गई | Thank you, your shop is added |
+| `dealer.done` | हमारी टीम जल्द आपसे बात करेगी। उससे पहले कोई AI कॉल नहीं आएगी। | Our team will talk to you soon. No AI call comes before that. |
+| `dealer.errShop` | दुकान का नाम लिखिए। | Please write the shop name. |
+| `dealer.errArea` | इलाका चुनिए। | Please choose an area. |
+| `dealer.errMaterials` | कम से कम एक सामान चुनिए। | Please choose at least one material. |
+| `privacy.*` (34 keys) | The privacy notice on `/privacy`, in `lib/i18n/hi.ts` and `en.ts`: what we keep, where, processors, retention, erasure, the dealer opt-out. A draft for the founders' lawyer. | Same, in English. |
+| `meta.*` | Page titles and descriptions for `/`, `/dealer`, `/privacy`, and the og:image alt text. | Same, in English. |
+
+The Phase 1C rows from `landing.navDealers` down (landing sections, waitlist, `/dealer`, `/privacy`, page metadata) follow the pilot wording (G2: AI calls are "जल्द"). They need the native speaker's review, and the consent texts (`waitlist.notice`, `waitlist.consent`, `dealer.notice`, `dealer.consent`) and `privacy.*` need the founders' lawyer before the landing link is shared publicly.
 
 The voice-order rows from `primer.title` down (Phase 4 client) are new and need the native speaker's review most. Every `/api/voice/order` error code maps to one of them in `lib/client/voiceErrors.ts`; `voice.soon` shows only for `not_configured`.
 

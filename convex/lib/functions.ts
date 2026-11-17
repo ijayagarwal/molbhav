@@ -7,6 +7,7 @@
 // Ownership of a specific document is still checked in the handler (requireOwnedOrder), because
 // it depends on the arguments.
 import { customCtx, customMutation, customQuery } from "convex-helpers/server/customFunctions";
+import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { optionalUser, requireAdmin, requireContractor, requireUser } from "./access";
 
@@ -51,3 +52,22 @@ export const adminMutation = customMutation(
   mutation,
   customCtx(async (ctx) => ({ adminUserId: await requireAdmin(ctx) })),
 );
+
+/**
+ * No user session: the caller proves it is our Next.js server by passing CONVEX_SERVER_SECRET as
+ * `serverSecret` (waitlist.join, events.track; ARCHITECTURE §6.13). Visitors of the marketing pages have no
+ * Convex session, so this replaces the ctx.auth check. The secret is checked here, before the handler, and
+ * never reaches it. Unset or shorter than 32 characters: `not_configured` (fail closed); wrong: `forbidden`.
+ * Same constant-time comparison as limits.serverSecretMatches (not imported: limits.ts imports this file).
+ */
+export const serverMutation = customMutation(mutation, {
+  args: { serverSecret: v.string() },
+  input: async (_ctx, { serverSecret }) => {
+    const expected = process.env.CONVEX_SERVER_SECRET ?? "";
+    if (expected.length < 32) throw new ConvexError({ code: "not_configured" });
+    let diff = serverSecret.length ^ expected.length;
+    for (let i = 0; i < expected.length; i++) diff |= (serverSecret.charCodeAt(i) || 0) ^ expected.charCodeAt(i);
+    if (diff !== 0) throw new ConvexError({ code: "forbidden" });
+    return { ctx: {}, args: {} };
+  },
+});
