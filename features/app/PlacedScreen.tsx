@@ -4,7 +4,8 @@
 // before the confirm call dials ("dealer से पक्का कर रहे हैं", a countdown and a large "रद्द करना है?").
 // Then the confirm call runs as a single DealerRow (it relays approved terms only, C5). Placed: a big hara
 // check, "ऑर्डर पक्का", the parchi and share. A confirm call that doesn't connect: "dealer से बात नहीं हो
-// पाई" with one retry (R15). If the dealer changes terms the order goes back to Result (runner-up shown).
+// पाई" with one retry (R15) and "अगला सबसे सस्ता देखिए". If the dealer changes terms or says no, the order goes
+// back to Result with the runner-up (the engine sets that offer aside).
 import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -15,7 +16,7 @@ import { Parchi } from "@/components/mb/Parchi";
 import { api } from "@/convex/_generated/api";
 import { ShareSheet } from "@/features/share/ShareSheet";
 import { statusAt, type BoardEvent } from "@/lib/board";
-import { DELIVER_BY } from "@/lib/config";
+import { CALLS, DELIVER_BY } from "@/lib/config";
 import type { DeliverBy } from "@/lib/domain";
 import { useT } from "@/lib/i18n/useT";
 import { initials } from "@/lib/initials";
@@ -31,6 +32,7 @@ export function PlacedScreen({ orderId }: { orderId: string }) {
   const data = useQuery(api.board.get, order ? { orderId: order._id } : "skip");
   const undo = useMutation(api.placing.undoPlace);
   const retry = useMutation(api.placing.retryConfirm);
+  const chooseAnother = useMutation(api.placing.chooseAnother);
   const now = useNow();
   const [sharing, setSharing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -53,7 +55,8 @@ export function PlacedScreen({ orderId }: { orderId: string }) {
 
   const confirms = data.calls.filter((c) => c.round === "confirm").sort((a, b) => a._creationTime - b._creationTime);
   const call = confirms.at(-1);
-  const quoteId = call?.confirmQuoteId ?? data.order.winningQuoteId;
+  // The offer being placed (it may be the contractor's own dealer rather than the cheapest).
+  const quoteId = data.order.placedQuoteId ?? call?.confirmQuoteId ?? data.order.winningQuoteId;
   const quote = data.quotes.find((q) => q._id === quoteId);
   const dealer = data.dealers.find((d) => d._id === quote?.dealerId);
   const dealerName = dealer ? (lang === "hi" ? (dealer.nameHi ?? dealer.name) : dealer.name) : "";
@@ -63,6 +66,7 @@ export function PlacedScreen({ orderId }: { orderId: string }) {
   const callStatus = call ? statusAt({ ...call, round: "confirm" }, events, now) : null;
   const notReached = order.status === "placing" && !inUndo && call !== undefined && callStatus !== null && ["no_answer", "busy", "failed", "cancelled"].includes(callStatus);
   const placed = order.status === "placed";
+  const canRetry = notReached && call !== undefined && call.cancelReason !== "opted_out" && confirms.filter((c) => c.dealerId === call.dealerId).length < CALLS.maxConfirmCallsPerOrderPerDealer;
   const when = quote?.deliveryBy ? DELIVER_BY[quote.deliveryBy as DeliverBy][lang] : null;
 
   const title = placed ? t("placed.title") : t("placed.confirming");
@@ -129,7 +133,7 @@ export function PlacedScreen({ orderId }: { orderId: string }) {
           ) : (
             <p className="text-body text-ink-2">{t("placed.callRunning")}</p>
           )}
-          {notReached ? (
+          {canRetry ? (
             <PrimaryButton
               icon={<ReplayBold className="size-6" />}
               disabled={busy}
@@ -141,6 +145,19 @@ export function PlacedScreen({ orderId }: { orderId: string }) {
             >
               {t("placed.retry")}
             </PrimaryButton>
+          ) : null}
+          {notReached ? (
+            <SecondaryButton
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                const moved = await chooseAnother({ orderId: order._id }).catch(() => false);
+                if (moved) router.replace(`/app/order/${order._id}/result`);
+                else setBusy(false);
+              }}
+            >
+              {t("placed.chooseAnother")}
+            </SecondaryButton>
           ) : null}
         </section>
       )}

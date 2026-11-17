@@ -91,8 +91,31 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 - **Fixes found while testing:** "उन्हीं से लीजिए" (choosing the own dealer on Result) was refused by the
   engine, which only accepted the cheapest; it now takes any standing ranked offer. The DEMO stamp no longer
   covers the parchi's status line.
-- **Next:** deploy and seed production; an independent review of the new screens and backends; a Playwright
-  test for the full sim flow; then Phase 4 once the keys arrive.
+- **Deployed and seeded production** (`HASH_SECRET` generated on prod; 9 DEMO dealers). The whole flow runs
+  on https://molbhav-weld.vercel.app in 114 s, with the share page working.
+- **Playwright e2e** (`pnpm e2e`): the whole order, with an undo, at 360 px in English and 1440 px in Hindi.
+  It also checks that board prices are actually opaque, not just present in the page.
+- **Two independent reviews (backend, screens) found 17 real defects. Fixed so far:**
+  - Board prices, captions and price drops were invisible in the app: the motion provider was only mounted on
+    the styleguide. It now wraps every product route.
+  - The share preview image rendered broken Hindi in production ("अग्‌रवाल"): Next.js swaps `@vercel/og` for its
+    own HarfBuzz-less copy. Fixed with an npm alias (`vercel-og`), a two-line patch to its wasm loader, and a
+    fixed `/p/<id>/parchi.png` URL for the share sheet (the og:image URL is hashed in production).
+  - Share links: one link per mode, so a link already sent never changes. The public saving uses the same
+    rules as the owner's Result (a non-comparable first rate is never the basis). The parchi shows the offer
+    actually being placed, never one set aside. A savings-only page now carries the DEMO stamp.
+  - Placing always has a way out: a dealer who changes terms, says no or opts out on the confirm call is set
+    aside and the next cheapest is offered. After a failed call: one retry, then "अगला सबसे सस्ता देखिए". A
+    stale confirm job can't dial an earlier choice.
+  - An opt-out mid-order no longer strands the order, no call is ever created for an opted-out dealer, and a
+    scripted sim opt-out never opts out the shared DEMO dealers.
+  - Result and share use the engine's frozen ranking (the outlier rule no longer runs twice). Placing errors
+    are shown. Units come from the dictionary. "Buy from them", not "him".
+  - Desk: the main action (confirm, start calling) stays in view at the bottom of the column.
+  - A parallel agent is fixing the remaining screen findings: the signed-out crash on app links, the sweep
+    phase title, the first-quote announcement, the Dealers back link, focus in bottom sheets, truncation at
+    360 px, a ledger overlap and leftover hard-coded copy.
+- **Next:** merge those fixes, deploy, re-verify on production; then Phase 4 once the keys arrive.
 
 ### 17 Nov 2026
 - **The user asked for:**
@@ -186,6 +209,9 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 | `~/Downloads/demo.m4a` | The end-to-end voice test | Record the demo line from docs/DEMO.md in Voice Memos and save it to Downloads |
 | A real phone for HTTPS tests | Mic and voice checks (Claude starts the tunnel) | Any Android in Chrome |
 | Later: Bolna account + teammates' phone numbers | The Team test (real AI calls to teammates only) | START_HERE.md Part C5 |
+| Later: the team's WhatsApp Business number | The landing page's main call to action (Phase 1C) | WhatsApp Business app on a team phone; send the number |
+| Later: a lawyer's read of /privacy and the consent text | Before the landing link is shared publicly (Phase 1C, DPDP) | Claude drafts both; the lawyer reviews |
+| Anytime: 30 minutes of a native Hindi speaker's time | A pass over every Hindi string ("match" vs "मैच", tone) | Claude exports the copy deck as a list to read through |
 
 ## 7. Working agreements (from the founders)
 

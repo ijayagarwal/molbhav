@@ -649,5 +649,100 @@ describe("place and confirm (§6.7)", () => {
     snap = await snapshot(t, orderId);
     expect(snap.order.status).toBe("placing");
     expect(snap.calls.filter((c) => c.round === "confirm")).toHaveLength(2);
+
+    // There is still a way out (C5): set that offer aside and see the next cheapest.
+    expect(await as.mutation(api.placing.chooseAnother, { orderId })).toBe(true);
+    snap = await snapshot(t, orderId);
+    expect(snap.order).toMatchObject({ status: "ready", termsChangedQuoteIds: [winner], setAsideReason: "not_reached" });
+    expect(snap.order.placedQuoteId).toBeUndefined();
+    expect(snap.order.winningQuoteId).not.toBe(winner);
+    expect(await errorCode(as.mutation(api.placing.place, { orderId, expectedQuoteId: winner }))).toBe("winner_changed");
+    await as.mutation(api.placing.place, { orderId, expectedQuoteId: snap.order.winningQuoteId! });
+    await runAll(t);
+    expect((await snapshot(t, orderId)).order.status).toBe("placed");
+  });
+
+  test("chooseAnother is refused during the undo window and while the confirm call runs", async () => {
+    const { t, as, orderId, winner } = await readyDemo();
+    await as.mutation(api.placing.place, { orderId, expectedQuoteId: winner });
+    expect(await as.mutation(api.placing.chooseAnother, { orderId })).toBe(false);
+    await runAll(t, Date.now() + 5_200); // the confirm call has started
+    expect(await as.mutation(api.placing.chooseAnother, { orderId })).toBe(false);
+    await runAll(t);
+    expect((await snapshot(t, orderId)).order.status).toBe("placed");
+  });
+
+  test("undo, then place another offer: the first placement's job can never dial its earlier choice", async () => {
+    const { t, as, orderId, winner, runnerUp } = await readyDemo();
+    await as.mutation(api.placing.place, { orderId, expectedQuoteId: winner });
+    expect(await as.mutation(api.placing.undoPlace, { orderId })).toBe(true);
+    await as.mutation(api.placing.place, { orderId, expectedQuoteId: runnerUp });
+    const { order } = await snapshot(t, orderId);
+    // The old job firing late (e.g. a retry of a job that was already running when undo cancelled it):
+    vi.advanceTimersByTime(5_100);
+    await t.mutation(internal.placing.startConfirm, { orderId, roundSeq: order.roundSeq, quoteId: winner });
+    expect((await snapshot(t, orderId)).calls.filter((c) => c.round === "confirm")).toHaveLength(0);
+    await runAll(t);
+    const { calls } = await snapshot(t, orderId);
+    expect(calls.filter((c) => c.round === "confirm").map((c) => c.confirmQuoteId)).toEqual([runnerUp]);
+  });
+});
+
+describe("citing a haggle result (R17)", () => {
+  test("a haggle drop more than 15% below the median is never cited to the next dealer", async () => {
+    const { t, orderId, dealer } = await setup({ status: "haggling", roundSeq: 1 });
+    const landed = (total: number) => ({ subtotal: total, gst: 0, delivery: 0, unloading: 0, total });
+    const ids = await t.run(async (ctx) => {
+      const call = (dealerId: Id<"dealers">, round: "quote" | "haggle", citedQuoteId?: Id<"quotes">) =>
+        ctx.db.insert("calls", { orderId, dealerId, round, mode: "sim", attempt: 1, roundSeq: 1, status: "completed", statusRank: 10, deadlineAt: 0, extract: "done", extractAttempts: 1, outcome: "quoted", ...(citedQuoteId ? { citedQuoteId } : {}) });
+      const quote = async (dealerId: Id<"dealers">, round: "quote" | "haggle", total: number, citedQuoteId?: Id<"quotes">) =>
+        ctx.db.insert("quotes", {
+          orderId, dealerId, callId: await call(dealerId, round, citedQuoteId), round, lines: [], billType: "pakka", weightBasis: "kanta", saidFinal: false, confidence: 1,
+          readBackConfirmed: true, totalSource: "computed", landed: landed(total), flags: [], comparable: true, citable: true,
+        });
+      const a = await quote(dealer.agarwal, "quote", 20_000_000);
+      await quote(dealer.omsai, "quote", 20_100_000);
+      await quote(dealer.rathore, "quote", 20_200_000);
+      // Om Sai (#2) hears Agarwal's ₹2,00,000 and "drops" to ₹1,60,000: 20% below the median of standing offers.
+      await quote(dealer.omsai, "haggle", 16_000_000, a);
+      await ctx.db.patch(orderId, { matchDealerId: dealer.balaji, selectedDealerIds: [dealer.agarwal, dealer.omsai, dealer.rathore] });
+      return { a };
+    });
+    await t.mutation(internal.engine.advance, { orderId });
+    const { calls } = await snapshot(t, orderId);
+    // No second haggle citing ₹1,60,000 to Agarwal; the match call cites Agarwal's real ₹2,00,000 instead.
+    expect(calls.filter((c) => c.round === "haggle")).toHaveLength(1);
+    expect(calls.find((c) => c.round === "match")).toMatchObject({ dealerId: dealer.balaji, citedQuoteId: ids.a });
+  });
+});
+
+describe("opt-out mid-order (S2, R15)", () => {
+  test("the regular dealer opts out while his match call is queued: the call is cancelled and the order still reaches ready", async () => {
+    const { t, as, orderId, dealer } = await setup();
+    await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: BOOK.map((p) => dealer[p]) });
+    for (let i = 0; i < 2000 && (await snapshot(t, orderId)).order.status !== "matching"; i++) {
+      await t.finishInProgressScheduledFunctions();
+      vi.advanceTimersByTime(50);
+    }
+    const matchCall = (await snapshot(t, orderId)).calls.find((c) => c.dealerId === dealer.balaji)!;
+    expect(matchCall.status).toBe("queued");
+    await t.mutation(internal.admin.optOutDealer, { dealerId: dealer.balaji, note: "asked on another order", actor: "test" });
+    await runAll(t);
+    const { order, calls } = await snapshot(t, orderId);
+    expect(calls.find((c) => c._id === matchCall._id)).toMatchObject({ status: "cancelled", cancelReason: "opted_out" });
+    expect(order.status).toBe("ready");
+    expect(order.winningQuoteId).toBeDefined();
+  });
+
+  test("a call is never created live for a dealer who already opted out: it is cancelled at once and the round moves on", async () => {
+    const { t, as, orderId, dealer } = await setup();
+    await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: BOOK.map((p) => dealer[p]) });
+    // Balaji (held for the match call) opts out before his call is created.
+    await t.run(async (ctx) => ctx.db.patch(dealer.balaji, { consent: "opted_out" }));
+    await runAll(t);
+    const { order, calls } = await snapshot(t, orderId);
+    const toBalaji = calls.filter((c) => c.dealerId === dealer.balaji);
+    expect(toBalaji.every((c) => c.status === "cancelled" && c.cancelReason === "opted_out")).toBe(true);
+    expect(order.status).toBe("ready");
   });
 });

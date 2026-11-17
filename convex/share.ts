@@ -1,13 +1,16 @@
 import { ConvexError, v } from "convex/values";
-import { buildResult, type ResultQuote } from "../lib/result";
+import { buildResult } from "../lib/result";
 import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { requireOwnedOrder } from "./lib/access";
 import { contractorMutation, optionalUserQuery } from "./lib/functions";
+import { publicQuote } from "./lib/projections";
 
-// The shared parchi (G4, DESIGN §21.3, ARCHITECTURE §6.10). A revocable 128-bit publicId; the public view
-// returns ONLY what the parchi shows for its mode. Never the site, a date, phone numbers, recordings or
-// losing dealers' prices. Sandbox orders are never shared (G3).
+// The shared parchi (G4, DESIGN §21.3, ARCHITECTURE §6.10). One revocable 128-bit publicId per order and
+// mode (the shares table), so a link already sent never changes what it shows. The public view returns ONLY
+// what the parchi shows for its mode: never the site, a date, phone numbers, recordings or losing dealers'
+// prices. Sandbox orders are never shared (G3). It is built from the same quote projection and the same
+// frozen ranking as the owner's Result screen, so the two can't disagree.
 
 const mode = v.union(v.literal("full"), v.literal("savings"), v.literal("munshi"));
 const SHAREABLE: ReadonlySet<Doc<"orders">["status"]> = new Set(["ready", "placing", "placed"]);
@@ -20,33 +23,44 @@ function newPublicId(): string {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); // 22 characters
 }
 
-/** Makes (or re-moods) the share link for one of the caller's finished orders. */
+/** The share link for one of the caller's finished orders in this mode: the existing one, or a new one. */
 export const create = contractorMutation({
   args: { orderId: v.id("orders"), mode },
   handler: async (ctx, { orderId, mode }) => {
     const order = await requireOwnedOrder(ctx, orderId);
     if (order.kind !== "app" || !SHAREABLE.has(order.status)) throw new ConvexError({ code: "not_shareable" });
-    const publicId = order.publicId ?? newPublicId();
-    await ctx.db.patch(order._id, { publicId, shareMode: mode });
+    const existing = await ctx.db
+      .query("shares")
+      .withIndex("by_order_mode", (q) => q.eq("orderId", order._id).eq("mode", mode))
+      .unique();
+    if (existing !== null) return existing.publicId;
+    const publicId = newPublicId();
+    await ctx.db.insert("shares", { orderId: order._id, mode, publicId, createdAt: Date.now() });
     return publicId;
   },
 });
 
-/** Turns the link off: the old URL shows nothing from then on. */
+/** Turns every link of the order off: the old URLs show nothing from then on. */
 export const revoke = contractorMutation({
   args: { orderId: v.id("orders") },
   handler: async (ctx, { orderId }) => {
     const order = await requireOwnedOrder(ctx, orderId);
-    await ctx.db.patch(order._id, { publicId: undefined, shareMode: undefined });
+    const links = await ctx.db
+      .query("shares")
+      .withIndex("by_order_mode", (q) => q.eq("orderId", order._id))
+      .collect();
+    for (const l of links) await ctx.db.delete(l._id);
   },
 });
 
 async function view(ctx: QueryCtx, publicId: string) {
   if (!/^[A-Za-z0-9_-]{22}$/.test(publicId)) return null;
-  const order = await ctx.db
-    .query("orders")
+  const link = await ctx.db
+    .query("shares")
     .withIndex("by_publicId", (q) => q.eq("publicId", publicId))
     .unique();
+  if (link === null) return null;
+  const order = await ctx.db.get(link.orderId);
   if (order === null || order.kind !== "app" || !SHAREABLE.has(order.status) || !order.contractorId) return null;
   const contractor = await ctx.db.get(order.contractorId);
   const quotes = await ctx.db
@@ -58,36 +72,22 @@ async function view(ctx: QueryCtx, publicId: string) {
     .withIndex("by_contractor", (q) => q.eq("contractorId", order.contractorId!))
     .collect();
   const regular = relations.find((r) => r.relation === "regular")?.dealerId ?? null;
-  // Once placed, the parchi shows the offer actually placed (the latest confirm call's), not just the cheapest.
-  const confirms = await ctx.db
-    .query("calls")
-    .withIndex("by_order", (q) => q.eq("orderId", order._id))
-    .collect();
-  const placedQuote = confirms.filter((c) => c.round === "confirm" && c.confirmQuoteId).at(-1)?.confirmQuoteId;
+  // While placing or placed, the parchi shows the offer being placed (it may be the contractor's own dealer
+  // rather than the cheapest); otherwise the frozen winner. Offers set aside after a confirm call never show.
+  const placing = order.status === "placing" || order.status === "placed";
   const result = buildResult({
-    quotes: quotes.map(
-      (q): ResultQuote => ({
-        _id: q._id,
-        dealerId: q.dealerId,
-        round: q.round,
-        total: q.landed.total,
-        comparable: q.comparable,
-        citable: q.citable,
-        flags: q.flags,
-        firstTotal: q.firstTotal,
-        creditDays: q.creditDays,
-        deliveryBy: q.deliveryBy,
-      }),
-    ),
+    quotes: quotes.map(publicQuote),
     regularDealerId: regular,
     wantsCredit: (order.creditDaysWanted ?? 0) > 0,
-    winningQuoteId: placedQuote ?? order.winningQuoteId,
+    winningQuoteId: (placing ? order.placedQuoteId : undefined) ?? order.winningQuoteId,
+    ranking: order.ranking,
+    setAside: order.termsChangedQuoteIds,
   });
   const winner = result.winner;
   if (!winner) return null;
   const dealer = await ctx.db.get(winner.dealerId as Doc<"dealers">["_id"]);
   const wq = quotes.find((q) => q._id === winner._id);
-  const m = order.shareMode ?? "full";
+  const m = link.mode;
   const items = order.items.map((i) => ({
     material: i.material,
     diameterMm: i.diameterMm ?? null,

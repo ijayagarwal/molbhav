@@ -12,17 +12,17 @@ import { vOnCompleteArgs } from "@convex-dev/workpool";
 import { v } from "convex/values";
 import { checkCall, parseExtraction, toFacts, type Extraction } from "../lib/extraction";
 import { EXTRACT_PROMPT_VERSION } from "../lib/llm/extractPrompt";
-import { pickWinner, priceQuote, type QuoteFacts } from "../lib/pricing";
+import { priceQuote, type QuoteFacts } from "../lib/pricing";
 import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Doc } from "./_generated/dataModel";
 import { internalAction, internalMutation, type MutationCtx } from "./_generated/server";
 import {
   afterCallSettled,
-  contender,
   earlierQuote,
   factsFromQuote,
   pricingContext,
   roundOpen,
+  setAsidePlaced,
   simExtract,
 } from "./engine";
 import { applyOptOut } from "./lib/optOut";
@@ -165,11 +165,13 @@ export async function applyExtraction(ctx: MutationCtx, order: Doc<"orders">, ca
     await ctx.db.patch(call._id, { extract: "done", outcome, ...extra });
   };
 
-  // An opt-out is honoured whatever else happened in the call (C6, R15).
+  // An opt-out is honoured whatever else happened in the call (C6, R15). Sim calls play shared DEMO
+  // dealers, so a scripted opt-out ends that call only and never opts the shared rows out for everyone.
   if (ex.outcome === "opt_out") {
     await finish("opted_out");
-    await applyOptOut(ctx, call.dealerId, Date.now());
-    await afterCallSettled(ctx, call);
+    if (call.mode !== "sim") await applyOptOut(ctx, call.dealerId, Date.now());
+    if (call.round === "confirm") await confirmResult(ctx, order, call, "opted_out");
+    else await afterCallSettled(ctx, call);
     return;
   }
   // S5: no "AI" and "रिकॉर्ड" before the dealer's first rate → the call's result is dropped.
@@ -265,26 +267,17 @@ export async function applyExtraction(ctx: MutationCtx, order: Doc<"orders">, ca
 }
 
 /**
- * The confirm call's result (§6.7, C5, R15). confirmed → placed. terms_changed → back to ready with that
- * quote set aside and the runner-up (pickWinner over the frozen ranking without it) offered as the winner.
- * Anything else leaves the order placing, with retryConfirm.
+ * The confirm call's result (§6.7, C5, R15). confirmed → placed. terms_changed, declined or opted_out → that
+ * offer is set aside and the order is back at ready with the runner-up offered (setAsidePlaced). Anything
+ * else (no clear answer, a disclosure failure) leaves the order placing: retryConfirm or chooseAnother.
  */
 async function confirmResult(ctx: MutationCtx, order: Doc<"orders">, call: Doc<"calls">, outcome: Outcome): Promise<void> {
+  if (call.confirmQuoteId === undefined || order.placedQuoteId !== call.confirmQuoteId) return;
   if (outcome === "confirmed") {
-    await ctx.db.patch(order._id, { status: "placed" });
+    if (order.status === "placing") await ctx.db.patch(order._id, { status: "placed" });
     return;
   }
-  if (outcome !== "terms_changed") return;
-  const setAside = [...(order.termsChangedQuoteIds ?? [])];
-  if (call.confirmQuoteId !== undefined && !setAside.includes(call.confirmQuoteId)) setAside.push(call.confirmQuoteId);
-  const ranked = (await Promise.all((order.ranking ?? []).map((id) => ctx.db.get(id))))
-    .filter((q): q is Doc<"quotes"> => q !== null && !setAside.includes(q._id))
-    .map(contender);
-  const runnerUp = pickWinner(ranked, { wantsCredit: (order.creditDaysWanted ?? 0) > 0 });
-  await ctx.db.patch(order._id, {
-    status: "ready",
-    termsChangedQuoteIds: setAside,
-    winningQuoteId: runnerUp === null ? undefined : (runnerUp.quoteId as Id<"quotes">),
-  });
+  if (outcome === "terms_changed") await setAsidePlaced(ctx, order, call.confirmQuoteId, "terms_changed");
+  else if (outcome === "declined" || outcome === "opted_out") await setAsidePlaced(ctx, order, call.confirmQuoteId, "declined");
 }
 

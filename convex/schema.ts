@@ -139,9 +139,11 @@ export default defineSchema({
     undoUntil: v.optional(v.number()),   // end of the undo window after place (ms), so a reload can show the countdown
     matchDealerId: v.optional(v.id("dealers")),  // the regular dealer held for the match call at sweep start (P1); absent when askFirst
     haggleSkipped: v.optional(v.boolean()),       // fewer than 2 citable quotes: no haggle round (haggle.skipped, R15)
-    termsChangedQuoteIds: v.optional(v.array(v.id("quotes"))),  // winners whose dealer changed terms on the confirm call (C5); the runner-up is offered
-    publicId: v.optional(v.string()),    // 16 random bytes as 22 base64url characters (128 bits), revocable
-    shareMode: v.optional(v.union(v.literal("full"), v.literal("savings"), v.literal("munshi"))),
+    termsChangedQuoteIds: v.optional(v.array(v.id("quotes"))),  // placed offers set aside after the confirm call (terms changed, declined, not reached; C5); never offered again
+    setAsideReason: v.optional(v.union(v.literal("terms_changed"), v.literal("declined"), v.literal("not_reached"))),  // why the latest one was set aside (Result's notice)
+    placedQuoteId: v.optional(v.id("quotes")),   // the offer being placed (placing → placed); cleared on undo or set-aside
+    publicId: v.optional(v.string()),    // legacy (before the shares table); no longer written or read
+    shareMode: v.optional(v.union(v.literal("full"), v.literal("savings"), v.literal("munshi"))),  // legacy, as above
     expiresAt: v.optional(v.number()),   // sandbox: 24 h
   }).index("by_owner", ["ownerUserId"]).index("by_contractor", ["contractorId"]).index("by_publicId", ["publicId"]).index("by_expiresAt", ["expiresAt"]),
 
@@ -219,6 +221,13 @@ export default defineSchema({
     consentAiCalls: v.optional(v.boolean()),  // dealers from /dealer: agrees to AI quote calls
     ipHash: v.string(), createdAt: v.number(),
   }).index("by_phone", ["phoneE164"]),
+
+  shares: defineTable({                  // shared parchi links (G4): one per order and mode, so a sent link never changes
+    orderId: v.id("orders"),
+    mode: v.union(v.literal("full"), v.literal("savings"), v.literal("munshi")),
+    publicId: v.string(),                // 16 random bytes as 22 base64url characters (128 bits), revocable
+    createdAt: v.number(),
+  }).index("by_publicId", ["publicId"]).index("by_order_mode", ["orderId", "mode"]),
 
   events: defineTable({                  // funnel analytics (G6); no personal data
     name: v.string(), props: v.optional(v.string()), path: v.string(), at: v.number(),

@@ -46,6 +46,8 @@ export const get = userQuery({
         ranking: order.ranking,
         undoUntil: order.undoUntil,
         termsChangedQuoteIds: order.termsChangedQuoteIds ?? [],
+        setAsideReason: order.setAsideReason,
+        placedQuoteId: order.placedQuoteId,
       },
       dealers: dealers.map((d) => ({ ...publicDealer(d), isRegular: regular.has(d._id) })),
       calls: calls.map(publicCall),

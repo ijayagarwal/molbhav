@@ -440,6 +440,10 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `placed.undo` | रद्द करना है? | Cancel? |
 | `placed.title` | ऑर्डर पक्का | Order confirmed |
 | `placed.termsChanged` | dealer ने शर्तें बदलीं · अगला सबसे सस्ता देखिए | The dealer changed terms · see the next cheapest |
+| `result.setAsideDeclined` | dealer ने मना किया · अगला सबसे सस्ता देखिए | The dealer said no · see the next cheapest |
+| `result.setAsideNotReached` | dealer से बात नहीं हो पाई · अगला सबसे सस्ता देखिए | Couldn't reach the dealer · see the next cheapest |
+| `placed.chooseAnother` | अगला सबसे सस्ता देखिए | See the next cheapest |
+| `result.placeFailed` | ऑर्डर नहीं हो पाया · फिर से कोशिश कीजिए | Couldn't place this order · please try again |
 | `badge.regular` | आपके dealer | Your dealer |
 | `badge.demo` | DEMO | DEMO |
 | `demo.watermark` | DEMO · काल्पनिक dealers | DEMO · fictional dealers |

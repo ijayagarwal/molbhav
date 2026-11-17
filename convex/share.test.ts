@@ -51,10 +51,43 @@ describe("share (G4)", () => {
   });
   test("savings hides the dealer and total; munshi hides the saving", async () => {
     const { t, as, orderId } = await finishedOrder();
-    const publicId = await as.mutation(api.share.create, { orderId, mode: "savings" });
-    expect(await t.query(api.share.get, { publicId })).toMatchObject({ dealer: null, total: null, saved: 547_000 });
-    await as.mutation(api.share.create, { orderId, mode: "munshi" });
-    expect(await t.query(api.share.get, { publicId })).toMatchObject({ dealer: { name: "Agarwal Steels" }, total: 19_883_000, saved: null });
+    const savings = await as.mutation(api.share.create, { orderId, mode: "savings" });
+    expect(await t.query(api.share.get, { publicId: savings })).toMatchObject({ dealer: null, total: null, saved: 547_000 });
+    const munshi = await as.mutation(api.share.create, { orderId, mode: "munshi" });
+    expect(await t.query(api.share.get, { publicId: munshi })).toMatchObject({ dealer: { name: "Agarwal Steels" }, total: 19_883_000, saved: null });
+  });
+  test("each mode has its own link, and a link already sent never changes what it shows", async () => {
+    const { t, as, orderId } = await finishedOrder();
+    const savings = await as.mutation(api.share.create, { orderId, mode: "savings" });
+    const full = await as.mutation(api.share.create, { orderId, mode: "full" });
+    expect(full).not.toBe(savings);
+    expect(await t.query(api.share.get, { publicId: savings })).toMatchObject({ mode: "savings", dealer: null, total: null });
+    expect(await as.mutation(api.share.create, { orderId, mode: "savings" })).toBe(savings);
+    await as.mutation(api.share.revoke, { orderId });
+    expect(await t.query(api.share.get, { publicId: savings })).toBeNull();
+    expect(await t.query(api.share.get, { publicId: full })).toBeNull();
+  });
+  test("a first rate that wasn't comparable is never the public savings basis either (R17)", async () => {
+    const { t, as, orderId } = await finishedOrder();
+    await t.run(async (ctx) => {
+      const match = (await ctx.db.query("quotes").withIndex("by_order", (q) => q.eq("orderId", orderId)).collect()).find((q) => q.round === "match")!;
+      await ctx.db.patch(match._id, { firstComparable: false, firstTotal: 23_000_000 });
+    });
+    const view = await t.query(api.share.get, { publicId: await as.mutation(api.share.create, { orderId, mode: "full" }) });
+    expect(view?.basis).not.toBe("first_rate");
+    expect(view?.saved ?? 0).toBeLessThan(23_000_000 - 19_883_000);
+  });
+  test("while placing, the parchi shows the offer being placed; once set aside, never again", async () => {
+    const { t, as, orderId } = await finishedOrder();
+    const publicId = await as.mutation(api.share.create, { orderId, mode: "full" });
+    const balaji = await t.run(async (ctx) => (await ctx.db.query("quotes").withIndex("by_order", (q) => q.eq("orderId", orderId)).collect()).find((q) => q.round === "match")!._id);
+    const win = await t.run(async (ctx) => (await ctx.db.get(orderId))!.winningQuoteId!);
+    // "उन्हीं से लीजिए": the contractor places his own dealer's offer.
+    await t.run(async (ctx) => ctx.db.patch(orderId, { status: "placing", placedQuoteId: balaji }));
+    expect(await t.query(api.share.get, { publicId })).toMatchObject({ dealer: { name: "Shree Balaji Traders" }, total: 20_010_000 });
+    // The dealer changed terms: set aside, back at ready with the cheapest offered again.
+    await t.run(async (ctx) => ctx.db.patch(orderId, { status: "ready", placedQuoteId: undefined, termsChangedQuoteIds: [balaji], winningQuoteId: win }));
+    expect(await t.query(api.share.get, { publicId })).toMatchObject({ dealer: { name: "Agarwal Steels" }, total: 19_883_000 });
   });
   test("revoke kills the link; drafts can't be shared; strangers can't share someone's order", async () => {
     const { t, as, orderId } = await finishedOrder();

@@ -57,4 +57,24 @@ describe("buildResult (special states)", () => {
     const r = buildResult({ quotes: DEMO, regularDealerId: "balaji", wantsCredit: true, winningQuoteId: "ho" });
     expect(r.winner?._id).toBe("ho");
   });
+  test("the frozen ranking is used as is: the outlier rule doesn't run a second time on what's left", () => {
+    // freezeReady ranked a–d and marked e (200k) an outlier. Recomputing over a–d alone would drop d (114k).
+    const rows = [
+      q({ _id: "a", dealerId: "da", round: "quote", total: 8_700_000 }),
+      q({ _id: "b", dealerId: "db", round: "quote", total: 8_800_000 }),
+      q({ _id: "c", dealerId: "dc", round: "quote", total: 10_000_000 }),
+      q({ _id: "d", dealerId: "dd", round: "quote", total: 11_400_000 }),
+      q({ _id: "e", dealerId: "de", round: "quote", total: 20_000_000, comparable: false, citable: false, flags: ["outlier"] }),
+    ];
+    const r = buildResult({ quotes: rows, regularDealerId: "dd", wantsCredit: false, winningQuoteId: "d", ranking: ["a", "b", "c", "d"] });
+    expect(r.ranked.map((x) => x._id)).toEqual(["a", "b", "c", "d"]);
+    expect(r.winner?._id).toBe("d"); // the offer actually placed
+    expect(r.notComparable.map((x) => x._id)).toEqual(["e"]);
+  });
+  test("an offer set aside after its confirm call is neither ranked nor listed", () => {
+    const r = buildResult({ quotes: DEMO, regularDealerId: "balaji", wantsCredit: true, ranking: ["ha", "ho", "mb"], setAside: ["ha"], winningQuoteId: "ho" });
+    expect(r.ranked.map((x) => x._id)).toEqual(["ho", "mb"]);
+    expect(r.winner?._id).toBe("ho");
+    expect(r.notComparable.map((x) => x._id)).toEqual(["qr"]);
+  });
 });

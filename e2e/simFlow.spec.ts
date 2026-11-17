@@ -1,4 +1,4 @@
-import { expect, expectNoHorizontalScroll, test } from "./fixtures";
+import { expect, expectNoHorizontalScroll, expectOpaque, test } from "./fixtures";
 
 // The whole order in sim mode (Phase 6B done-when): onboarding → the example order → Confirm → choose dealers
 // → the sweep board → Result → place → undo → place again → the confirm call → placed. DEMO dealers only; no
@@ -29,6 +29,11 @@ test("a new contractor gets the cheapest comparable offer and places it", async 
   await page.waitForURL(/\/sweep$/);
   await expect(page.locator("main").getByText("DEMO", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expectNoHorizontalScroll(page);
+
+  // The first landed price shows on the board, and a person can actually see it (not just in the DOM).
+  const firstPrice = page.locator("main").getByText(/₹\d{1,2},\d{2},\d{3}/).filter({ visible: true }).first();
+  await firstPrice.waitFor({ timeout: 90_000 });
+  await expectOpaque(firstPrice);
 
   // The board runs the sweep, the haggle and the match on its own, then hands over to Result.
   await page.waitForURL(/\/result$/, { timeout: 180_000 });

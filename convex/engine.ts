@@ -184,6 +184,30 @@ export async function createCall(ctx: MutationCtx, order: Doc<"orders">, c: NewC
   const now = Date.now();
   const prior = (await roundCalls(ctx, order)).filter((x) => x.dealerId === c.dealerId && x.round === c.round).length;
   const deadlineAt = now + CALLS.queueDeadlineMs;
+  // A dealer who opted out is never called again (S2, R15): the call is recorded as cancelled at once and
+  // the round moves on without it.
+  const dealer = await ctx.db.get(c.dealerId);
+  if (dealer === null || dealer.consent === "opted_out") {
+    const callId = await ctx.db.insert("calls", {
+      orderId: order._id,
+      dealerId: c.dealerId,
+      round: c.round,
+      mode: order.mode,
+      attempt: prior + 1,
+      roundSeq: order.roundSeq,
+      status: "cancelled",
+      statusRank: 10,
+      cancelReason: "opted_out",
+      endedAt: now,
+      deadlineAt,
+      extract: "pending",
+      extractAttempts: 0,
+      ...(c.citedQuoteId === undefined ? {} : { citedQuoteId: c.citedQuoteId }),
+      ...(c.confirmQuoteId === undefined ? {} : { confirmQuoteId: c.confirmQuoteId }),
+    });
+    if (c.round !== "confirm") await ctx.scheduler.runAfter(0, internal.engine.advance, { orderId: order._id });
+    return callId;
+  }
   const callId = await ctx.db.insert("calls", {
     orderId: order._id,
     dealerId: c.dealerId,
@@ -286,12 +310,15 @@ export async function advanceOrder(ctx: MutationCtx, orderId: Id<"orders">): Pro
 async function step(ctx: MutationCtx, order: Doc<"orders">, calls: Doc<"calls">[], quotes: Doc<"quotes">[]): Promise<void> {
   const all = quotes.map(contender);
   const quoteRound = withOutliers(all.filter((c) => c.round === "quote"));
+  // A haggle result gets the same outlier rule over every standing offer before it may be cited (R17): a
+  // drop more than 15% from the median is never quoted to the next dealer.
+  const checked = new Map(withOutliers(all).map((c) => [c.quoteId, c]));
   const byCall = new Map<string, Doc<"quotes">>(quotes.map((q) => [q.callId, q]));
   const haggles: HaggleCall[] = calls
     .filter((c) => c.round === "haggle")
     .map((c) => {
       const q = byCall.get(c._id);
-      return { dealerId: c.dealerId, citedQuoteId: c.citedQuoteId ?? "", result: !settled(c) ? undefined : q === undefined ? null : contender(q) };
+      return { dealerId: c.dealerId, citedQuoteId: c.citedQuoteId ?? "", result: !settled(c) ? undefined : q === undefined ? null : (checked.get(q._id) ?? contender(q)) };
     });
   const state: HaggleState = {
     quoteRound,
@@ -348,6 +375,37 @@ export async function freezeReady(ctx: MutationCtx, order: Doc<"orders">, quotes
     ranking: ranked.map((c) => c.quoteId as Id<"quotes">),
     winningQuoteId: winner === null ? undefined : (winner.quoteId as Id<"quotes">),
   });
+}
+
+/**
+ * The offer being placed fell through (C5): the dealer changed terms or declined on the confirm call, opted
+ * out, or couldn't be reached and the contractor chose to move on. That offer is set aside for good and the
+ * order is back at ready with the runner-up from the frozen ranking (pickWinner without it) offered.
+ * No-op unless the order is placing that very offer.
+ */
+export async function setAsidePlaced(
+  ctx: MutationCtx,
+  order: Doc<"orders">,
+  quoteId: Id<"quotes">,
+  reason: NonNullable<Doc<"orders">["setAsideReason"]>,
+): Promise<boolean> {
+  if (order.status !== "placing" || order.placedQuoteId !== quoteId) return false;
+  const setAside = [...(order.termsChangedQuoteIds ?? [])];
+  if (!setAside.includes(quoteId)) setAside.push(quoteId);
+  const ranked = (await Promise.all((order.ranking ?? []).map((id) => ctx.db.get(id))))
+    .filter((q): q is Doc<"quotes"> => q !== null && !setAside.includes(q._id))
+    .map(contender);
+  const runnerUp = pickWinner(ranked, { wantsCredit: (order.creditDaysWanted ?? 0) > 0 });
+  await ctx.db.patch(order._id, {
+    status: "ready",
+    termsChangedQuoteIds: setAside,
+    setAsideReason: reason,
+    winningQuoteId: runnerUp === null ? undefined : (runnerUp.quoteId as Id<"quotes">),
+    placedQuoteId: undefined,
+    placeJobId: undefined,
+    undoUntil: undefined,
+  });
+  return true;
 }
 
 /** After a call settles: sweep calls move the round on; a confirm call that didn't connect leaves the order placing (R15). */

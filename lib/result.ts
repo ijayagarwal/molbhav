@@ -1,6 +1,7 @@
 // The result of an order (DESIGN §12.7, ARCHITECTURE §6.6 item 4, §6.8), from its priced quotes. Pure:
 // it reuses lib/pricing.ts for everything (standing offers, the outlier rule, the winner, the savings), so
-// the screen only renders. When the engine froze a winner (order.winningQuoteId), that one is the winner.
+// the screen only renders. When the engine froze a winner (order.winningQuoteId), that one is the winner;
+// when it froze a ranking (order.ranking), that ranking is used as is, so the outlier rule never runs twice.
 import type { DeliverBy, Flag, Round } from "./domain";
 import { computeSavings, pickWinner, rankStanding, standingQuotes, type Contender, type Savings } from "./pricing";
 
@@ -26,6 +27,10 @@ export interface ResultInput {
   regularDealerId: string | null;
   wantsCredit: boolean;
   winningQuoteId?: string;
+  /** The engine's frozen ranking (order.ranking, cheapest first), once the order is ready. */
+  ranking?: string[];
+  /** Offers set aside after a confirm call (order.termsChangedQuoteIds): never offered again. */
+  setAside?: string[];
 }
 
 export interface ResultView {
@@ -56,9 +61,13 @@ export function buildResult(input: ResultInput): ResultView {
     comparable: q.comparable,
     citable: q.citable,
   }));
+  const setAside = new Set(input.setAside ?? []);
   const standing = standingQuotes(contenders);
-  const ranked = rankStanding(standing);
-  const rankedIds = new Set(ranked.map((c) => c.quoteId));
+  const byContender = new Map(contenders.map((c) => [c.quoteId, c]));
+  const ranked = (
+    input.ranking ? input.ranking.map((id) => byContender.get(id)).filter((c): c is Contender => c !== undefined) : rankStanding(standing)
+  ).filter((c) => !setAside.has(c.quoteId));
+  const rankedDealers = new Set(ranked.map((c) => c.dealerId));
   const frozen = input.winningQuoteId ? ranked.find((c) => c.quoteId === input.winningQuoteId) : undefined;
   const winnerC = frozen ?? pickWinner(ranked, { wantsCredit: input.wantsCredit });
 
@@ -88,7 +97,7 @@ export function buildResult(input: ResultInput): ResultView {
   return {
     winner: winnerC ? (byId.get(winnerC.quoteId) ?? null) : null,
     ranked: ranked.map((c) => byId.get(c.quoteId)!),
-    notComparable: standing.filter((c) => !rankedIds.has(c.quoteId)).map((c) => byId.get(c.quoteId)!),
+    notComparable: standing.filter((c) => !rankedDealers.has(c.dealerId) && !setAside.has(c.quoteId)).map((c) => byId.get(c.quoteId)!),
     savings,
     regular:
       input.regularDealerId && regularQuotes.length > 0

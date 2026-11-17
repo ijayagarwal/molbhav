@@ -1,5 +1,6 @@
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import type { Metadata } from "next";
+import { MotionRoot } from "@/components/mb/MotionRoot";
 import { ServiceWorker } from "@/features/app/ServiceWorker";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 
@@ -11,7 +12,9 @@ export default function ProductLayout({ children }: { children: React.ReactNode 
   return (
     <ConvexAuthNextjsServerProvider>
       <ConvexClientProvider>
-        {children}
+        {/* Every m.* element (prices on the board, captions, strikes, the tally) needs LazyMotion's features;
+            without them they stay at their initial style, invisible (F7). */}
+        <MotionRoot>{children}</MotionRoot>
         <ServiceWorker />
       </ConvexClientProvider>
     </ConvexAuthNextjsServerProvider>

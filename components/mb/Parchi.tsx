@@ -32,14 +32,7 @@ export function Parchi({ heading, status, dealerName, totalPaise, allInLabel, li
         <header className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-2 text-meta">
           <span className="text-ink-2">{heading}</span>
           <span className="font-ui-semibold text-hara">{status}</span>
-          {watermark ? (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none ml-auto -rotate-6 whitespace-nowrap rounded-parchi border-[1.5px] border-lal bg-card px-2 py-0.5 font-mono text-meta font-semibold tracking-[0.04em] text-lal opacity-90"
-            >
-              {watermark}
-            </span>
-          ) : null}
+          {watermark ? <DemoStamp label={watermark} className="ml-auto" /> : null}
         </header>
         <h3 className="font-display text-title-2">{dealerName}</h3>
         <div className="min-w-0 overflow-hidden">
@@ -78,5 +71,16 @@ export function Parchi({ heading, status, dealerName, totalPaise, allInLabel, li
         }}
       />
     </article>
+  );
+}
+
+/** The lal rubber stamp that marks sim and sandbox results ("DEMO · काल्पनिक dealers"), wherever a result is shown. */
+export function DemoStamp({ label, className = "" }: { label: string; className?: string }) {
+  return (
+    <span
+      className={`pointer-events-none -rotate-6 whitespace-nowrap rounded-parchi border-[1.5px] border-lal bg-card px-2 py-0.5 font-mono text-meta font-semibold tracking-[0.04em] text-lal opacity-90 ${className}`}
+    >
+      {label}
+    </span>
   );
 }

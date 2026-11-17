@@ -257,9 +257,11 @@ export default defineSchema({
     undoUntil: v.optional(v.number()),   // end of the undo window after place (ms), so a reload can show the countdown
     matchDealerId: v.optional(v.id("dealers")),  // the regular dealer held for the match call at sweep start (P1); absent when askFirst
     haggleSkipped: v.optional(v.boolean()),       // fewer than 2 citable quotes: no haggle round (haggle.skipped, R15)
-    termsChangedQuoteIds: v.optional(v.array(v.id("quotes"))),  // winners whose dealer changed terms on the confirm call (C5); the runner-up is offered
-    publicId: v.optional(v.string()),    // 16 random bytes as 22 base64url characters (128 bits), revocable
-    shareMode: v.optional(v.union(v.literal("full"), v.literal("savings"), v.literal("munshi"))),
+    termsChangedQuoteIds: v.optional(v.array(v.id("quotes"))),  // placed offers set aside after the confirm call (terms changed, declined, not reached; C5); never offered again
+    setAsideReason: v.optional(v.union(v.literal("terms_changed"), v.literal("declined"), v.literal("not_reached"))),  // why the latest one was set aside (Result's notice)
+    placedQuoteId: v.optional(v.id("quotes")),   // the offer being placed (placing → placed); cleared on undo or set-aside
+    publicId: v.optional(v.string()),    // legacy (before the shares table); no longer written or read
+    shareMode: v.optional(v.union(v.literal("full"), v.literal("savings"), v.literal("munshi"))),  // legacy, as above
     expiresAt: v.optional(v.number()),   // sandbox: 24 h
   }).index("by_owner", ["ownerUserId"]).index("by_contractor", ["contractorId"]).index("by_publicId", ["publicId"]).index("by_expiresAt", ["expiresAt"]),
 
@@ -337,6 +339,13 @@ export default defineSchema({
     consentAiCalls: v.optional(v.boolean()),  // dealers from /dealer: agrees to AI quote calls
     ipHash: v.string(), createdAt: v.number(),
   }).index("by_phone", ["phoneE164"]),
+
+  shares: defineTable({                  // shared parchi links (G4): one per order and mode, so a sent link never changes
+    orderId: v.id("orders"),
+    mode: v.union(v.literal("full"), v.literal("savings"), v.literal("munshi")),
+    publicId: v.string(),                // 16 random bytes as 22 base64url characters (128 bits), revocable
+    createdAt: v.number(),
+  }).index("by_publicId", ["publicId"]).index("by_order_mode", ["orderId", "mode"]),
 
   events: defineTable({                  // funnel analytics (G6); no personal data
     name: v.string(), props: v.optional(v.string()), path: v.string(), at: v.number(),
@@ -445,7 +454,12 @@ export default defineSchema({
 4. Then rank by total within the tier (table order). The winner is the quote with the most credit days among those within 0.5% of the cheapest, then the earlier delivery, then the lower total. Freeze `ranking` and set `ready`.
 
 ### 6.7 Place and confirm (round 4, C5)
-`orders.place({ orderId, expectedQuoteId })` checks that the winner hasn't changed and starts the undo window (`UNDO_WINDOW_SEC`: 120 s live, 5 s sim demo). The scheduled job id is stored in `placeJobId`, so "रद्द" cancels it. Then a Confirm agent call (relay only). `outcome: confirmed` moves the order to `placed`. `terms_changed` brings the contractor back to Result with the runner-up highlighted. A confirm call that doesn't connect (no answer, busy, failed) leaves the order in `placing` with "dealer से बात नहीं हो पाई" (`placed.notReached`) and a retry option (R15). Voice confirm goes through `lib/commands.ts` (V4).
+`placing.place({ orderId, expectedQuoteId })` accepts the frozen winner or another standing ranked offer ("उन्हीं से लीजिए"), never one set aside, and starts the undo window (`UNDO_WINDOW_SEC`: 120 s live, 5 s sim demo). The chosen offer is stored in `placedQuoteId` and the scheduled job id in `placeJobId`, so "रद्द" cancels it; the job dials only if `placedQuoteId` still matches (an undo and a new place make an older job stale). Then a Confirm agent call (relay only).
+- `outcome: confirmed` moves the order to `placed`.
+- `terms_changed`, `declined` or an opt-out set that offer aside (`termsChangedQuoteIds`, `setAsideReason`) and bring the contractor back to Result with the runner-up (pickWinner over the frozen ranking without it).
+- A confirm call that doesn't connect (no answer, busy, failed) or settles nothing leaves the order in `placing` with "dealer से बात नहीं हो पाई" (`placed.notReached`), one retry (R15, never to a dealer who said no or opted out) and "अगला सबसे सस्ता देखिए" (`placing.chooseAnother`, which sets the offer aside as `not_reached`).
+
+Voice confirm goes through `lib/commands.ts` (V4).
 
 ### 6.8 Result summary
 `tts.summary` builds 2–3 short sentences in code, speaking the site and deadline only if they are non-default, then calls Bulbul v4 Flash. Audio is cached in storage for 24 h. Muted by default when the user has turned the spoken result off (V7).
@@ -454,7 +468,7 @@ export default defineSchema({
 The route `POST /api/voice/order?sandbox=1` calls `checkBotId()` and refuses bots. The mic is behind a tap, and the request is made with `fetch` from the `/try` page, so BotID's challenge headers are attached. Limits: `sbx:device` 3/h, `sbx:ip` 10/h, `sbx:global` 500/day, plus a daily ₹ kill switch (`SANDBOX_DAILY_INR_CAP`), on a separate billed Gemini key. Then `sandbox.createDraft` (server secret) creates `kind: "sandbox"`, forced to sim mode, with `expiresAt` 24 h. Sandbox orders never get `publicId` and never go live. A cron deletes expired sandbox orders. The landing-page hero board runs on client-side fixtures only.
 
 ### 6.10 Shared parchi (G4)
-`share.create({ orderId, mode })` makes a revocable 22-character (128-bit) `publicId`. `share.get({ publicId })` (named `get` because `public` is a reserved word in JS modules) returns only: dealer name, items (no rates in `savings` mode), total, saving vs the first rate, delivery window, and a DEMO watermark flag. **Never** site, date, phone numbers, recordings or losing prices. The page is `noindex`. `opengraph-image.tsx` renders the same data with `@vercel/og` 1.0.3 and static TTFs; `parchi.png` serves that image at a fixed URL (the og:image URL is hashed in production). The client fetches `parchi.png` when a share mode is picked and calls `navigator.share({ files })` inside the tap, falling back to a wa.me link to `/p/...`.
+`share.create({ orderId, mode })` returns the order's link for that mode (a row in `shares`), making a revocable 22-character (128-bit) `publicId` the first time; each mode has its own link, so a link already sent never changes what it shows. `share.revoke` deletes all of an order's links. `share.get({ publicId })` (named `get` because `public` is a reserved word in JS modules) returns only: dealer name, items (no rates in `savings` mode), total, saving vs the first rate, delivery window, and a DEMO watermark flag. It uses the same quote projection and frozen ranking as the owner's Result screen; while placing or placed it shows the offer being placed (`placedQuoteId`), and never an offer set aside. **Never** site, date, phone numbers, recordings or losing prices. The page is `noindex`. `opengraph-image.tsx` renders the same data with `@vercel/og` 1.0.3 and static TTFs; `parchi.png` serves that image at a fixed URL (the og:image URL is hashed in production). The client fetches `parchi.png` when a share mode is picked and calls `navigator.share({ files })` inside the tap, falling back to a wa.me link to `/p/...`.
 
 ### 6.11 Recordings and retention (B6, S4)
 - `media.copyRecording` (media pool) follows Bolna's recording URL (a 24 h presigned redirect) and saves the file to Convex storage.

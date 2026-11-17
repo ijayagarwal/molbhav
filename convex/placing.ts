@@ -7,7 +7,7 @@ import { CALLS } from "../lib/config";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
-import { createCall, isFinal, roundCalls, undoWindowMs } from "./engine";
+import { createCall, isFinal, roundCalls, setAsidePlaced, undoWindowMs } from "./engine";
 import { requireOwnedOrder } from "./lib/access";
 import { userMutation } from "./lib/functions";
 
@@ -30,7 +30,7 @@ export const place = userMutation({
     if (order.mode === "live") throw new ConvexError({ code: "live_not_ready" });
     const undoUntil = Date.now() + undoWindowMs(order.mode);
     const placeJobId = await ctx.scheduler.runAt(undoUntil, internal.placing.startConfirm, { orderId, roundSeq: order.roundSeq, quoteId: expectedQuoteId });
-    await ctx.db.patch(order._id, { status: "placing", placeJobId, undoUntil });
+    await ctx.db.patch(order._id, { status: "placing", placeJobId, undoUntil, placedQuoteId: expectedQuoteId });
     return { undoUntil };
   },
 });
@@ -42,7 +42,7 @@ export const undoPlace = userMutation({
     const order = await requireOwnedOrder(ctx, orderId);
     if (order.status !== "placing" || order.placeJobId === undefined) return false;
     await ctx.scheduler.cancel(order.placeJobId as Id<"_scheduled_functions">);
-    await ctx.db.patch(order._id, { status: "ready", placeJobId: undefined, undoUntil: undefined });
+    await ctx.db.patch(order._id, { status: "ready", placeJobId: undefined, undoUntil: undefined, placedQuoteId: undefined });
     return true;
   },
 });
@@ -61,21 +61,41 @@ export const retryConfirm = userMutation({
     const last = confirms[confirms.length - 1];
     if (last === undefined || !isFinal(last.status)) return false;
     if (last.status === "completed" && last.extract !== "done" && last.extract !== "failed") return false;
-    if (last.outcome === "confirmed" || last.outcome === "terms_changed") return false;
+    // A dealer who said no or opted out is never called again about it (those outcomes already moved the order on).
+    if (last.outcome === "confirmed" || last.outcome === "terms_changed" || last.outcome === "declined" || last.outcome === "opted_out") return false;
+    if (last.cancelReason === "opted_out" || (await ctx.db.get(last.dealerId))?.consent === "opted_out") return false;
     if (confirms.filter((c) => c.dealerId === last.dealerId).length >= CALLS.maxConfirmCallsPerOrderPerDealer) return false;
     await createCall(ctx, order, { dealerId: last.dealerId, round: "confirm", confirmQuoteId: last.confirmQuoteId, delayMs: 0 });
     return true;
   },
 });
 
-/** The end of the undo window: the confirm call to the winner, relaying the approved terms only (C5). */
+/**
+ * The confirm call didn't settle anything (not reached after the retry, or no clear answer) and the contractor
+ * moves on: that offer is set aside and the order is back at Result with the next cheapest (C5). Also
+ * allowed before the retry is used. False while the undo window or a confirm call is still running.
+ */
+export const chooseAnother = userMutation({
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, { orderId }): Promise<boolean> => {
+    const order = await requireOwnedOrder(ctx, orderId);
+    if (order.status !== "placing" || order.placeJobId !== undefined || order.placedQuoteId === undefined) return false;
+    const confirms = (await roundCalls(ctx, order)).filter((c) => c.round === "confirm");
+    const last = confirms[confirms.length - 1];
+    if (last === undefined || !isFinal(last.status) || last.outcome === "confirmed") return false;
+    if (last.status === "completed" && last.extract !== "done" && last.extract !== "failed") return false;
+    return await setAsidePlaced(ctx, order, order.placedQuoteId, "not_reached");
+  },
+});
+
+/** The end of the undo window: the confirm call to the chosen offer's dealer, relaying the approved terms only (C5). */
 export const startConfirm = internalMutation({
   args: { orderId: v.id("orders"), roundSeq: v.number(), quoteId: v.id("quotes") },
   handler: async (ctx, { orderId, roundSeq, quoteId }) => {
     const order = await ctx.db.get(orderId);
-    // The placed offer is the winner or another ranked offer the contractor chose (place checked which).
-    const chosen = quoteId === order?.winningQuoteId || (order?.ranking ?? []).includes(quoteId);
-    if (order === null || order.status !== "placing" || order.roundSeq !== roundSeq || !chosen) return;
+    // Only the job of the current placement may dial: an undo and a new place make an older job stale.
+    if (order === null || order.status !== "placing" || order.roundSeq !== roundSeq || order.placedQuoteId !== quoteId) return;
+    if (order.undoUntil !== undefined && Date.now() < order.undoUntil) return;
     const quote = await ctx.db.get(quoteId);
     if (quote === null) return;
     if ((await roundCalls(ctx, order)).some((c) => c.round === "confirm" && !isFinal(c.status))) return;

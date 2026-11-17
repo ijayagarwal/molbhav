@@ -1,7 +1,7 @@
 import { fetchQuery } from "convex/nextjs";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Parchi } from "@/components/mb/Parchi";
+import { DemoStamp, Parchi } from "@/components/mb/Parchi";
 import { Wordmark } from "@/components/mb/Wordmark";
 import { api } from "@/convex/_generated/api";
 import { DELIVER_BY } from "@/lib/config";
@@ -58,11 +58,15 @@ export default async function SharedParchiPage({ params }: PageProps<"/p/[public
           watermark={view.demo ? t["demo.watermark"] : undefined}
         />
       ) : (
-        <ul className="flex flex-col gap-1 rounded-card border border-rule bg-card p-4 text-body">
-          {items.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
+        <div className="flex flex-col gap-2 rounded-card border border-rule bg-card p-4">
+          {/* Savings mode has no parchi, so the DEMO stamp goes on this card: a sim result is always marked. */}
+          {view.demo ? <DemoStamp label={t["demo.watermark"]} className="self-end" /> : null}
+          <ul className="flex flex-col gap-1 text-body">
+            {items.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <ul className="flex flex-col gap-2 text-body">

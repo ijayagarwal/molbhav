@@ -21,7 +21,8 @@ import { earcons } from "@/lib/client/earcons";
 import { haptics } from "@/lib/client/haptics";
 import { usePrefs } from "@/lib/client/prefs";
 import { DELIVER_BY } from "@/lib/config";
-import type { DeliverBy, OrderItem, QuoteLine } from "@/lib/domain";
+import type { DeliverBy, OrderItem, QuoteLine, Unit } from "@/lib/domain";
+import type { DictKey } from "@/lib/i18n/getDict";
 import { useT } from "@/lib/i18n/useT";
 import { formatPaise, formatRate } from "@/lib/numbers";
 import { lineBreakdown } from "@/lib/pricing";
@@ -33,7 +34,11 @@ import { speak } from "./HomeScreen";
 import { OrderLoading, OrderMissing } from "./OrderStates";
 import { useOrderScreen } from "./useOrderScreen";
 
-const UNIT_HI = { kg: "किलो", ton: "टन", quintal: "क्विंटल", bag: "बोरी" } as const;
+const SET_ASIDE_NOTICE: Record<"terms_changed" | "declined" | "not_reached", DictKey> = {
+  terms_changed: "placed.termsChanged",
+  declined: "result.setAsideDeclined",
+  not_reached: "result.setAsideNotReached",
+};
 
 export function ResultScreen({ orderId }: { orderId: string }) {
   const { t, lang } = useT();
@@ -44,7 +49,10 @@ export function ResultScreen({ orderId }: { orderId: string }) {
   const prefs = usePrefs();
   const [placing, setPlacing] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
+  const [placeFailed, setPlaceFailed] = useState(false);
   const spoken = useRef(false);
+  const unitWord = (u: Unit) => t(`unit.${u}` as DictKey);
+  const rateUnit = (u: Unit) => t(`rateUnit.${u}` as DictKey);
 
   const back = { href: "/app", label: t("rail.home") };
   const quotes = data?.quotes ?? [];
@@ -55,6 +63,8 @@ export function ResultScreen({ orderId }: { orderId: string }) {
         regularDealerId: regularDealer?._id ?? null,
         wantsCredit: (data.order.creditDaysWanted ?? 0) > 0,
         winningQuoteId: data.order.winningQuoteId,
+        ranking: data.order.ranking,
+        setAside: data.order.termsChangedQuoteIds,
       })
     : null;
   const nameOf = (dealerId: string) => {
@@ -96,11 +106,13 @@ export function ResultScreen({ orderId }: { orderId: string }) {
 
   const go = async (quoteId: string) => {
     setPlacing(quoteId);
+    setPlaceFailed(false);
     try {
       await place({ orderId: order._id, expectedQuoteId: quoteId as Id<"quotes"> });
       router.push(`/app/order/${order._id}/placed`);
     } catch {
       setPlacing(null);
+      setPlaceFailed(true);
     }
   };
 
@@ -116,8 +128,7 @@ export function ResultScreen({ orderId }: { orderId: string }) {
     for (const l of lineBreakdown(items, wq.lines as QuoteLine[], wantsCredit)) {
       const item = items.find((i) => i.id === l.itemId)!;
       const what = item.material === "tmt_steel" ? `TMT ${item.diameterMm ?? ""}mm ${item.grade ?? ""}`.trim() : `${item.cementType ?? ""}`;
-      const unit = lang === "hi" ? UNIT_HI[l.rateUnit] : l.rateUnit;
-      parchiLines.push({ label: `${what} · ${item.quantity} ${lang === "hi" ? UNIT_HI[item.unit!] : item.unit} × ${formatRate(l.rate)}/${unit}`, amount: l.subtotal });
+      parchiLines.push({ label: `${what} · ${item.quantity} ${unitWord(item.unit!)} × ${formatRate(l.rate)}/${rateUnit(l.rateUnit)}`, amount: l.subtotal });
     }
     if (wq.landed.gst > 0) parchiLines.push({ label: t("parchi.gst", { rate: 18 }), amount: wq.landed.gst });
     const charges = wq.landed.delivery + wq.landed.unloading;
@@ -145,7 +156,12 @@ export function ResultScreen({ orderId }: { orderId: string }) {
     <AppFrame back={back} title={t("result.title")} deskDock={false} hasCommitAction phoneDock={confirmButton}>
       {data.order.termsChangedQuoteIds.length > 0 ? (
         <p role="alert" className="rounded-card border-[1.5px] border-lal bg-card px-4 py-3 text-label text-lal">
-          {t("placed.termsChanged")}
+          {t(SET_ASIDE_NOTICE[data.order.setAsideReason ?? "terms_changed"])}
+        </p>
+      ) : null}
+      {placeFailed ? (
+        <p role="alert" className="rounded-card border-[1.5px] border-lal bg-card px-4 py-3 text-label text-lal">
+          {t("result.placeFailed")}
         </p>
       ) : null}
       <div className="flex items-center justify-between gap-3">
@@ -216,7 +232,7 @@ export function ResultScreen({ orderId }: { orderId: string }) {
               name: nameOf(q.dealerId),
               badge: q.dealerId === regular?.dealerId ? t("badge.regular") : undefined,
               totalPaise: q.total,
-              rate: steel ? `${formatRate(steel.rate)}/${lang === "hi" ? UNIT_HI[steel.rateUnit] : steel.rateUnit}` : "—",
+              rate: steel ? `${formatRate(steel.rate)}/${rateUnit(steel.rateUnit)}` : "—",
               gst: steel ? (steel.gstMode === "included" ? t("table.gstIncluded") : steel.gstMode === "extra" ? t("table.gstExtra") : "?") : "—",
               delivery: full ? (full.landed.delivery + full.landed.unloading === 0 ? t("parchi.free") : formatPaise(full.landed.delivery + full.landed.unloading)) : "—",
               credit: q.creditDays ? t("confirm.creditDays", { n: q.creditDays }) : t("parchi.cash"),
