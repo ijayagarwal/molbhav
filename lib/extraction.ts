@@ -133,13 +133,20 @@ function mapTerms(raw: Raw, itemIds: ReadonlySet<string>): ExtractedTerms {
  * it: unknown item ids, units and enum values are dropped, nulls become "not said", negative or
  * non-numeric figures are ignored, text is trimmed, and confidence is clamped to 0..1.
  */
-export function parseExtraction(raw: unknown, items: readonly OrderItem[]): Extraction {
+export function parseExtraction(raw: unknown, items: readonly OrderItem[], round?: Round): Extraction {
   const itemIds = new Set(items.map((i) => i.id));
   const r = isObj(raw) ? raw : {};
   const conf = typeof r.confidence === "number" && Number.isFinite(r.confidence) ? Math.min(1, Math.max(0, r.confidence)) : 0;
+  const terms = mapTerms(r, itemIds);
+  let outcome = oneOf(r.outcome, OUTCOMES) ?? "no_quote";
+  // "confirmed" and "terms_changed" only exist on a confirm call. Code, not the LLM, decides: elsewhere a
+  // dealer agreeing with the read-back ("हाँ जी, सही है") is still a quote if he said a figure.
+  if (round !== undefined && round !== "confirm" && (outcome === "confirmed" || outcome === "terms_changed")) {
+    outcome = ratesSaid(terms).length > 0 || terms.lumpSumTotal !== undefined ? "quoted" : "no_quote";
+  }
   const out: Extraction = {
-    ...mapTerms(r, itemIds),
-    outcome: oneOf(r.outcome, OUTCOMES) ?? "no_quote",
+    ...terms,
+    outcome,
     saidFinal: r.saidFinal === true,
     confidence: conf,
   };

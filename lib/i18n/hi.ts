@@ -190,7 +190,7 @@ export const hi = {
   "admin.testPhones": "टेस्ट फ़ोन",
   "admin.testPhonesValue": "{n} · हर फ़ोन {daily}/दिन",
   "admin.sundayToo": "रविवार भी",
-  "admin.billedKey": "बिल वाली Gemini key",
+  "admin.billedKey": "OpenAI key",
   "admin.a2p": "A2P घोषित",
   "admin.stage": "स्टेज",
   "admin.slots": "अभी चल रही कॉल / सीमा",

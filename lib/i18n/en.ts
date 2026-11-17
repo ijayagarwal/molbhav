@@ -188,7 +188,7 @@ export const en: Record<DictKey, string> = {
   "admin.testPhones": "Test phones",
   "admin.testPhonesValue": "{n} · {daily}/day each",
   "admin.sundayToo": "Sundays too",
-  "admin.billedKey": "Billed Gemini key",
+  "admin.billedKey": "OpenAI key",
   "admin.a2p": "A2P declared",
   "admin.stage": "Stage",
   "admin.slots": "Live calls now / slots",

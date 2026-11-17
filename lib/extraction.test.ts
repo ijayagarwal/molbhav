@@ -54,6 +54,14 @@ const LLM_ANSWER = {
 };
 
 describe("parseExtraction: the LLM's answer, mapped strictly", () => {
+  test("'confirmed' or 'terms_changed' outside a confirm call is decided by code: a quote if figures were said", () => {
+    expect(parseExtraction({ ...LLM_ANSWER, outcome: "confirmed" }, ITEMS, "quote").outcome).toBe("quoted");
+    expect(parseExtraction({ ...LLM_ANSWER, outcome: "terms_changed" }, ITEMS, "haggle").outcome).toBe("quoted");
+    expect(parseExtraction({ ...LLM_ANSWER, outcome: "confirmed", lines: [], lumpSumTotal: null }, ITEMS, "match").outcome).toBe("no_quote");
+    // On a confirm call they stand as said.
+    expect(parseExtraction({ ...LLM_ANSWER, outcome: "confirmed" }, ITEMS, "confirm").outcome).toBe("confirmed");
+    expect(parseExtraction({ ...LLM_ANSWER, outcome: "terms_changed" }, ITEMS, "confirm").outcome).toBe("terms_changed");
+  });
   test("a clean LLM answer becomes Card A's quote (₹2,00,610)", () => {
     const ex = parseExtraction(LLM_ANSWER, ITEMS);
     expect(ex).toMatchObject({ outcome: "quoted", deliveryCharge: 0, unloadingCharge: 600, creditDays: 7, billType: "pakka", weightBasis: "kanta", confidence: 0.92 });

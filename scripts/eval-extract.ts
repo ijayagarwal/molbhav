@@ -106,7 +106,7 @@ async function main() {
     let result: { pass: boolean; diffs: string[] };
     try {
       const text = await chatJson({ apiKey, body, timeoutMs: EVAL_TIMEOUT_MS });
-      result = scoreCase(c, parseExtraction(JSON.parse(text), c.items));
+      result = scoreCase(c, parseExtraction(JSON.parse(text), c.items, c.round));
     } catch (e) {
       result = { pass: false, diffs: [`error: ${e instanceof Error ? e.message : String(e)}`] };
     }

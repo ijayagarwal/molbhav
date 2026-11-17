@@ -8,7 +8,7 @@ import { spokenItem } from "../numbers";
 import type { ExtractedTerms } from "../extraction";
 
 /** Bump when the prompt or schema changes, so extractCache never serves an answer to an older prompt. */
-export const EXTRACT_PROMPT_VERSION = 1;
+export const EXTRACT_PROMPT_VERSION = 2;
 
 export const EXTRACT_SYSTEM_PROMPT = `You read a phone call transcript between Molbhav's AI assistant ("assistant") and a building-material dealer ("user"), plus the order items with ids.
 Extract ONLY what the dealer said. Never compute totals. Never fill a value the dealer did not say.
@@ -17,7 +17,7 @@ lumpSumTotal: an all-in total only if the dealer said one as a single figure, wi
 deliveryCharge / unloadingCharge (bhada / utarai or hamali): a number (0 if they said free or included); null if not said.
 deliveryEtaText, deliveryBy (today/tomorrow_morning/tomorrow/day_after/this_week/flexible, or null), creditDays, billType (pakka/kachcha/unknown), weightBasis (kanta/standard/unknown), validityText.
 first: in a match call only, the same fields (lines, lumpSumTotal, charges, GST modes) as the dealer said them BEFORE the assistant cited any other number. Code computes his first total from it.
-outcome: quoted | declined | callback | opt_out | terms_changed | confirmed (confirm calls: every term matched) | no_quote. callbackWhenText if given.
+outcome: quoted (the dealer gave a rate or a total; in quote, haggle and match calls this stays "quoted" even when he agrees with the read-back) | declined | callback | opt_out | no_quote | terms_changed and confirmed (ONLY when call is "confirm": confirmed = every relayed term matched; terms_changed = something differs). callbackWhenText if given.
 saidFinal: the dealer said this is final/last. confidence 0..1, lower if numbers were unclear or corrected.
 Haggle and match calls: you also get the dealer's earlier quote. Put in "lines" ONLY the items whose rate the dealer said again in THIS call, and fill other fields only if he changed them; code carries the rest over. A number the assistant cited that the dealer only repeated as a question or refused is not his.
 If the dealer corrected a number, use the corrected one. A no-bill (kachcha) rate is never the quote when he also gave a pakka-bill rate.

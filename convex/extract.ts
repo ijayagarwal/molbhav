@@ -132,7 +132,7 @@ export const apply = internalMutation({
     const call = await ctx.db.get(callId);
     const order = call === null ? null : await ctx.db.get(call.orderId);
     if (!jobOpen(call, order, roundSeq) || order === null) return;
-    await applyExtraction(ctx, order, call, parseExtraction(JSON.parse(extraction), order.items));
+    await applyExtraction(ctx, order, call, parseExtraction(JSON.parse(extraction), order.items, call.round));
   },
 });
 
