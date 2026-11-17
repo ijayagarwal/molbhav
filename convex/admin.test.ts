@@ -211,14 +211,14 @@ describe("admin reads", () => {
   test("overview: admins only, and no phone numbers, hashes or setting values in it", async () => {
     const { t, asAdmin, asUser } = await setup();
     vi.stubEnv("BOLNA_FROM_NUMBER", "+919999900000");
-    vi.stubEnv("GEMINI_API_KEY_BILLED", "gem-secret-value");
+    vi.stubEnv("OPENAI_API_KEY", "sk-secret-value");
     const { phoneHash } = await t.mutation(internal.admin.addDealer, DEALER);
     await expect(asUser.query(api.admin.overview, {})).rejects.toThrow(/forbidden/);
     const o = await asAdmin.query(api.admin.overview, {});
     expect(o.dealers).toHaveLength(1);
     expect(o.live.fromNumberSet).toBe(true);
     const text = JSON.stringify(o);
-    for (const secret of ["+919812345678", "9812345678", phoneHash, "+919999900000", "gem-secret-value"]) expect(text).not.toContain(secret);
+    for (const secret of ["+919812345678", "9812345678", phoneHash, "+919999900000", "sk-secret-value"]) expect(text).not.toContain(secret);
   });
 });
 
@@ -228,7 +228,7 @@ describe("settings.liveAvailable", () => {
     expect(await asUser.query(api.settings.liveAvailable, {})).toEqual({ available: false, reason: "live_off" });
     vi.stubEnv("LIVE_CALLS_ENABLED", "true");
     vi.stubEnv("BOLNA_FROM_NUMBER", "+919999900000");
-    vi.stubEnv("GEMINI_API_KEY_BILLED", "x");
+    vi.stubEnv("OPENAI_API_KEY", "x");
     expect(await asUser.query(api.settings.liveAvailable, {})).toEqual({ available: false, reason: "not_verified" });
     await t.mutation(internal.admin.verifyContractor, { contractorId, phone: "9812300001", note: "Met at site, called back", actor: "jay" });
     expect(await asUser.query(api.settings.liveAvailable, {})).toEqual({ available: true, reason: null });

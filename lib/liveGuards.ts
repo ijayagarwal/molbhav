@@ -20,6 +20,7 @@ export interface LiveEnv {
   maxLiveSweepsPerHour: number;
   maxLiveCallsPerOrder: number;
   liveConcurrency: number;
+  /** OPENAI_API_KEY is set (guard 8): a live call's transcript needs the extractor (R19). */
   billedKeySet: boolean;
   a2pDeclared: boolean;
   liveStage: 1 | 2;
@@ -85,7 +86,7 @@ export function readLiveEnv(env: Env): LiveEnv {
     maxLiveSweepsPerHour: intVar(env, "MAX_LIVE_SWEEPS_PER_HOUR", 3, 0, 100, errors),
     maxLiveCallsPerOrder: intVar(env, "MAX_LIVE_CALLS_PER_ORDER", 12, 1, 100, errors),
     liveConcurrency: intVar(env, "LIVE_CONCURRENCY", 2, 0, 100, errors),
-    billedKeySet: (env.GEMINI_API_KEY_BILLED?.trim() ?? "") !== "",
+    billedKeySet: (env.OPENAI_API_KEY?.trim() ?? "") !== "",
     a2pDeclared: flagVar(env, "A2P_DECLARED", errors),
     liveStage,
     stage1MaxDealers: intVar(env, "STAGE1_MAX_DEALERS", 5, 0, 50, errors),
