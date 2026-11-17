@@ -12,10 +12,10 @@ import { useEffect, useEffectEvent, useRef, useState, type KeyboardEvent, type P
 import { earcons, resumeAudio } from "@/lib/client/earcons";
 import { haptics } from "@/lib/client/haptics";
 import { initialMic, isRecording, MIC, micStep, type MicEvent, type MicReason, type MicState } from "@/lib/client/micGesture";
-import type { RecordedClip, Recorder } from "@/lib/client/recorder";
+import { startErrorCode, type MicErrorCode, type RecordedClip, type Recorder } from "@/lib/client/recorder";
 
 export type MicView = "idle" | "pressed" | "recording" | "locked" | "processing" | "disabled";
-export type MicEmptyReason = MicReason | "no_input" | "mic_blocked";
+export type MicEmptyReason = MicReason | Exclude<MicErrorCode, "cancelled">;
 
 interface Options {
   recorder: Recorder;
@@ -23,6 +23,11 @@ interface Options {
   onClip: (clip: RecordedClip) => void;
   /** The take ended without usable speech, or the mic failed. */
   onEmpty?: (reason: MicEmptyReason) => void;
+  /**
+   * Asked before a take starts (a press, Enter/Space on the mic, desk push-to-talk). Returning false keeps
+   * the mic closed: the caller shows the permission primer instead of a cold browser prompt (V5).
+   */
+  beforeStart?: () => boolean;
   capMs?: number;
   disabled?: boolean;
   /** Processing state shown after a send until the caller clears it (transcript/parse in flight). */
@@ -31,7 +36,7 @@ interface Options {
 
 const BARS = 9;
 
-export function useMic({ recorder, onClip, onEmpty, capMs = MIC.capMs, disabled = false, processing = false }: Options) {
+export function useMic({ recorder, onClip, onEmpty, beforeStart, capMs = MIC.capMs, disabled = false, processing = false }: Options) {
   const machine = useRef<MicState>(initialMic(capMs));
   const take = useRef(0);
   const pointer = useRef<number | null>(null);
@@ -52,13 +57,15 @@ export function useMic({ recorder, onClip, onEmpty, capMs = MIC.capMs, disabled 
     setMic(step.state);
     if (step.effect === "start") {
       const id = ++take.current;
+      // Inside the tap: browsers allow the AudioContext (earcons and the level meter) only from a gesture.
       resumeAudio();
-      earcons.tik();
-      haptics.tick();
       setNow(performance.now());
       recorder.start().then(
         () => {
           if (take.current !== id || !isRecording(machine.current.phase)) return;
+          // V2: the "tik" and the red ring start when MediaRecorder has started, never on touch.
+          earcons.tik();
+          haptics.tick();
           const armed = micStep(machine.current, { type: "armed", at: performance.now() });
           machine.current = armed.state;
           if (mounted.current) setMic(armed.state);
@@ -67,13 +74,13 @@ export function useMic({ recorder, onClip, onEmpty, capMs = MIC.capMs, disabled 
           // A take that was already cancelled (or replaced) doesn't report a failure.
           if (take.current !== id || !isRecording(machine.current.phase)) return;
           toIdle();
-          const msg = err instanceof Error ? err.message : "";
-          if (msg !== "cancelled") onEmpty?.(msg === "mic_blocked" ? "mic_blocked" : "no_input");
+          const code = startErrorCode(err);
+          if (code !== "cancelled") onEmpty?.(code);
         },
       );
     } else if (step.effect === "send") {
       const id = take.current;
-      earcons.tok();
+      if (machine.current.armedAt !== null) earcons.tok();
       haptics.tick();
       const reason = step.reason;
       recorder.stop().then(
@@ -93,7 +100,7 @@ export function useMic({ recorder, onClip, onEmpty, capMs = MIC.capMs, disabled 
       );
     } else if (step.effect === "discard") {
       take.current++;
-      earcons.tok();
+      if (machine.current.armedAt !== null) earcons.tok();
       recorder.cancel();
       toIdle();
       if (step.reason === "noSpeech") onEmpty?.("noSpeech");
@@ -154,12 +161,16 @@ export function useMic({ recorder, onClip, onEmpty, capMs = MIC.capMs, disabled 
 
   // Only the pointer that started the take drives it; a second finger or another mouse button is ignored.
   const ours = (e: PointerEvent<HTMLButtonElement>) => pointer.current === null || e.pointerId === pointer.current;
+  const closed = () => machine.current.phase === "idle" || machine.current.phase === "cancelled";
+  /** A new take may start only if the caller agrees (the permission primer, V5). */
+  const mayStart = () => !beforeStart || beforeStart();
 
   const bind = {
     onPointerDown: (e: PointerEvent<HTMLButtonElement>) => {
       if (disabled || processing) return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
       if (pointer.current !== null && e.pointerId !== pointer.current) return;
+      if (closed() && !mayStart()) return;
       const phase = machine.current.phase;
       if (phase === "idle" || phase === "cancelled") pointer.current = e.pointerId;
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -188,6 +199,7 @@ export function useMic({ recorder, onClip, onEmpty, capMs = MIC.capMs, disabled 
         e.stopPropagation();
         const at = performance.now();
         if (machine.current.phase === "locked") dispatch({ type: "send" });
+        else if (closed() && !mayStart()) return;
         else {
           dispatch({ type: "down", at, x: 0, y: 0 });
           dispatch({ type: "up", at });
@@ -211,6 +223,8 @@ export function useMic({ recorder, onClip, onEmpty, capMs = MIC.capMs, disabled 
   return {
     view,
     phase: mic.phase,
+    /** MediaRecorder is running (V2: the red ring and the "listening" dot show only from here). */
+    armed: mic.armedAt !== null,
     drag: mic.drag,
     /** Time since the mic opened (0 while permission is pending). */
     elapsedMs: recording && mic.armedAt !== null ? Math.max(0, now - mic.armedAt) : 0,
@@ -221,7 +235,10 @@ export function useMic({ recorder, onClip, onEmpty, capMs = MIC.capMs, disabled 
     bind,
     send: () => dispatch({ type: "send" }),
     cancel: () => dispatch({ type: "cancel" }),
-    pttStart: () => dispatch({ type: "pttStart", at: performance.now() }),
+    pttStart: () => {
+      if (disabled || processing || (closed() && !mayStart())) return;
+      dispatch({ type: "pttStart", at: performance.now() });
+    },
     pttStop: () => dispatch({ type: "pttStop" }),
     reset: () => dispatch({ type: "reset" }),
   };

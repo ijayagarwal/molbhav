@@ -40,6 +40,8 @@ interface Props {
   inline?: boolean;
   /** Text heard so far, once the transcript streams in. */
   transcript?: string;
+  /** The recording has really started (V2): the lal dot shows only from then. */
+  armed?: boolean;
 }
 
 function clock(ms: number) {
@@ -47,7 +49,7 @@ function clock(ms: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export function ListeningSheet({ mode, elapsedMs, levels, drag = { dx: 0, dy: 0 }, labels, mic, onCancel, onSend, inline = false, transcript }: Props) {
+export function ListeningSheet({ mode, elapsedMs, levels, drag = { dx: 0, dy: 0 }, labels, mic, onCancel, onSend, inline = false, transcript, armed = true }: Props) {
   // While the finger is down the sheet is a status overlay (the pointer is still captured by the mic, so
   // nothing may become inert). Once locked, the finger has lifted: it becomes a modal dialog and focus
   // moves to रद्द (review of 2B). Esc cancels a take everywhere (features/voice/useMic.ts).
@@ -68,7 +70,7 @@ export function ListeningSheet({ mode, elapsedMs, levels, drag = { dx: 0, dy: 0 
             labels.processing
           ) : (
             <>
-              <span aria-hidden="true" className="size-3 rounded-full bg-lal" />
+              <span aria-hidden="true" className={`size-3 rounded-full ${armed ? "bg-lal" : "bg-rule"}`} />
               {labels.listening}
             </>
           )}

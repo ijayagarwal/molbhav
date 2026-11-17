@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { SecondaryButton } from "./Buttons";
 import { Chip } from "./Chip";
+import { KeyboardBold, MicBold } from "./icons";
 
 // TranscriptCard and ItemCard (DESIGN §11, §12.3, design/reference/Confirm.html). Props only.
 
@@ -48,6 +50,26 @@ export function ItemCard({ title, quantity, unit, specs, children }: { title: st
       ) : null}
       {children}
     </article>
+  );
+}
+
+/**
+ * A question on Confirm that a chip can't answer yet (a missing quantity or unit, a bar size said in suta):
+ * a lal-dashed block with what we didn't catch and two ways to fix the order, typing or speaking again.
+ */
+export function FixQuestion({ text, typeLabel, sayLabel, onType, onSay }: { text: string; typeLabel: string; sayLabel: string; onType: () => void; onSay: () => void }) {
+  return (
+    <div role="group" aria-label={text} className="flex flex-col gap-3 rounded-card border-2 border-dashed border-lal p-3">
+      <p className="text-label text-lal">{text}</p>
+      <div className="flex flex-wrap gap-2">
+        <SecondaryButton icon={<KeyboardBold className="size-5" />} onClick={onType}>
+          {typeLabel}
+        </SecondaryButton>
+        <SecondaryButton icon={<MicBold className="size-5" />} onClick={onSay}>
+          {sayLabel}
+        </SecondaryButton>
+      </div>
+    </div>
   );
 }
 

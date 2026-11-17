@@ -23,6 +23,15 @@ export function resumeAudio() {
   if (ctx.state === "suspended") void ctx.resume();
 }
 
+/**
+ * The one AudioContext of the page (earcons and the mic's level meter share it; iOS limits how many a
+ * page may open). resumeAudio() inside the tap creates and resumes it; null where Web Audio is missing.
+ */
+export function audioContext(): AudioContext | null {
+  if (ctx === null) resumeAudio();
+  return ctx;
+}
+
 function tone(freq: number, durationS: number, opts: { type?: OscillatorType; gain?: number; endFreq?: number; delayS?: number } = {}) {
   if (!enabled || ctx === null || ctx.state !== "running") return;
   const t0 = ctx.currentTime + (opts.delayS ?? 0);

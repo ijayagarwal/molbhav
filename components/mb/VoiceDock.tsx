@@ -29,6 +29,10 @@ export interface DockTake {
   levels: number[];
   /** Locked takes show a 56 px रद्द and a visible send (V1). */
   locked: boolean;
+  /** The transcript once it streams in (or the typed text), shown while the order is understood. */
+  transcript?: string;
+  /** The recording has really started (V2): the lal dot shows only from then. */
+  armed?: boolean;
   cancelLabel: string;
   sendLabel: string;
   onCancel: () => void;
@@ -72,14 +76,18 @@ export const DeskVoiceDock = forwardRef<HTMLDivElement, DeskDockProps>(function 
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <p role="status" aria-live="polite" className="flex items-center gap-2 text-label">
-              <span aria-hidden="true" className="size-2.5 rounded-full bg-lal" />
+              <span aria-hidden="true" className={`size-2.5 rounded-full ${take.armed === false ? "bg-rule" : "bg-lal"}`} />
               {take.status}
             </p>
-            <div aria-hidden="true" className="flex h-8 items-center gap-1.5">
-              {take.levels.map((l, i) => (
-                <span key={i} className="w-1.5 rounded-full bg-ink" style={{ height: `${Math.round(6 + Math.min(1, l) * 26)}px` }} />
-              ))}
-            </div>
+            {take.transcript ? (
+              <p className="truncate text-body text-ink">{`“${take.transcript}”`}</p>
+            ) : (
+              <div aria-hidden="true" className="flex h-8 items-center gap-1.5">
+                {take.levels.map((l, i) => (
+                  <span key={i} className="w-1.5 rounded-full bg-ink" style={{ height: `${Math.round(6 + Math.min(1, l) * 26)}px` }} />
+                ))}
+              </div>
+            )}
           </div>
           {take.locked ? (
             <div className="flex shrink-0 gap-3">
