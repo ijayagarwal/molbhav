@@ -1,17 +1,17 @@
-// pnpm eval:extract: scores the Gemini quote extractor on evals/extract.golden.json (ARCHITECTURE §8.2,
-// §14; target ≥ 9/10). It sends exactly the request convex/llm.ts sends (lib/llm/extractPrompt.ts), maps
-// the answer with parseExtraction, and scores what matters: the outcome and, through the same inheritance,
-// transcript checks and lib/pricing.ts the app uses, the landed total, flags, comparability and total
-// source (and the match call's first total). It always calls Gemini. The golden set holds only fictional
-// fixtures today, so GEMINI_API_KEY (free tier) is allowed; once real transcripts are added, set
-// GEMINI_API_KEY_BILLED (it is preferred when both are set). Never prints a key.
+// pnpm eval:extract: scores the OpenAI quote extractor on evals/extract.golden.json (ARCHITECTURE §8.2,
+// §14; target ≥ 9/10). It sends exactly the request convex/llm.ts sends (lib/llm/extractPrompt.ts
+// extractBody through lib/llm/openai.ts), maps the answer with parseExtraction, and scores what matters:
+// the outcome and, through the same inheritance, transcript checks and lib/pricing.ts the app uses, the
+// landed total, flags, comparability and total source (and the match call's first total). It always calls
+// OpenAI. Needs OPENAI_API_KEY (DECISIONS R19: one key); OPENAI_MODEL overrides the model. Never prints a key.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PRICE_BAND_SEEDS } from "../lib/config";
 import type { OrderItem, Round } from "../lib/domain";
 import { checkCall, parseExtraction, toFacts, type ExtractedTerms, type Extraction } from "../lib/extraction";
-import { extractRequest } from "../lib/llm/extractPrompt";
+import { extractBody } from "../lib/llm/extractPrompt";
+import { chatJson, openaiKey, openaiModel } from "../lib/llm/openai";
 import { priceQuote, type PricedQuote, type PricingContext, type QuoteFacts } from "../lib/pricing";
 
 export interface GoldenCase {
@@ -87,23 +87,26 @@ export function scoreCase(c: GoldenCase, actual: Extraction): { pass: boolean; d
   return { pass: diffs.length === 0, diffs };
 }
 
+export const NEEDS_KEY_MESSAGE = "eval:extract needs OPENAI_API_KEY, in .env.local or the shell. OPENAI_MODEL is optional (default gpt-5.4-mini).";
+
+const EVAL_TIMEOUT_MS = 60_000;
+
 async function main() {
-  const apiKey = process.env.GEMINI_API_KEY_BILLED || process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL;
-  if (!apiKey || !model) {
-    console.error("eval:extract needs GEMINI_MODEL and GEMINI_API_KEY_BILLED (or GEMINI_API_KEY for the fictional fixtures).");
+  const apiKey = openaiKey(process.env);
+  if (apiKey === null) {
+    console.error(NEEDS_KEY_MESSAGE);
     process.exit(2);
   }
-  const { GoogleGenAI } = await import("@google/genai");
-  const ai = new GoogleGenAI({ apiKey });
+  const model = openaiModel(process.env);
   const cases = loadGolden();
   let passed = 0;
+  console.log(`model ${model}\n`);
   for (const c of cases) {
-    const req = extractRequest(model, { transcript: c.transcript, items: c.items, round: c.round, earlier: c.earlier, citedRupees: c.citedRupees });
+    const body = extractBody(model, { transcript: c.transcript, items: c.items, round: c.round, earlier: c.earlier, citedRupees: c.citedRupees });
     let result: { pass: boolean; diffs: string[] };
     try {
-      const res = await ai.models.generateContent(req as unknown as Parameters<typeof ai.models.generateContent>[0]);
-      result = scoreCase(c, parseExtraction(JSON.parse(res.text ?? "null"), c.items));
+      const text = await chatJson({ apiKey, body, timeoutMs: EVAL_TIMEOUT_MS });
+      result = scoreCase(c, parseExtraction(JSON.parse(text), c.items));
     } catch (e) {
       result = { pass: false, diffs: [`error: ${e instanceof Error ? e.message : String(e)}`] };
     }

@@ -1,4 +1,4 @@
-// The parse golden set itself (no Gemini call): 20 cases covering what PROMPTS Phase 4 item 7 lists, each
+// The parse golden set itself (no OpenAI call): 20 cases covering what PROMPTS Phase 4 item 7 lists, each
 // expected answer validates and scores itself, and the scorer catches wrong answers.
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";

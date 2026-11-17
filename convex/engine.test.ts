@@ -379,6 +379,38 @@ describe("stale jobs do nothing (B4)", () => {
 });
 
 describe("extraction", () => {
+  test("SIM_EXTRACT=llm: one OpenAI call per distinct call, cached under the model that answered (R19)", async () => {
+    vi.stubEnv("SIM_EXTRACT", "llm");
+    vi.stubEnv("OPENAI_API_KEY", "sk-test");
+    vi.stubEnv("OPENAI_MODEL", "");
+    const answer = JSON.stringify({ outcome: "no_quote", lines: [], billType: "unknown", weightBasis: "unknown", saidFinal: false, confidence: 0.5 });
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ choices: [{ message: { content: answer } }] }), { status: 200 }));
+    const { t, orderId, dealer } = await setup({ status: "sweeping", roundSeq: 1 });
+    const transcript = "assistant: नमस्ते जी, ये AI कॉल है और कॉल रिकॉर्ड हो रही है। सरिया और सीमेंट का रेट चाहिए।\nuser: अभी रेट नहीं बता पाएँगे।";
+    // All three first, so the round stays open while their extractions run.
+    const [a, b, c] = await t.run(async (ctx) =>
+      Promise.all(
+        [dealer.agarwal, dealer.omsai, dealer.rathore].map((dealerId) =>
+          ctx.db.insert("calls", {
+            orderId, dealerId, round: "quote", mode: "sim", attempt: 1, roundSeq: 1, status: "completed", statusRank: 10,
+            deadlineAt: Date.now() + 60_000, transcript, extract: "pending", extractAttempts: 0,
+          }),
+        ),
+      ),
+    );
+    await t.action(internal.extract.run, { callId: a, roundSeq: 1 });
+    await t.action(internal.extract.run, { callId: b, roundSeq: 1 });
+    expect(fetchSpy).toHaveBeenCalledTimes(1); // the same transcript, items and round: a cache hit
+    expect((await t.run(async (ctx) => ctx.db.query("extractCache").collect())).map((r) => r.model)).toEqual(["gpt-5.4-mini"]);
+    vi.stubEnv("OPENAI_MODEL", "gpt-4.1-mini");
+    await t.action(internal.extract.run, { callId: c, roundSeq: 1 });
+    expect(fetchSpy).toHaveBeenCalledTimes(2); // another model never reuses that answer
+    const { calls } = await snapshot(t, orderId);
+    for (const id of [a, b, c]) expect(calls.find((x) => x._id === id)).toMatchObject({ extract: "done", outcome: "no_quote" });
+  });
+
   test("a disclosure failure (S5) drops the quote", async () => {
     const { t, orderId, dealer } = await setup({ status: "sweeping", roundSeq: 1 });
     // The rate comes before any "AI … रिकॉर्ड".
@@ -405,6 +437,7 @@ describe("extraction", () => {
 
   test("a failed extraction (SIM_EXTRACT=llm, no key) is marked failed after the pool gives up, and the round moves on", async () => {
     vi.stubEnv("SIM_EXTRACT", "llm");
+    vi.stubEnv("OPENAI_API_KEY", "");
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const { t, as, orderId, dealer } = await setup();
     await as.mutation(api.sweep.start, { orderId, mode: "sim", dealerIds: [dealer.agarwal, dealer.omsai] });

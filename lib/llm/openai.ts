@@ -56,6 +56,18 @@ export function strictSchema(s: SchemaNode, optional = false): JsonSchema {
 /** The parse and extraction model when OPENAI_MODEL is unset (chosen on the golden sets, 17 Nov 2026). */
 export const DEFAULT_OPENAI_MODEL = "gpt-5.4-mini";
 
+type Env = Readonly<Record<string, string | undefined>>;
+
+/** OPENAI_API_KEY, or null when unset or blank. One key everywhere (R19): Vercel, Convex and the evals. */
+export function openaiKey(env: Env): string | null {
+  return env.OPENAI_API_KEY?.trim() || null;
+}
+
+/** OPENAI_MODEL, else the default. The voice route, the Convex extractor and its cache key all use this. */
+export function openaiModel(env: Env): string {
+  return env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL;
+}
+
 /**
  * The lowest reasoning effort a model accepts (F3: parse at the lowest thinking level). GPT-4.x models
  * don't reason (no parameter; temperature 0 instead). The first GPT-5 models go down to "minimal"; later
@@ -93,6 +105,17 @@ export class LlmError extends Error {
     super(message);
     this.name = "LlmError";
   }
+}
+
+/**
+ * Whether a background job (the Convex llm workpool) should try again: timeouts, network failures, 429 and
+ * 5xx, and odd answers (empty, refused, not JSON) are worth a retry; a missing key and any other 4xx (bad
+ * key, bad request, unknown model) are not, since the same request would fail the same way.
+ */
+export function llmRetryable(e: LlmError): boolean {
+  if (e.kind === "not_configured") return false;
+  if (e.kind === "api" && e.status !== undefined) return e.status === 429 || e.status >= 500;
+  return true;
 }
 
 const ENDPOINT = "https://api.openai.com/v1/chat/completions";

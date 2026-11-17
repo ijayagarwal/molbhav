@@ -5,14 +5,14 @@ import { fetchMutation, fetchQuery } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { getLang } from "../i18n/server";
-import { geminiKey, parseOrder } from "./gemini";
 import { hashIp } from "./hash";
+import { llmConfigured, parseOrder } from "./llm";
 import type { TtsDeps } from "./readbackAudio";
 import { sarvamConfigured, synthesize, transcribe } from "./sarvam";
 import type { VoiceOrderDeps } from "./voiceOrder";
 
 // The real outside world for POST /api/voice/order and POST /api/tts: Vercel BotID, the Convex Auth token
-// (every Convex call runs AS THE USER, §5), the `lang` cookie, Sarvam and Gemini. Names of missing env vars
+// (every Convex call runs AS THE USER, §5), the `lang` cookie, Sarvam and OpenAI. Names of missing env vars
 // are logged; values never are.
 
 const MIN_SECRET_LENGTH = 32;
@@ -57,7 +57,7 @@ export function voiceOrderDeps(): VoiceOrderDeps {
       const base = baseMissing();
       if (base !== null) return base;
       if (input === "audio" && !sarvamConfigured()) return "SARVAM_API_KEY";
-      if (geminiKey() === null) return process.env.NODE_ENV === "production" ? "GEMINI_API_KEY_BILLED" : "GEMINI_API_KEY";
+      if (!llmConfigured()) return "OPENAI_API_KEY";
       return null;
     },
     consume: async (kind, ipHash, tok) =>

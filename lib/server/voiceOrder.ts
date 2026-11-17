@@ -70,7 +70,7 @@ export interface VoiceOrderDeps {
   missingConfig(input: "audio" | "text"): string | null;
   consume(kind: "order_audio" | "order_text", ipHash: string, token: string): Promise<Budget>;
   transcribe(audio: Blob, lang: "hi" | "en", signal: AbortSignal): Promise<string>;
-  parse(transcript: string, city: City, signal: AbortSignal): Promise<{ draft: ParsedDraft; model: string; keyTier: string }>;
+  parse(transcript: string, city: City, signal: AbortSignal): Promise<{ draft: ParsedDraft; model: string }>;
   createDraft(args: DraftArgs, token: string): Promise<string>;
   log(entry: Record<string, unknown>): void;
   now(): number;
@@ -237,7 +237,7 @@ export async function handleVoiceOrder(req: Request, deps: VoiceOrderDeps): Prom
         } catch (e) {
           t = mark("parse", t);
           const kind = (e as { kind?: string }).kind;
-          return fail(kind === "not_configured" ? "not_configured" : "parse_failed", { parse: kind ?? "error" });
+          return fail(kind === "not_configured" ? "not_configured" : "parse_failed", { parse: kind ?? "error", status: (e as { status?: number }).status });
         }
         t = mark("parse", t);
         const { draft } = parsed;
@@ -266,7 +266,7 @@ export async function handleVoiceOrder(req: Request, deps: VoiceOrderDeps): Prom
         }
         t = mark("draft", t);
         send({ type: "draft", orderId });
-        log("draft", { ...meta, model: parsed.model, keyTier: parsed.keyTier, items: draft.items.length, missing: draft.missing.length });
+        log("draft", { ...meta, model: parsed.model, items: draft.items.length, missing: draft.missing.length });
       } catch {
         // The client went away mid-stream (enqueue on a closed stream), or an unexpected bug: log, never leak.
         log("server_error", meta);

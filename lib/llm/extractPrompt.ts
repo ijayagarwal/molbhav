@@ -1,7 +1,8 @@
 // The quote-extraction prompt and response schema (ARCHITECTURE §8.2). Pure data: convex/llm.ts sends it
-// to Gemini, scripts/eval-extract.ts scores it on evals/extract.golden.json, and lib/extraction.ts maps
-// the answer strictly. Gemini's responseSchema is an OpenAPI subset: "nullable", never null in a type.
-import { lowestThinking } from "./thinking";
+// to OpenAI, scripts/eval-extract.ts scores it on evals/extract.golden.json, and lib/extraction.ts maps
+// the answer strictly. The schema is written in the OpenAPI subset (upper-case types, `nullable`);
+// lib/llm/openai.ts strictSchema() turns it into OpenAI's strict JSON Schema.
+import { chatBody, type SchemaNode } from "./openai";
 import type { OrderItem, Round } from "../domain";
 import { spokenItem } from "../numbers";
 import type { ExtractedTerms } from "../extraction";
@@ -22,7 +23,7 @@ Haggle and match calls: you also get the dealer's earlier quote. Put in "lines" 
 If the dealer corrected a number, use the corrected one. A no-bill (kachcha) rate is never the quote when he also gave a pakka-bill rate.
 Output only JSON.`;
 
-const nullable = <T extends object>(s: T) => ({ ...s, nullable: true });
+const nullable = <const T extends object>(s: T) => ({ ...s, nullable: true as const });
 const STR = { type: "STRING" } as const;
 const NUM = { type: "NUMBER" } as const;
 const enumOf = (values: readonly string[]) => ({ type: "STRING", enum: [...values] }) as const;
@@ -57,7 +58,7 @@ const TERMS = {
   validityText: nullable(STR),
 } as const;
 
-/** Gemini responseSchema (OpenAPI subset, `nullable` style). */
+/** §8.2 (OpenAPI subset, `nullable` style; strictSchema() makes it OpenAI strict JSON Schema). */
 export const EXTRACT_SCHEMA = {
   type: "OBJECT",
   properties: {
@@ -82,21 +83,11 @@ export interface ExtractPromptInput {
 }
 
 /**
- * The generateContent request for one extraction (convex/llm.ts and scripts/eval-extract.ts send the same
- * one): JSON-schema output, temperature 0, the lowest thinking level the model accepts (lib/llm/thinking.ts). Plain data; callers cast `config` to the SDK's type.
+ * The Chat Completions request for one extraction (convex/llm.ts and scripts/eval-extract.ts send the same
+ * one): strict JSON-schema output at the lowest reasoning effort the model accepts (lib/llm/openai.ts).
  */
-export function extractRequest(model: string, input: ExtractPromptInput) {
-  return {
-    model,
-    contents: [{ role: "user", parts: [{ text: extractUserPrompt(input) }] }],
-    config: {
-      systemInstruction: EXTRACT_SYSTEM_PROMPT,
-      responseMimeType: "application/json",
-      responseSchema: EXTRACT_SCHEMA,
-      temperature: 0,
-      thinkingConfig: lowestThinking(model),
-    },
-  };
+export function extractBody(model: string, input: ExtractPromptInput) {
+  return chatBody({ model, system: EXTRACT_SYSTEM_PROMPT, user: extractUserPrompt(input), schema: EXTRACT_SCHEMA satisfies SchemaNode, name: "quote_extraction" });
 }
 
 /** The user turn: the order items with ids (and how the agent said them), the call type, context, transcript. */

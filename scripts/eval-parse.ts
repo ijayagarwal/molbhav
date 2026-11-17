@@ -1,14 +1,14 @@
-// pnpm eval:parse: scores the Gemini order parse on evals/parse.golden.json (ARCHITECTURE §8.1, §14; target
-// ≥ 18/20). It sends exactly the request the voice route sends (lib/llm/parsePrompt.ts), maps the answer with
-// lib/parse.ts, and compares what the app would believe: items, site area, deliverBy, credit and the suta
-// note. It always calls Gemini and prints each call's latency. The golden set holds only the team's own
-// utterances, so GEMINI_API_KEY (free tier) is allowed; GEMINI_API_KEY_BILLED is preferred when both are
-// set (and required once real transcripts are added). GEMINI_MODEL overrides the model. Never prints a key.
+// pnpm eval:parse: scores the OpenAI order parse on evals/parse.golden.json (ARCHITECTURE §8.1, §14; target
+// ≥ 18/20). It sends exactly the request the voice route sends (lib/llm/parsePrompt.ts parseBody through
+// lib/llm/openai.ts), maps the answer with lib/parse.ts, and compares what the app would believe: items,
+// site area, deliverBy, credit and the suta note. It always calls OpenAI and prints each call's latency.
+// Needs OPENAI_API_KEY (DECISIONS R19: one key; OpenAI does not train on API data); OPENAI_MODEL overrides
+// the model. Never prints a key.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseRequest } from "../lib/llm/parsePrompt";
-import { DEFAULT_GEMINI_FLASH_MODEL } from "../lib/llm/thinking";
+import { chatJson, openaiKey, openaiModel } from "../lib/llm/openai";
+import { parseBody } from "../lib/llm/parsePrompt";
 import { parseAnswer, type ParsedDraft } from "../lib/parse";
 
 export interface GoldenCase {
@@ -46,7 +46,7 @@ export function scored(d: ParsedDraft | null) {
   };
 }
 
-/** Pass/fail for one case, with what differed. `actual` is Gemini's raw JSON answer. */
+/** Pass/fail for one case, with what differed. `actual` is the model's raw JSON answer. */
 export function scoreCase(c: GoldenCase, actual: unknown): { pass: boolean; diffs: string[] } {
   const want = scored(parseAnswer(c.expected, c.transcript, "Jaipur"));
   const got = scored(parseAnswer(actual, c.transcript, "Jaipur"));
@@ -65,30 +65,29 @@ export function scoreCase(c: GoldenCase, actual: unknown): { pass: boolean; diff
   return { pass: diffs.length === 0, diffs };
 }
 
-export const NEEDS_KEY_MESSAGE =
-  "eval:parse needs GEMINI_API_KEY (the free key is fine for these team-written fixtures) or GEMINI_API_KEY_BILLED, in .env.local or the shell. GEMINI_MODEL is optional.";
+export const NEEDS_KEY_MESSAGE = "eval:parse needs OPENAI_API_KEY, in .env.local or the shell. OPENAI_MODEL is optional (default gpt-5.4-mini).";
+
+/** Generous: the eval measures latency, it doesn't race it. */
+const EVAL_TIMEOUT_MS = 30_000;
 
 async function main() {
-  const apiKey = process.env.GEMINI_API_KEY_BILLED?.trim() || process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) {
+  const apiKey = openaiKey(process.env);
+  if (apiKey === null) {
     console.error(NEEDS_KEY_MESSAGE);
     process.exit(2);
   }
-  const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_FLASH_MODEL;
-  const { GoogleGenAI } = await import("@google/genai");
-  const ai = new GoogleGenAI({ apiKey, httpOptions: { retryOptions: { attempts: 1 } } });
+  const model = openaiModel(process.env);
   const cases = loadGolden();
   const latencies: number[] = [];
   let passed = 0;
-  console.log(`model ${model} (${process.env.GEMINI_API_KEY_BILLED?.trim() ? "billed" : "free"} key)\n`);
+  console.log(`model ${model}\n`);
   for (const c of cases) {
-    const req = parseRequest(model, c.transcript);
     let result: { pass: boolean; diffs: string[] };
     const t0 = performance.now();
     try {
-      const res = await ai.models.generateContent(req as unknown as Parameters<typeof ai.models.generateContent>[0]);
+      const text = await chatJson({ apiKey, body: parseBody(model, c.transcript), timeoutMs: EVAL_TIMEOUT_MS });
       latencies.push(performance.now() - t0);
-      result = scoreCase(c, JSON.parse(res.text ?? "null"));
+      result = scoreCase(c, JSON.parse(text));
     } catch (e) {
       result = { pass: false, diffs: [`error: ${e instanceof Error ? e.message : String(e)}`] };
     }

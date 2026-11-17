@@ -1,8 +1,10 @@
-// The golden set itself (no Gemini call): every case is consistent with its own transcript, and the
+// The golden set itself (no OpenAI call): every case is consistent with its own transcript, and the
 // scorer catches a wrong rate or outcome.
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { checkCall, parseExtraction } from "../lib/extraction";
-import { evaluate, loadGolden, scoreCase } from "./eval-extract";
+import { NEEDS_KEY_MESSAGE, evaluate, loadGolden, scoreCase } from "./eval-extract";
 
 const cases = loadGolden();
 
@@ -40,5 +42,13 @@ describe("evals/extract.golden.json", () => {
     const uncorrected = { ...ex, lines: ex.lines.map((l) => (l.orderItemId === "steel" ? { ...l, rate: 58 } : l)) };
     expect(scoreCase(c, uncorrected).pass).toBe(false);
     expect(scoreCase(c, { ...ex, outcome: "declined" }).pass).toBe(false);
+  });
+
+  test("without a key it exits 2 with a clear message and calls nothing", () => {
+    const script = fileURLToPath(new URL("./eval-extract.ts", import.meta.url));
+    const tsx = fileURLToPath(new URL("../node_modules/.bin/tsx", import.meta.url));
+    const run = spawnSync(tsx, [script], { env: { PATH: process.env.PATH ?? "", NODE_ENV: "test" }, encoding: "utf8", timeout: 30_000 });
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain(NEEDS_KEY_MESSAGE);
   });
 });
