@@ -187,6 +187,9 @@ importers:
       '@phosphor-icons/react':
         specifier: ^2.1.10
         version: 2.1.10(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      botid:
+        specifier: 1.5.12
+        version: 1.5.12(next@16.4.6(@babel/core@7.29.13(supports-color@7.2.0))(@playwright/test@1.65.1)(@types/node@24.19.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -217,6 +220,9 @@ importers:
       vercel-og:
         specifier: npm:@vercel/og@1.0.3
         version: '@vercel/og@1.0.3(patch_hash=494a954d146e88574261fd6c57e833e42ff6f6dd4095ddcd540c18f723d29f81)(@types/node@24.19.2)'
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@edge-runtime/vm':
         specifier: ^5.0.0
@@ -1659,6 +1665,17 @@ packages:
 
   bignumber.js@9.3.1:
     resolution: {integrity: sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ==}
+
+  botid@1.5.12:
+    resolution: {integrity: sha512-bUYGLDLbNOQJyTVfuBGzm1ADztJ/euV6XH9JgXZ9MG2CZvElgOycybVOsgHBjVwB4tFl77g7zs31kEvjYm2gAw==}
+    peerDependencies:
+      next: '*'
+      react: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      next:
+        optional: true
+      react:
+        optional: true
 
   brace-expansion@1.1.22:
     resolution: {integrity: sha512-CKLDTuSsN0+r1ThM0WkzzBI7dnPI6xEGfa/JnVYIK9JNBA1N1NyPwXVHor//NKD/y3sDxp764sZdLhFK7pH8XQ==}
@@ -4490,6 +4507,11 @@ snapshots:
   baseline-browser-mapping@2.11.37: {}
 
   bignumber.js@9.3.1: {}
+
+  botid@1.5.12(next@16.4.6(@babel/core@7.29.13(supports-color@7.2.0))(@playwright/test@1.65.1)(@types/node@24.19.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0):
+    optionalDependencies:
+      next: 16.4.6(@babel/core@7.29.13(supports-color@7.2.0))(@playwright/test@1.65.1)(@types/node@24.19.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react: 19.3.0
 
   brace-expansion@1.1.22:
     dependencies:
