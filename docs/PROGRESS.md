@@ -68,7 +68,8 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 | 4 | Real voice: recorder, Sarvam STT, OpenAI parse (R19), read-back TTS | Built; works end to end on local dev with real speech; deployed. Real-phone test pending | `5f8ba5a` … `286269e` |
 | 8B / 8C | Bolna dial, webhooks, report_quote; recordings and retention | Later (needs a Bolna account) | — |
 | Team test | Real AI calls to teammates' verified phones | Later | — |
-| 1C, 7, 9, 10 | Landing and waitlist; sandbox and presenter; hardening; go-live | Later | — |
+| 1C | Landing, waitlist, /dealer opt-in, /privacy draft, analytics, robots | Done; deployed; indexing waits for the lawyer (`PUBLIC_LAUNCH`) | `2053ea7` … `9380285` |
+| 7, 9, 10 | Sandbox and presenter; hardening and demo deployment; go-live for real dealers | Later | — |
 
 ## 3b. Road to a live showcase (17 Nov 2026, night)
 
@@ -136,8 +137,12 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
 - **Male voice (R20):** the read-back now speaks with Sarvam's `ashutosh_hi_conversational` (Hindi) and
   `dev_en_conversational` (English); samples of five candidates are in `~/Downloads/molbhav-voice-samples`.
 - **Log out** in Settings, with an honest warning: sessions are anonymous until phone-number login exists.
-- **In progress (two agents):** Phase 8B (Bolna calling, built keyless and mocked) and Phase 1C (waitlist,
-  /dealer, /privacy, analytics, robots).
+- **Phase 1C merged and deployed:** the landing page now has a "for dealers" section and the waitlist (consent
+  required, rate-limited by IP hash); `/dealer` (Hindi first) records a dealer's opt-in without making the
+  number callable (S2); `/privacy` is a plain hi/en draft for the lawyer; analytics events (G6, no personal
+  data); a bilingual OG image. Search engines stay out until `PUBLIC_LAUNCH=true` (after the lawyer's review).
+  Verified on dev: a dealer sign-up lands in the waitlist and creates no dealer.
+- **In progress (an agent):** Phase 8B (Bolna calling, built keyless and mocked).
 - **Still to do in Phase 4:** a test on a real phone over HTTPS (production refuses automated browsers, so only
   a person can check it), the founders' own recording, voice "हाँ, शुरू कीजिए" on Confirm (needs a
   speech-only route), and the "change site" sheet listing more than the home site.
@@ -287,7 +292,9 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
 | `~/Downloads/demo.m4a` | A real human voice for the voice test (the automated test can use Bulbul's synthetic voice meanwhile) | Record the demo line from docs/DEMO.md in Voice Memos and save it to Downloads |
 | A real phone for HTTPS tests | The last Phase 4 check: speak an order on https://molbhav-weld.vercel.app/app (automated browsers are refused there by design) | Any Android in Chrome: open the link, onboard, tap the mic, say the demo line, and tell Claude what Confirm showed |
 | Later: Bolna account + teammates' phone numbers | The Team test (real AI calls to teammates only) | START_HERE.md Part C5 |
-| Later: the team's WhatsApp Business number | The landing page's main call to action (Phase 1C) | WhatsApp Business app on a team phone; send the number |
+| Later: the team's WhatsApp Business number | The landing page's main call to action (Phase 1C; hidden until set) | WhatsApp Business app on a team phone; send the number |
+| Later: a privacy contact (email or the WhatsApp number) and the legal entity name | /privacy says how to ask for erasure (DPDP) | Send them; Claude fills `features/marketing/contact.ts` |
+| Later: phone-number login | So logging out doesn't lose the account | An SMS OTP provider (needs DLT registration in India) or WhatsApp OTP; founders choose and sign up |
 | Later: a lawyer's read of /privacy and the consent text | Before the landing link is shared publicly (Phase 1C, DPDP) | Claude drafts both; the lawyer reviews |
 | Anytime: 30 minutes of a native Hindi speaker's time | A pass over every Hindi string ("match" vs "मैच", tone) | Claude exports the copy deck as a list to read through |
 
