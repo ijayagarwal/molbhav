@@ -66,7 +66,8 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 | App screens | Onboarding, Home, Settings (language switch), Confirm | Done (sim; voice and typed parsing come with Phase 4) | `6caaa21` |
 | App screens 2 | Choose dealers, Sweep board, Result, Placed, Share, landing, PWA | Done in sim; reviewed (17 defects fixed); verified on production | `f32e70f` … `8781d88` |
 | 4 | Real voice: recorder, Sarvam STT, OpenAI parse (R19), read-back TTS | Built; works end to end on local dev with real speech; deployed. Real-phone test pending | `5f8ba5a` … `286269e` |
-| 8B / 8C | Bolna dial, webhooks, report_quote; recordings and retention | Later (needs a Bolna account) | — |
+| 8B | Bolna dial, webhooks, report_quote, agent sync, admin web calls | Built and deployed (inert); waits for the Bolna key, then a founder's "go" | `6b3dbdd` … `242e9d7` |
+| 8C | Recordings and retention | Next | — |
 | Team test | Real AI calls to teammates' verified phones | Later | — |
 | 1C | Landing, waitlist, /dealer opt-in, /privacy draft, analytics, robots | Done; deployed; indexing waits for the lawyer (`PUBLIC_LAUNCH`) | `2053ea7` … `9380285` |
 | 7, 9, 10 | Sandbox and presenter; hardening and demo deployment; go-live for real dealers | Later | — |
@@ -142,7 +143,16 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
   number callable (S2); `/privacy` is a plain hi/en draft for the lawyer; analytics events (G6, no personal
   data); a bilingual OG image. Search engines stay out until `PUBLIC_LAUNCH=true` (after the lawyer's review).
   Verified on dev: a dealer sign-up lands in the waitlist and creates no dealer.
-- **In progress (an agent):** Phase 8B (Bolna calling, built keyless and mocked).
+- **Phase 8B merged (built without a Bolna key; nothing dialled).** Live calls go only through `claimDial`; the
+  webhook (`/bolna/webhook`) and `report_quote` (`/bolna/report-quote`) check `x-molbhav-secret` and fail closed
+  (503) until it is set: checked on dev and production. `pnpm bolna:build` builds the four agents from
+  CALL_SCRIPT.md (male voice: Sarvam `ashutosh_hi_conversational`; `--voice elevenlabs` swaps in an ElevenLabs
+  male Hindi voice); `pnpm bolna:sync` creates them in Bolna; `pnpm bolna:check` is read-only. Founders can talk
+  to the agents from the browser at `/app/admin/agents` (Bolna web call; starts only on a founder's tap; the key
+  stays on the server). Steps once the key arrives: `docs/BOLNA_SETUP.md` §8.
+- **Choose dealers: Demo / Live** appears only when the server says live calls are possible for this contractor;
+  live lists only test_ok or opted-in dealers; a live order's screens show LIVE, never DEMO.
+- **Confirm** now asks an unsaid steel grade and cement type with chips (PRODUCT §4) and shows a named brand.
 - **Still to do in Phase 4:** a test on a real phone over HTTPS (production refuses automated browsers, so only
   a person can check it), the founders' own recording, voice "हाँ, शुरू कीजिए" on Confirm (needs a
   speech-only route), and the "change site" sheet listing more than the home site.
