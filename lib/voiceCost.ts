@@ -1,16 +1,21 @@
 // What the voice routes spend, for the daily ₹ kill switch VOICE_DAILY_INR_CAP (ARCHITECTURE §6.1, §13).
 // Estimates are charged BEFORE the vendor is called and err high, so the cap trips early rather than late.
 // Vendor prices (checked November 2026): Sarvam STT ₹0.49 a minute billed per second, REST clips ≤ 30 s;
-// Bulbul v4 Flash ₹1 per 1,000 characters; a Gemini Flash parse (≈ 600 tokens in, ≈ 250 out) is well under
-// ₹0.10. Pure: used by convex/limits.ts.
+// Bulbul v4 Flash ₹1 per 1,000 characters; OpenAI gpt-5.4-mini $0.75 per 1M input tokens and $4.50 per 1M
+// output tokens (developers.openai.com/api/docs/models/gpt-5.4-mini, 17 Nov 2026). Pure: used by
+// convex/limits.ts.
 
 export type VoiceSpendKind = "order_audio" | "order_text" | "tts";
 
 export const VOICE_COST_PAISE = {
   /** A whole 30 s clip at ₹0.49/min (the route doesn't decode audio, so every clip is charged the maximum). */
   sttClip: 25,
-  /** One Gemini Flash parse, rounded up. */
-  parse: 10,
+  /**
+   * One OpenAI parse (DECISIONS R19). The demo line is ≈ 820 tokens in (the §8.1 prompt and strict schema
+   * plus the transcript) and ≈ 100 out: $0.000615 + $0.00045 ≈ $0.0011 ≈ ₹0.10. Charged 15 paise so a
+   * longer order (≈ 200 tokens out) at up to ₹100 a dollar still fits. Recheck if OPENAI_MODEL changes.
+   */
+  parse: 15,
   /** Bulbul v4 Flash: ₹1 (100 paise) per 1,000 characters. */
   ttsPer1000Chars: 100,
 } as const;
