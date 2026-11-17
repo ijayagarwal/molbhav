@@ -393,13 +393,13 @@ export default defineSchema({
 
 ### 6.1 Voice order (fast path, F3)
 1. The client records with `lib/client/recorder.ts`. It probes MIME types in order: `audio/webm;codecs=opus` → `audio/webm` → `audio/mp4`, at 24 kbps mono. It stops the tracks after each take and discards clips with under 0.6 s of speech.
-2. `POST /api/voice/order` with the audio and the auth token. The route calls `checkBotId()` (403 for bots), verifies identity and consumes the rate limit (`limits.consumeVoice`).
-3. Sarvam STT (`mode: codemix`). The transcript is **streamed to the client immediately**.
-4. Gemini parse with the order schema (§8.1), thinking level lowest. Validate with zod and convert null to undefined.
-5. `orders.createDraft` (authenticated) writes the draft and returns its id. The client navigates to Confirm (prefetched).
-6. Audio is never stored (B6). The typed fallback posts text and skips step 3.
-7. Target: transcript in about 1.5 s, Confirm in about 2.5 s after release, on 4G. Log timings per step.
-8. The read-back on Confirm (V3) comes from `POST /api/tts` with `{ draftId }` (Vercel, `bom1`; BotID-protected; the client plays the returned audio): it checks auth and ownership, applies a per-user rate limit, **builds the text on the server from the draft** (never from the request), calls Bulbul v4 Flash and returns audio. There is no endpoint that speaks arbitrary text.
+2. `POST /api/voice/order` (`app/api/voice/order/route.ts` → `lib/server/voiceOrder.ts`; Node runtime, `bom1` through `vercel.json`'s `regions`, because Next.js 16.4 deprecates the route-level `preferredRegion`) with multipart `audio` (≤ 1 MiB; optional `durationMs` ≤ 30,000) and the session cookie. The route calls `checkBotId()` (403 for bots), needs the Convex Auth token (401), checks the input (400 `bad_request`, 413 `too_long`) and its config (503 `not_configured`: names of missing env vars are logged, never values), then calls `limits.consumeVoice` **as the user** with `CONVEX_SERVER_SECRET` (the §6.13 pattern, so a browser can't spend the shared budget): per-user `voiceUser` (8 in a burst, 30/h), per-IP-hash `voiceIp` (30 in a burst, 120/h; carriers share IPs behind CGNAT) and the daily ₹ cap `VOICE_DAILY_INR_CAP` (Convex env, default ₹500, shared with `/api/tts`; spend estimated up front by `lib/voiceCost.ts`: ₹0.35 a spoken order, ₹0.10 a typed one, ₹1 per 1,000 read-back characters; days start at midnight IST; a new cap applies at once). All checks pass or nothing is consumed (429 `rate_limited` / `cap_reached` with `Retry-After`).
+3. Sarvam STT (`saaras:v4`, `mode: codemix`, `language_code` from the `lang` cookie, domain `keyterms`: brands, grades, cement types, trade words, the city's areas). The response is NDJSON: `{"type":"transcript","text":…}` is **streamed to the client immediately**, then `{"type":"draft","orderId":…}` or `{"type":"error","code":…}` (`stt_failed`, `no_speech`, `parse_failed`, `rate_limited`, `unauthenticated`, `server_error`).
+4. Gemini parse with the order schema (§8.1), thinking level lowest (`lib/llm/thinking.ts`), one attempt, 8 s timeout. `lib/parse.ts` validates with zod (a bad field becomes "not said") and converts null to undefined; then code maps it: stable ids (`steel`, `cement`, then `steel_2`…), brands only from `BRAND_TIERS` (their tier follows the list), sizes only from the TMT list, cement in bags, "both" kept (R10), suta never mapped even if the model did (P7), `siteText` matched to `CITY_AREAS` (R7).
+5. `orders.createDraft` (contractor, as the user) re-checks every field (items must already be in `lib/parse.ts`'s sanitized form), resolves the site in code (nothing said → the default site; a listed area → the contractor's site there, or a new site for that area, at most 10; anything else → no site and `missing: ["site"]`), pre-selects cement's tier from the contractor's last choice else "any" (R8), computes `missing` itself (`<itemId>:<field>`, in asking order, plus `site`), writes a sim draft and returns its id. The client navigates to Confirm (prefetched).
+6. Audio is never stored (B6). The typed fallback posts JSON `{ text }` (≤ 500 characters), skips step 3 and gets its text echoed as the transcript line.
+7. Target: transcript in about 1.5 s, Confirm in about 2.5 s after release, on 4G. Each request logs one JSON line (`evt: "voice_order"`) with per-step milliseconds (bot, read, limits, stt, parse, draft, total), the outcome, sizes and the model: never the transcript.
+8. The read-back on Confirm (V3) comes from `POST /api/tts` with exactly `{ draftId }` (`lib/server/readbackAudio.ts`; Node, `bom1`; BotID-protected; the client plays the returned `audio/mpeg`): it checks auth and ownership through `orders.readBack` (run as the user; 404 for someone else's draft, 409 `not_draft` / `incomplete`), **builds the text on the server from the draft** with `lib/readback.ts` (never from the request; any other key in the body is a 400), consumes `ttsUser` (10 in a burst, 60/h) and the shared cap, calls Bulbul v4 Flash and returns MP3 (502 `tts_failed` otherwise). There is no endpoint that speaks arbitrary text.
 
 ### 6.2 Sweep start and dispatch
 1. `orders.startSweep({ orderId, mode })` checks ownership and confirmation (every item has quantity, unit and a single tier: branded, local_isi or any). In live mode it also checks `MAX_LIVE_SWEEPS_PER_HOUR` (R2). It increments `roundSeq` and creates `calls` rows (`round: "quote"`) for the selected dealers, **except the regular dealer unless `askFirst`**; he is held for the match call (P1).
@@ -494,12 +494,15 @@ The route `POST /api/voice/order?sandbox=1` calls `checkBotId()` and refuses bot
 
 **Sarvam**
 - Base `https://api.sarvam.ai`, header `api-subscription-key`.
-- STT: `POST /speech-to-text`, multipart `file`, `model` (`saaras:v4`), and `mode` (`transcribe | translate | verbatim | translit | codemix`). REST limit 30 s of audio.
-- Pricing: STT ₹0.49/min; Bulbul v3 ₹3 and v4 Flash ₹1 per 1,000 characters. **New accounts get ₹100 of free credit.**
+- STT: `POST /speech-to-text`, multipart `file`, `model` (`saaras:v4`, the default and latest; `saaras:v3` also listed), `mode` (`transcribe | translate | verbatim | translit | codemix`; codemix writes English words in Latin and Hindi in Devanagari), `language_code` (`hi-IN`, `en-IN`, … or `unknown`; set it explicitly for clips under 3 s) and `keyterms` (a JSON-encoded array of at most 50 terms, 64 characters each; **saaras:v4 only**, v3 answers 400). Response `{ request_id, transcript, language_code }`. REST is for clips under 30 s (longer: the Batch API). Formats include WebM, OGG/Opus, MP4/M4A, AAC, WAV, MP3; 16 kHz works best. Errors: 400/403/422/429/500/503 with `error.code`. (The API reference says `mode` applies to v3 only while the model page and the keyterms guide use `saaras:v4` with `mode: "codemix"`; we send both. Check the transcript script on the first real call.)
+- TTS: `POST /text-to-speech`, JSON `{ text (≤ 2,500 characters), language_code, model: "bulbul:v4-flash", speaker, output_audio_codec (wav | mp3 | aac | flac | linear16), speech_sample_rate }` → `{ request_id, audios: [base64] }`. Omitting `model` gives `bulbul:v3`. v4 Flash speakers are persona ids `name_lang_style` (v3 short names like `shubh` are rejected; an unknown id answers 400 with the live list). Hindi customer-care personas include `aparna_hi_customer` (our default, `SARVAM_TTS_SPEAKER`), `ritu_hi_customer` and `shubh_hi_customer`; English `simran_en_customer` (`SARVAM_TTS_SPEAKER_EN`). We ask for MP3 at 24 kHz. Sarvam renamed some voices in October 2026, so keep the speaker in env, not code.
+- Pricing: STT ₹0.49/min billed per second; Bulbul v3 ₹3 and v4 Flash ₹1 per 1,000 characters. Pay-as-you-go limits: 60 requests a minute each for REST STT and TTS, per account. **New accounts get ₹100 of free credit.** (Sources: docs.sarvam.ai API reference, Voices page and pricing page, checked 17 Nov 2026 through the sarvam-docs MCP and the speech-to-text / text-to-speech skills.)
 
 **Gemini**
 - `@google/genai` `generateContent`, `responseMimeType: "application/json"`, `responseSchema` (OpenAPI subset: use `nullable`, never `null` in `type` or `enum`).
-- The free tier may use prompts to improve Google's products: **only fixtures and demo data there** (your own team's test speech counts as demo data). Speech or transcripts from real contractors and dealers, and evals built from them, use a **billed** key (`GEMINI_API_KEY_BILLED`). In production the voice route uses only the billed key. The sandbox uses its own billed project.
+- Models (aistudio.google.com/docs/models, 17 Nov 2026): `gemini-3.8-flash` and `gemini-3.6-flash` are the stable Flash models; `gemini-3.5-flash-lite` the cheapest; `gemini-2.5-flash` is deprecated and from 1 Dec 2026 routes to `gemini-3.5-flash-lite`. The voice route defaults to `gemini-3.6-flash` (its lowest thinking level, "minimal", is near-off, which keeps the parse fast); `GEMINI_MODEL` overrides it (shared with the Convex extractor). Pick the final model with `pnpm eval:parse`, which prints per-call latency.
+- Lowest thinking level (aistudio.google.com/docs/thinking): "minimal" on `gemini-3.6-flash`, `gemini-3.5-flash-lite` and `gemini-3-flash-preview`; "low" on `gemini-3.8-flash` and Gemini 4 (no "minimal"); a `thinkingBudget` of 0 on 2.5 Flash. `lib/llm/thinking.ts` picks it per model (`lib/llm/extractPrompt.ts` still sends "minimal" to every non-2.5 model, which `gemini-3.8-flash` would reject; switch it to `lowestThinking` before using 3.8).
+- The free tier may use prompts to improve Google's products: **only fixtures and demo data there** (your own team's test speech counts as demo data). Speech or transcripts from real contractors and dealers, and evals built from them, use a **billed** key (`GEMINI_API_KEY_BILLED`). In production the voice route uses only the billed key: any `NODE_ENV=production` build, Vercel previews included, refuses the free key; `next dev` uses the billed key if set, else the free one. The sandbox uses its own billed project.
 
 **Bolna**
 - Base `https://api.bolna.ai`, `Authorization: Bearer`.
@@ -515,7 +518,7 @@ The route `POST /api/voice/order?sandbox=1` calls `checkBotId()` and refuses bot
 - Helpers: the `setup-webhook`, `setup-tools` and `get-executions` skills only (`START_HERE.md` A3), and the Web Call SDK for browser tests. Never the calling or number-buying skills, and never the `transfer_call` tool (it would bridge a live call to another number).
 
 **Vercel BotID:**
-- `pnpm i botid`.
+- `pnpm i botid` (installed: 1.5.12).
 - `initBotId({ protect: [{ path: '/api/voice/order', method: 'POST' }, { path: '/api/tts', method: 'POST' }] })` in `instrumentation-client.ts`.
 - `checkBotId()` from `botid/server` in each route, refusing with 403 when `isBot`.
 - No keys and no `next.config` wrapper on Vercel. A route missing from `protect` makes `checkBotId()` fail.
@@ -540,7 +543,7 @@ Rules:
 - deliverBy: map the delivery time to one of today, tomorrow_morning, tomorrow, day_after, this_week, flexible; null if not said or unclear.
 Output only JSON matching the schema.
 ```
-After parsing, code (not the LLM) matches `siteText` to the contractor's sites and the city's `CITY_AREAS` list; the result is confirmed with a chip on Confirm (R7).
+After parsing, code (not the LLM) matches `siteText` to the contractor's sites and the city's `CITY_AREAS` list; the result is confirmed with a chip on Confirm (R7). The schema in code uses the SDK's upper-case type names (`"OBJECT"`, `"STRING"`…), as `lib/llm/extractPrompt.ts` does; it is otherwise this schema. Code also keeps only the notes `size_said_in_suta` and `brand_not_in_list`, and computes `missing` itself (§6.1 step 5).
 Schema:
 ```json
 {
@@ -703,7 +706,11 @@ The client learns whether live mode is available only through `settings.liveAvai
 ## 12. Environment variables
 See `.env.example`.
 - **Client-visible:** `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_WHATSAPP_NUMBER`.
-- **Next.js server** (Vercel env when deployed; `.env.local` in local dev, gitignored): Sarvam key and TTS settings, Gemini keys, `CONVEX_SERVER_SECRET`, `HASH_SECRET`. Every module that reads them starts with `import "server-only"`.
+- **Next.js server** (Vercel env when deployed; `.env.local` in local dev, gitignored): Sarvam key and TTS settings, Gemini keys, `CONVEX_SERVER_SECRET`, `HASH_SECRET`. Every module that reads them starts with `import "server-only"`. The voice routes (§6.1) read:
+  - `SARVAM_API_KEY` (required for audio and the read-back); `SARVAM_STT_MODEL` (default `saaras:v4`); `SARVAM_TTS_MODEL` (default `bulbul:v4-flash`); `SARVAM_TTS_SPEAKER` (Hindi, default `aparna_hi_customer`); `SARVAM_TTS_SPEAKER_EN` (English, default `simran_en_customer`);
+  - `GEMINI_API_KEY_BILLED` (required in production), `GEMINI_API_KEY` (free; `next dev` only), `GEMINI_MODEL` (default `gemini-3.6-flash`);
+  - `CONVEX_SERVER_SECRET` (at least 32 characters, the same value in Convex env) and `HASH_SECRET` (the IP hash); `NEXT_PUBLIC_CONVEX_URL`.
+- **Convex env for the voice routes:** `CONVEX_SERVER_SECRET` (same value as Vercel; unset or shorter than 32 characters answers `not_configured`) and `VOICE_DAILY_INR_CAP` (whole rupees; unset = 500; 0 turns both routes off; anything else fails closed).
 - **Vercel only:** `CONVEX_DEPLOY_KEY` (one for Production, one for Preview).
 - **Everything else** lives in Convex env, set per deployment (`npx convex env set`, with `--prod` for production).
 
