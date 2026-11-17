@@ -1,24 +1,43 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { MicBold } from "@/components/mb/icons";
+import { MicBold, NextBold } from "@/components/mb/icons";
 import { Parchi } from "@/components/mb/Parchi";
-import { Wordmark } from "@/components/mb/Wordmark";
-import { CookieLangSwitch } from "@/features/i18n/CookieLangSwitch";
+import { SiteFooter, SiteHeader } from "@/features/marketing/SiteChrome";
+import { WaitlistForm } from "@/features/marketing/WaitlistForm";
+import { WhatsAppLink } from "@/features/marketing/WhatsAppLink";
+import { whatsappDigits } from "@/features/marketing/contact";
 import { buildMoneyShot } from "@/features/moneyShot/data";
 import { CITY_AREAS, DELIVER_BY } from "@/lib/config";
 import { DEMO_ITEMS } from "@/lib/fixtures/demoOrder";
 import { getServerDict } from "@/lib/i18n/server";
 import { formatPaise, formatRate } from "@/lib/numbers";
 import { lineBreakdown } from "@/lib/pricing";
+import { cleanRef } from "@/lib/waitlist";
 
-// The landing page (DESIGN §21.1, design/reference/Landing.html, LandingPhone.html), server-only (F2).
-// Pilot wording (G2): our team calls dealers today; AI calling is "जल्द". The proof band waits for real
-// spread-test figures (G1) and the live hero board comes with Phase 7; meanwhile the hero shows the parchi
-// the brain computes for the demo order.
+// The landing page (DESIGN §21.1, design/reference/Landing.html, LandingPhone.html), server-only (F2), in the
+// G1 order: hero → how it works → honest-bargaining rules → for dealers → waitlist. Pilot wording (G2): our
+// team calls dealers today; AI calling is "जल्द". The proof band waits for real spread-test figures (G1), the
+// sandbox for /try, and the live hero board comes with Phase 7; meanwhile the hero shows the DEMO parchi the
+// brain computes for the demo order. WhatsApp click-to-chat appears only when the team number is set.
 const DEMO = buildMoneyShot(Date.UTC(2026, 10, 15));
 const UNIT_HI = { kg: "किलो", ton: "टन", quintal: "क्विंटल", bag: "बोरी" } as const;
 
-export default async function LandingPage() {
+export async function generateMetadata(): Promise<Metadata> {
   const { lang, t } = await getServerDict();
+  return {
+    title: t["meta.landingTitle"],
+    description: t["meta.landingDescription"],
+    alternates: { canonical: "/" },
+    openGraph: { title: t["meta.landingTitle"], description: t["meta.landingDescription"], type: "website", siteName: t["brand.name"], locale: lang === "hi" ? "hi_IN" : "en_IN" },
+    twitter: { card: "summary_large_image", title: t["meta.landingTitle"], description: t["meta.landingDescription"] },
+  };
+}
+
+export default async function LandingPage({ searchParams }: PageProps<"/">) {
+  const { lang, t } = await getServerDict();
+  const rawRef = (await searchParams).ref;
+  const refCode = cleanRef(typeof rawRef === "string" ? rawRef : undefined);
+  const hasWhatsApp = whatsappDigits() !== null;
   const winner = DEMO.dealers.agarwal;
   const lines = lineBreakdown(DEMO_ITEMS, DEMO.winnerFacts.lines, false).map((l) => {
     const item = DEMO_ITEMS.find((i) => i.id === l.itemId)!;
@@ -36,15 +55,7 @@ export default async function LandingPage() {
 
   return (
     <div className="min-h-dvh bg-paper">
-      <header className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-3 px-4 lg:px-8">
-        <Wordmark label={t["brand.name"]} height={28} />
-        <span className="flex items-center gap-2">
-          <CookieLangSwitch current={lang} label={t["home.langSwitch"]} />
-          <Link href="/app" className="inline-flex h-14 items-center rounded-card bg-ink px-4 text-label text-paper">
-            {t["landing.openApp"]}
-          </Link>
-        </span>
-      </header>
+      <SiteHeader lang={lang} t={t} sections />
 
       <main>
         <section className="mx-auto grid max-w-[1200px] gap-10 px-4 pb-14 pt-6 lg:grid-cols-[minmax(0,1fr)_460px] lg:items-center lg:px-8 lg:pt-12">
@@ -58,13 +69,16 @@ export default async function LandingPage() {
             <p className="max-w-[60ch] text-body-lg text-ink-2">{t["landing.sub"]}</p>
             <p className="max-w-[60ch] border-l-4 border-haldi pl-3 text-label">{t["landing.pilot"]}</p>
             <div className="flex flex-col gap-2">
-              <Link
-                href="/app"
-                className="press-paint inline-flex h-16 items-center justify-center gap-3 rounded-card border-2 border-ink bg-haldi px-6 font-display text-title-2 shadow-paint lg:w-fit"
-              >
-                <MicBold className="size-6" />
-                {t["landing.cta"]}
-              </Link>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <Link
+                  href="/app"
+                  className="press-paint inline-flex h-16 items-center justify-center gap-3 rounded-card border-2 border-ink bg-haldi px-6 font-display text-title-2 shadow-paint lg:w-fit"
+                >
+                  <MicBold className="size-6" />
+                  {t["landing.cta"]}
+                </Link>
+                <WhatsAppLink text={t["landing.whatsappText"]} label={t["landing.whatsapp"]} variant="secondary" />
+              </div>
               <span className="text-meta text-ink-2">{t["landing.demoNote"]}</span>
             </div>
           </div>
@@ -84,7 +98,7 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        <section className="border-t border-rule bg-card">
+        <section id="how" className="scroll-mt-4 border-t border-rule bg-card">
           <div className="mx-auto flex max-w-[1200px] flex-col gap-6 px-4 py-12 lg:px-8">
             <h2 className="font-display text-title-1">{t["landing.howTitle"]}</h2>
             <ol className="grid gap-6 lg:grid-cols-3">
@@ -103,7 +117,7 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        <section className="bg-cement">
+        <section id="rules" className="scroll-mt-4 bg-cement">
           <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 py-12 lg:px-8">
             <h2 className="font-display text-title-1">{t["landing.honestTitle"]}</h2>
             <ul className="grid gap-3 lg:grid-cols-3">
@@ -118,7 +132,48 @@ export default async function LandingPage() {
             </Link>
           </div>
         </section>
+
+        <section id="dealers" className="scroll-mt-4">
+          <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 py-12 lg:flex-row lg:items-center lg:justify-between lg:gap-10 lg:px-8">
+            <div className="flex max-w-[60ch] flex-col gap-3">
+              <h2 className="font-display text-title-1">{t["landing.dealersTitle"]}</h2>
+              <p className="text-body-lg text-ink-2">{t["landing.dealersBody"]}</p>
+            </div>
+            <Link href="/dealer" className="inline-flex min-h-14 w-fit shrink-0 items-center gap-2 rounded-card border-[1.5px] border-ink bg-card px-5 text-label">
+              {t["landing.dealersCta"]}
+              <NextBold aria-hidden="true" className="size-5" />
+            </Link>
+          </div>
+        </section>
+
+        <section id="waitlist" aria-labelledby="waitlist-title" className="scroll-mt-4 bg-ink text-paper">
+          <div className="mx-auto grid max-w-[1200px] gap-8 px-4 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] lg:items-start lg:gap-12 lg:px-8 lg:py-16">
+            <div className="flex flex-col gap-4">
+              <h2 id="waitlist-title" className="font-display text-title-1">
+                {t["waitlist.title"]}
+              </h2>
+              <p className="max-w-[48ch] text-body-lg">{t["waitlist.body"]}</p>
+              {hasWhatsApp ? (
+                <div className="flex flex-col gap-3">
+                  {/* The display classes sit on wrappers: the link's own inline-flex would override "hidden". */}
+                  <div className="lg:hidden">
+                    <WhatsAppLink text={t["landing.whatsappText"]} label={t["waitlist.whatsapp"]} variant="primary" />
+                  </div>
+                  <div className="hidden lg:block">
+                    <WhatsAppLink text={t["landing.whatsappText"]} label={t["waitlist.whatsapp"]} variant="onInk" />
+                  </div>
+                  <span className="text-label">{t["waitlist.orForm"]}</span>
+                </div>
+              ) : null}
+            </div>
+            <div className="rounded-card bg-paper p-4 text-ink sm:p-6">
+              <WaitlistForm refCode={refCode} />
+            </div>
+          </div>
+        </section>
       </main>
+
+      <SiteFooter t={t} />
     </div>
   );
 }
