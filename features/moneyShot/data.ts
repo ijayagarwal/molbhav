@@ -3,14 +3,12 @@
 // All dealers are fictional; all prices are test fixtures.
 import { personaCall } from "@/convex/sim/personas";
 import { PRICE_BAND_SEEDS } from "@/lib/config";
-import type { OrderItem } from "@/lib/domain";
 import { DEMO_DEALERS } from "@/lib/fixtures/demoDealers";
 import { priceQuote, type PricingContext, type QuoteFacts } from "@/lib/pricing";
 
-export const DEMO_ITEMS: OrderItem[] = [
-  { id: "steel", material: "tmt_steel", diameterMm: 12, grade: "Fe500D", tier: "local_isi", quantity: 2, unit: "ton" },
-  { id: "cement", material: "cement", cementType: "PPC", tier: "any", quantity: 150, unit: "bag" },
-];
+import { DEMO_ITEMS } from "@/lib/fixtures/demoOrder";
+
+export { DEMO_ITEMS };
 
 /** What each dealer says during the call, shown as DEMO captions in sim only (D7). Dealer speech, from the TEAM_TEST cards. */
 export const CAPTIONS = {

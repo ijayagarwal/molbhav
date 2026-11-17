@@ -147,7 +147,9 @@ export function AppShell({ topBar, rail, bahi, children, phoneDock, deskDock, pa
   }, [drawer, close]);
 
   return (
-    <div className="min-h-dvh bg-paper lg:grid lg:h-dvh lg:grid-cols-[72px_minmax(0,1fr)] xl:grid-cols-[72px_minmax(0,1fr)_400px] 2xl:grid-cols-[72px_300px_minmax(0,1fr)_420px]">
+    <div
+      className={`min-h-dvh bg-paper lg:grid lg:h-dvh lg:grid-cols-[72px_minmax(0,1fr)] ${panel === undefined ? "2xl:grid-cols-[72px_300px_minmax(0,1fr)]" : "xl:grid-cols-[72px_minmax(0,1fr)_400px] 2xl:grid-cols-[72px_300px_minmax(0,1fr)_420px]"}`}
+    >
       <nav aria-label={navLabel} inert={drawer} className="hidden border-r border-rule bg-paper lg:block">
         {rail}
       </nav>
@@ -167,8 +169,10 @@ export function AppShell({ topBar, rail, bahi, children, phoneDock, deskDock, pa
         {deskDock ? <div className="sticky bottom-0 hidden border-t border-rule bg-paper lg:block">{deskDock}</div> : null}
       </div>
 
-      {/* The call panel: a modal drawer under 1280 px, docked from 1280. Scrims are ink at 50% (DESIGN §7). */}
+      {/* The call panel: a modal drawer under 1280 px, docked from 1280. Scrims are ink at 50% (DESIGN §7).
+          Screens without a panel get no panel column at all. */}
       {drawer ? <div aria-hidden="true" onClick={close} className="fixed inset-0 z-30 bg-ink/50" /> : null}
+      {panel === undefined ? null : (
       <aside
         ref={panelRef}
         role={drawer ? "dialog" : undefined}
@@ -183,6 +187,7 @@ export function AppShell({ topBar, rail, bahi, children, phoneDock, deskDock, pa
         </div>
         {panel}
       </aside>
+      )}
 
       {phoneDock ? (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-rule bg-paper px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 lg:hidden">

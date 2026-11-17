@@ -8,13 +8,15 @@ export function TranscriptCard({ text, fixLabel, onFix }: { text: string; fixLab
   return (
     <div className="flex items-start gap-3">
       <p className="min-w-0 flex-1 text-body text-ink-2">{`“${text}”`}</p>
-      <button
-        type="button"
-        onClick={onFix}
-        className="inline-flex min-h-14 shrink-0 touch-manipulation items-center rounded-card border-[1.5px] border-ink bg-card px-3 text-label active:scale-[0.97]"
-      >
-        {fixLabel}
-      </button>
+      {onFix ? (
+        <button
+          type="button"
+          onClick={onFix}
+          className="inline-flex min-h-14 shrink-0 touch-manipulation items-center rounded-card border-[1.5px] border-ink bg-card px-3 text-label active:scale-[0.97]"
+        >
+          {fixLabel}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -49,16 +51,27 @@ export function ItemCard({ title, quantity, unit, specs, children }: { title: st
   );
 }
 
-/** The three fact tiles under the items: site, by when, credit (Confirm.html). */
-export function FactTiles({ facts }: { facts: { label: string; value: string }[] }) {
+/** The three fact tiles under the items: site, by when, credit (Confirm.html). Tappable ones open a choice sheet. */
+export function FactTiles({ facts }: { facts: { label: string; value: string; onClick?: () => void }[] }) {
   return (
-    <dl className="grid grid-cols-3 gap-2">
-      {facts.map((f) => (
-        <div key={f.label} className="flex min-w-0 flex-col rounded-card bg-cement px-3 py-2">
-          <dt className="text-meta text-ink-2">{f.label}</dt>
-          <dd className="truncate text-label">{f.value}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className="grid grid-cols-3 gap-2">
+      {facts.map((f) => {
+        const body = (
+          <>
+            <span className="text-meta text-ink-2">{f.label}</span>
+            <span className="truncate text-label">{f.value}</span>
+          </>
+        );
+        return f.onClick ? (
+          <button key={f.label} type="button" onClick={f.onClick} className="flex min-h-14 min-w-0 flex-col items-start rounded-card bg-cement px-3 py-2 text-left active:scale-[0.97]">
+            {body}
+          </button>
+        ) : (
+          <div key={f.label} className="flex min-h-14 min-w-0 flex-col rounded-card bg-cement px-3 py-2">
+            {body}
+          </div>
+        );
+      })}
+    </div>
   );
 }

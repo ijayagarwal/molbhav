@@ -1,23 +1,18 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { LANG_COOKIE } from "@/lib/i18n/lang";
-import { useT } from "@/lib/i18n/useT";
+import { useLanguage } from "./useLanguage";
 
-// The hi ⇄ en switch (Main.html top bar). The language lives in the `lang` cookie, read on the server
-// (F8), so switching writes the cookie and refreshes: the next render is fully in the other language.
+// The hi ⇄ en switch in the top bar (Main.html). The label names the OTHER language ("EN" in Hindi, "हिं"
+// in English), in that language. Settings has the full choice.
 export function LangSwitch({ label }: { label: string }) {
-  const { lang } = useT();
-  const router = useRouter();
+  const { lang, setLang, pending } = useLanguage();
   const next = lang === "hi" ? "en" : "hi";
   return (
     <button
       type="button"
       lang={next}
-      onClick={() => {
-        document.cookie = `${LANG_COOKIE}=${next}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-        router.refresh();
-      }}
+      aria-busy={pending}
+      onClick={() => setLang(next)}
       className="inline-flex size-14 items-center justify-center rounded-card border-[1.5px] border-ink bg-card text-label"
     >
       {label}

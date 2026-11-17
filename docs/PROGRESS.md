@@ -63,7 +63,8 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
 | 8A | Live-call guards (`claimDial`), CLI-only admin, disclosure check (pulled forward) | Done, reviewed | `phase-8A` |
 | 2B | Component library, phone shell, Munshi desk, mic gestures, Space push-to-talk | Done, reviewed | `phase-2B` |
 | 5 / 6A / 6B engine | Sim sweep, extraction, haggle, match, ranking, place + confirm (backend) | In progress (a parallel agent, own branch) | — |
-| App screens | Onboarding, Home, Settings (language switch), Confirm, Choose dealers, Sweep board, Result, Placed | In progress | — |
+| App screens | Onboarding, Home, Settings (language switch), Confirm | Done (sim; voice and typed parsing come with Phase 4) | see log |
+| App screens 2 | Choose dealers, Sweep board, Result, Placed | In progress (wired to the engine branch) | — |
 | 4 | Real voice: recorder, Sarvam STT, Gemini parse, read-back TTS | Waiting for keys (see §6) | — |
 | 8B / 8C | Bolna dial, webhooks, report_quote; recordings and retention | Later (needs a Bolna account) | — |
 | Team test | Real AI calls to teammates' verified phones | Later | — |
@@ -91,6 +92,17 @@ Phase 4 (voice) waits for API keys, so the key-free phases go first.
   - The scrubber has a visible focus ring.
   - ⌘K works on any keyboard layout; the hint reads "Ctrl K" off a Mac.
   - The DEMO stamp is now 14 px; scrims are documented in DESIGN §7.
+- **The real app, first slice (sim, works end to end up to choosing dealers):**
+  - **Onboarding** in three steps: language, name with privacy and consent, site. The anonymous session now starts at the consent tap. Every new contractor gets the default sim dealer book, so the full flow works at once.
+  - **Home** (as `Main.html`): greeting, site, the "ऐसे बोलिए" example with Listen and "इसी से शुरू कीजिए" (the demo order as a draft), the running-sweep banner and recent orders.
+  - **Settings:**
+    - **language (हिंदी ⇄ English)**, switching the whole app; the choice is saved on the profile and in the cookie the server reads;
+    - sounds, the spoken result and single-key shortcuts, saved per device;
+    - the site, the demo-mode note and privacy.
+  - **Confirm** (as `Confirm.html`): what was heard, item cards with tier chips (remembered per contractor), sheets for "by when" and credit, a read-back spoken by the browser, and "हाँ, मोलभाव शुरू कीजिए".
+  - The language toggle is also in the phone top bar. The desk has the rail and the Bahi list of recent orders.
+  - Until Phase 4 the mic and the typed composer say honestly that voice orders are coming soon.
+  - Verified in a browser at 360 and 1440 px, in hi and en: no overflow; the whole path from onboarding to confirm works.
 - **In progress:**
   - A parallel agent builds the sim call engine (Phases 5, 6A and 6B backend) on its own branch.
   - The real app screens are being built against the schema contract (ARCHITECTURE §4).

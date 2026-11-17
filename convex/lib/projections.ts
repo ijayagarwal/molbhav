@@ -9,6 +9,7 @@ export function publicDealer(d: Doc<"dealers">) {
   return {
     _id: d._id,
     name: d.name,
+    nameHi: d.nameHi ?? null,
     area: d.area,
     city: d.city,
     materials: d.materials,

@@ -50,8 +50,19 @@ const NOT_PROBED: Record<string, string> = {
   "dealers:listForCity": "takes a city, returns publicDealer only; covered in access.test.ts and scanned below",
 };
 
-/** Sample values for string arguments, so the admin refusal probe can still call functions that take them. */
-const STRING_ARGS: Record<string, Record<string, unknown>> = {};
+/**
+ * Sample values for non-id arguments, so these functions are probed like the rest (another user, signed
+ * out, admin refusal) instead of being skipped.
+ */
+const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
+  "orders:setItemTier": { itemId: "steel", tier: "local_isi" },
+  "orders:setDeliverBy": { deliverBy: "today" },
+  "orders:setCreditDays": { days: 15 },
+  "dealers:setAskFirst": { askFirst: true },
+  "contractors:setLanguage": { language: "en" },
+};
+/** String-typed ids (getOrNull takes a raw string so malformed links read as "not found"). */
+const STRING_IDS: Record<string, Record<string, string>> = { "orders:getOrNull": { orderId: "orders" } };
 
 const SECRETS = {
   phone: "+919812345678",
@@ -103,8 +114,12 @@ async function setup() {
 
 function fillArgs(fn: PublicFn, byTable: Record<string, string>): Record<string, unknown> | null {
   const args: Record<string, unknown> = {};
+  const sample = SAMPLE_ARGS[`${fn.module}:${fn.name}`] ?? {};
+  const stringIds = STRING_IDS[`${fn.module}:${fn.name}`] ?? {};
   for (const [key, { fieldType, optional }] of Object.entries(fn.args)) {
     if (fieldType.type === "id" && fieldType.tableName && byTable[fieldType.tableName]) args[key] = byTable[fieldType.tableName];
+    else if (key in stringIds) args[key] = byTable[stringIds[key]];
+    else if (key in sample) args[key] = sample[key];
     else if (!optional) return null;
   }
   return args;
@@ -184,7 +199,7 @@ describe("access probes over every public function", () => {
       test(`${id}: non-admins are refused`, async () => {
         vi.stubEnv("ADMIN_USER_IDS", "");
         const { asA, byTable } = await setup();
-        const args = fillArgs(fn, byTable) ?? STRING_ARGS[id] ?? {};
+        const args = fillArgs(fn, byTable) ?? {};
         const call = fn.kind === "query" ? asA.query(qref(fn), args) : asA.mutation(mref(fn), args);
         await expect(call).rejects.toThrow(/forbidden/);
         vi.unstubAllEnvs();

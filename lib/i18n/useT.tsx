@@ -22,6 +22,7 @@ export function I18nProvider({ lang, dict, children }: I18n & { children: ReactN
 export function useT() {
   const ctx = useContext(Ctx);
   if (ctx === null) throw new Error("useT() must be used inside <I18nProvider> (app/layout.tsx)");
-  const t = useCallback((key: DictKey, vars?: Record<string, string | number>) => format(ctx.dict[key], vars), [ctx.dict]);
+  // A key missing from a stale dictionary (dev hot reload) shows the key rather than crashing the screen.
+  const t = useCallback((key: DictKey, vars?: Record<string, string | number>) => format(ctx.dict[key] ?? key, vars), [ctx.dict]);
   return { t, lang: ctx.lang };
 }
