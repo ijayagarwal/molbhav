@@ -103,7 +103,7 @@ export function TryOrder({ orderId }: { orderId: string }) {
 
 type SandboxOrder = NonNullable<FunctionReturnType<typeof api.orders.getOrNull>>;
 
-function TryConfirm({ order }: { order: SandboxOrder }) {
+export function TryConfirm({ order }: { order: SandboxOrder }) {
   const { t, lang } = useT();
   const answer = useMutation(api.sandbox.answer);
   const start = useMutation(api.sandbox.start);
@@ -207,10 +207,15 @@ function TryConfirm({ order }: { order: SandboxOrder }) {
 }
 
 function TryRun({ orderId }: { orderId: Id<"orders"> }) {
-  const { t, lang } = useT();
   const data = useQuery(api.board.get, { orderId });
   const now = useNow();
   if (data === undefined) return <Skeleton />;
+  return <TryRunView data={data} now={now} />;
+}
+
+/** The sweep, then the result, for one moment of the board query's data (props only below this line). */
+export function TryRunView({ data, now }: { data: FunctionReturnType<typeof api.board.get>; now: number }) {
+  const { t, lang } = useT();
   const board = buildBoard(toBoardData(data), now);
   const nameOf = (dealerId: string) => {
     const d = data.dealers.find((x) => x._id === dealerId);

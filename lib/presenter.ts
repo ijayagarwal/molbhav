@@ -92,9 +92,9 @@ export function buildPresenter(order: PresenterOrder, data: BoardData, now: numb
   const done = DONE.has(order.status);
 
   const step = (key: StepKey, state: Step["state"], detail: Line | null = null): Step => ({ key, state, detail });
-  /** A round's light: on while any of its calls is live, done once they all ended (or the order moved past it). */
+  /** A round's light: done once the order moved past it, else on while any of its calls is live. */
   const stateOf = (calls: BoardCall[], over: boolean): Step["state"] =>
-    calls.some((c) => !ended(c)) ? "active" : calls.length > 0 || over ? "done" : "waiting";
+    over ? "done" : calls.some((c) => !ended(c)) ? "active" : calls.length > 0 ? "done" : "waiting";
 
   const haggleSkipped = order.haggleSkipped === true || (done && haggleCalls.length === 0);
   const matchSkipped = done && matchCalls.length === 0;
@@ -110,7 +110,7 @@ export function buildPresenter(order: PresenterOrder, data: BoardData, now: numb
     ),
     step(
       "molbhav",
-      haggleCalls.length > 0 ? stateOf(haggleCalls, order.status !== "haggling") : haggleSkipped ? "done" : "waiting",
+      haggleCalls.length > 0 ? stateOf(haggleCalls, order.status === "matching" || done) : haggleSkipped ? "done" : "waiting",
       haggleCalls.length > 0 ? { key: "present.calls", vars: { n: haggleCalls.length } } : haggleSkipped ? { key: "present.skipped" } : null,
     ),
     step(
@@ -118,7 +118,7 @@ export function buildPresenter(order: PresenterOrder, data: BoardData, now: numb
       matchCalls.length > 0 ? stateOf(matchCalls, done) : matchSkipped ? "done" : "waiting",
       matchCalls.length > 0 ? { key: "present.calls", vars: { n: matchCalls.length } } : matchSkipped ? { key: "present.skipped" } : null,
     ),
-    step("result", done ? "done" : "waiting", done && winner ? { key: "present.logResult", vars: { dealer: fmt.dealer(winner.dealerId), total: fmt.money(winner.total) } } : null),
+    step("result", done ? "done" : "waiting", done && winner ? { key: "present.total", vars: { total: fmt.money(winner.total) } } : null),
   ];
   // The first step not done yet is the one running; nothing after it is lit.
   const firstOpen = steps.findIndex((s) => s.state !== "done");

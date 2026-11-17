@@ -664,6 +664,7 @@ export const hi = {
   "present.quotes": "{n} रेट",
   "present.calls": "{n} कॉल",
   "present.skipped": "नहीं हुआ",
+  "present.total": "{total}",
   "present.statFirstQuote": "ऑर्डर से पहला रेट",
   "present.statSaved": "उनके dealer के पहले रेट से कम",
   "present.statCost": "कॉल का खर्च (live)",

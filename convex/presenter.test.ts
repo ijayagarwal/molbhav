@@ -197,7 +197,7 @@ describe("lib/presenter.ts on a real sim run (the pipeline lights, the log and t
       await t.finishInProgressScheduledFunctions();
       const end = await view(Date.now() + 60_000);
       expect(end.steps.every((s) => s.state === "done")).toBe(true);
-      expect(end.steps.at(-1)!.detail).toMatchObject({ key: "present.logResult", vars: { dealer: "Agarwal Steels", total: "₹1,98,830" } });
+      expect(end.steps.at(-1)!.detail).toMatchObject({ key: "present.total", vars: { total: "₹1,98,830" } });
       expect(end.savedVsFirst).toBe(547_000); // ₹5,470 below Balaji's first rate (DEMO.md)
       expect(end.firstQuoteMs).toBeGreaterThan(0);
       // Newest first, with the result on top and the order's own lines at the bottom.

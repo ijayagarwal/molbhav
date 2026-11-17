@@ -651,6 +651,7 @@ export const en: Record<DictKey, string> = {
   "present.quotes": "{n} quotes",
   "present.calls": "{n} calls",
   "present.skipped": "skipped",
+  "present.total": "{total}",
   "present.statFirstQuote": "Order spoken to first quote",
   "present.statSaved": "Below his dealer's first rate",
   "present.statCost": "Call cost (live)",
