@@ -21,7 +21,8 @@
     "icons:bold": "tsx scripts/icons-bold.ts",
     "bolna:build": "tsx scripts/bolna-sync.ts --build-only",
     "bolna:sync": "tsx --env-file-if-exists=.env.local scripts/bolna-sync.ts",
-    "bolna:check": "tsx --env-file-if-exists=.env.local scripts/bolna-check.ts"
+    "bolna:check": "tsx --env-file-if-exists=.env.local scripts/bolna-check.ts",
+    "bolna:voice": "tsx scripts/bolna-voice.ts"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",

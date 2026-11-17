@@ -1,0 +1,21 @@
+{
+  "about": "Two complete sets of the four Bolna agents per deployment, identical except for the voice (R20). `pnpm bolna:voice <set>` points the deployment at a set by changing only the four BOLNA_*_AGENT_ID env vars, so switching never touches Bolna and never loses the dashboard-only webhook header. Ids are not secrets. Re-create a set with `pnpm bolna:sync --from-convex --target <name> --voice <sarvam|elevenlabs>`.",
+  "dev": {
+    "sarvam": {
+      "target": "dev",
+      "voice": "Sarvam bulbul:v4-flash ashutosh_hi_conversational / dev_en_conversational",
+      "quote": "9652ec01-eafc-4916-b873-fdfcc602439c",
+      "haggle": "cc59831e-f7b1-4b18-8b79-d5860d84eb43",
+      "match": "20ab2a11-ea08-42d6-949b-753efc5dca83",
+      "confirm": "54896ce2-6c59-4090-aa1c-8e69b383419e"
+    },
+    "elevenlabs": {
+      "target": "dev-elevenlabs",
+      "voice": "ElevenLabs eleven_v4_turbo Abhay (E0XZpcnyzAqDnxXoA920), Hindi and English",
+      "quote": "dc10a12b-8305-4d90-9e91-e651101fb9f9",
+      "haggle": "0ff7dda8-be99-4c04-85be-4c4bba85b411",
+      "match": "b09347c6-fdcb-4cc0-92b4-7d6a703af35b",
+      "confirm": "268b0e8c-22be-49fa-bca9-68eae6b52636"
+    }
+  }
+}
