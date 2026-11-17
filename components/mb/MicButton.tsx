@@ -21,9 +21,11 @@ interface Props {
   ariaLabel: string;
   size?: "lg" | "md";
   bind?: MicBind;
+  /** MediaRecorder has started: only then does the red ring show (V2). Pressed but not yet armed shows no ring. */
+  armed?: boolean;
 }
 
-export function MicButton({ view, ariaLabel, size = "lg", bind }: Props) {
+export function MicButton({ view, ariaLabel, size = "lg", bind, armed = true }: Props) {
   const dim = size === "lg" ? "size-[88px]" : "size-16";
   const icon = size === "lg" ? "size-9" : "size-7";
   const recording = view === "recording" || view === "pressed";
@@ -36,7 +38,7 @@ export function MicButton({ view, ariaLabel, size = "lg", bind }: Props) {
   return (
     <span className="relative inline-flex items-center justify-center">
       {/* Recording ring (Listening.html): a lal ring with a paper gap, so the state reads without colour alone. */}
-      {recording || view === "locked" ? (
+      {armed && (recording || view === "locked") ? (
         <span aria-hidden="true" className={`pointer-events-none absolute inset-[-8px] rounded-full border-4 border-lal ${view === "locked" ? "border-dashed" : ""}`} />
       ) : null}
       <button
