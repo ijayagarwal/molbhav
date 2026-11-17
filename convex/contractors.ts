@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { CITIES, CITY_AREAS, type City } from "../lib/config";
 import { DEMO_DEALERS } from "../lib/fixtures/demoDealers";
 import { normaliseContractorName } from "../lib/names";
-import { contractorForUser } from "./lib/access";
+import { accessError, contractorForUser } from "./lib/access";
 import { contractorMutation, optionalUserQuery, userMutation } from "./lib/functions";
 
 const language = v.union(v.literal("hi"), v.literal("en"));
@@ -44,6 +44,9 @@ export const create = userMutation({
   handler: async (ctx, { name, language, area, city }) => {
     const existing = await contractorForUser(ctx, ctx.userId);
     if (existing !== null) return existing._id;
+    // A session whose user the retention cron deleted (never onboarded, 7 days, S4) still has a valid JWT for
+    // up to an hour: it must sign in again rather than leave a profile pointing at no user.
+    if ((await ctx.db.get(ctx.userId)) === null) throw accessError("unauthenticated");
     const clean = normaliseContractorName(name);
     if (clean === null) throw new ConvexError({ code: "invalid_name" });
     const cityName = (city ?? "Jaipur") as City;
