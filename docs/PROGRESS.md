@@ -174,6 +174,13 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
   third call asked every step and produced a comparable quote (₹3,62,520 all-in, GST extra, 6 days' credit);
   the read-back still added an unsaid term and skipped re-confirming a correction (fixed in the prompt). Dealers
   who ask get the buyer's number (R21, Settings switch).
+- **R24 merged and deployed (dealer self-onboarding + the founder approval panel):** `/dealer` saves an application
+  (never a callable number): shop, area, materials, WhatsApp number, optional shop location (rounded to ~100 m)
+  and consent; an SMS code step appears once Firebase is configured (otherwise the founders call back). Founders
+  approve for test calls, approve for live (needs the SMS code), restrict or re-allow at `/app/admin/dealers`
+  (confirmation + note, audit-logged). In trial mode a panel-approved test dealer is callable (the number must also
+  be verified in Bolna); restricted dealers are never listed or dialled. Old /dealer sign-ups imported as pending
+  (dev 3, prod 1). The all-routes size guard is now 760 KB; /app's first load is 181 KB (budget 200).
 - **Production is ready for live calls, switched off (18 Nov 2026, morning):** the latest code is deployed; production
   Convex has the Bolna key and its own webhook secret; two production agent sets exist (`[prod]` Sarvam, active,
   and `[prod-elevenlabs]`), all checks ok; the production webhook accepts its token (200) and refuses requests
@@ -338,6 +345,7 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
 | Later: Bolna account + teammates' phone numbers | The Team test (real AI calls to teammates only) | START_HERE.md Part C5 |
 | Later: the team's WhatsApp Business number | The landing page's main call to action (Phase 1C; hidden until set) | WhatsApp Business app on a team phone; send the number |
 | Later: a privacy contact (email or the WhatsApp number) and the legal entity name | /privacy says how to ask for erasure (DPDP) | Send them; Claude fills `features/marketing/contact.ts` |
+| Firebase project for dealers' SMS codes (R24) | Dealers verify their own number at /dealer | console.firebase.google.com → Add project → Blaze plan (billing + budget alert) → Authentication → Phone → Enable → Authorized domains: localhost, molbhav-weld.vercel.app → SMS region policy: allow India → Project settings → Your apps → Web app → send Claude apiKey, authDomain, projectId |
 | Later: phone-number login | So logging out doesn't lose the account | An SMS OTP provider (needs DLT registration in India) or WhatsApp OTP; founders choose and sign up |
 | Later: a lawyer's read of /privacy and the consent text | Before the landing link is shared publicly (Phase 1C, DPDP) | Claude drafts both; the lawyer reviews |
 | Anytime: 30 minutes of a native Hindi speaker's time | A pass over every Hindi string ("match" vs "मैच", tone) | Claude exports the copy deck as a list to read through |
