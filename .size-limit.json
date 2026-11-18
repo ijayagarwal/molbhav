@@ -7,9 +7,9 @@
     "limit": "260 KB"
   },
   {
-    "name": "All client JS chunks of every route, gzipped (runaway guard only; the real budget, /app's first render under 200 KB, is checked by `pnpm measure` in CI)",
+    "name": "All client JS chunks of every route, gzipped (runaway guard only; the real budget, /app's first render under 200 KB, is checked by `pnpm measure` in CI). Raised 18 Nov 2026 to 760 KB after /try, /present, the admin panels, the voice recorder and dealer sign-up (Firebase, lazy) landed: 690 KB measured, /app's first load 181 KB.",
     "path": ".next/static/chunks/**/*.js",
     "gzip": true,
-    "limit": "540 KB"
+    "limit": "760 KB"
   }
 ]
