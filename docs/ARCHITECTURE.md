@@ -68,6 +68,7 @@ app/
     app/onboarding/page.tsx
     app/order/[id]/{confirm,dealers,sweep,result,placed}/page.tsx
     app/admin/page.tsx         founders only (requireAdmin); read-only, writes run from the Convex CLI (R18)
+    app/admin/dealers/page.tsx founders only: dealer applications; approve, restrict, re-allow (R24, the one panel write)
     try/page.tsx               sandbox (/try); anonymous session, sim only
     present/page.tsx           presenter: <iframe src="/app?embed=1" allow="microphone; autoplay">
     styleguide/page.tsx
@@ -111,6 +112,10 @@ scripts/bolna-sync.ts          pnpm bolna:build (offline) and pnpm bolna:sync: c
 bolna/agents/                  versioned agent configs built from docs/CALL_SCRIPT.md (quote, haggle, match, confirm); placeholders for URL, secret, target
 lib/bolna/                     pure: status map and deadlines, execution parser, allow-listed API client, user_data, report_quote, agent builder, web-call demo
 features/admin/AgentsPanel.tsx /app/admin/agents: founders' browser web calls with the four agents (tap to start; no phone call)
+features/admin/DealerAppsPanel.tsx /app/admin/dealers: dealer applications, confirmation sheets with a note (R24)
+convex/dealerSignup.ts         /dealer's serverMutations: apply, verifyPhone (R24)
+convex/dealerApps.ts           the panel's admin-only list and writes; CLI: revealPhone, importLegacyWaitlist (R24)
+lib/server/firebaseToken.ts    Firebase ID token check with jose (no firebase-admin) (R24)
 evals/                         parse.golden.json, extract.golden.json, runners
 e2e/                           Playwright tests, demo.wav
 docs/                          this pack
@@ -165,7 +170,7 @@ const cancelReason = v.union(
   v.literal("trial_test_phones_only"), v.literal("test_phone_unlisted"), v.literal("no_billed_key"), v.literal("invalid_number"),
   v.literal("demo_dealer"), v.literal("phone_hash_mismatch"), v.literal("a2p_not_declared"), v.literal("live_stage"),
   v.literal("queue_timeout"), v.literal("round_closed"), v.literal("opted_out"), v.literal("stopped"),
-  v.literal("bolna_rescheduled"),
+  v.literal("bolna_rescheduled"), v.literal("dealer_restricted"),  // dealer_restricted: R24
 );
 export const consent = v.union(v.literal("test_ok"), v.literal("opted_in"), v.literal("unknown"), v.literal("opted_out"));
 
@@ -225,7 +230,29 @@ export default defineSchema({
     language: v.optional(v.string()),
     isDemo: v.boolean(),
     simPersona: v.optional(v.string()),
+    restricted: v.optional(v.boolean()),  // set in the founders' panel (R24): never listed, never dialled (claimDial guard)
   }).index("by_city", ["city"]).index("by_phoneHash", ["phoneHash"]),
+
+  dealerApplications: defineTable({      // /dealer self-onboarding (R24); never makes a number callable by itself (S2)
+    shopName: v.string(), area: v.string(), city: v.string(),
+    materials: v.array(material),
+    phoneE164: v.string(),               // server-only: never returned to any client; the panel shows it masked
+    phoneHash: v.string(),
+    phoneVerifiedAt: v.optional(v.number()),   // the SMS OTP succeeded (Firebase ID token verified on the server)
+    verifyMethod: v.union(v.literal("firebase_otp"), v.literal("none")),  // none: the founders verify by calling back
+    geo: v.optional(v.object({ lat: v.number(), lng: v.number() })),     // rounded to 3 decimals (~100 m), optional
+    consentAiCalls: v.boolean(), consentAt: v.number(),
+    status: v.union(v.literal("pending"), v.literal("approved_test"), v.literal("approved_live"), v.literal("restricted")),
+    dealerId: v.optional(v.id("dealers")),     // set on approval (created, or linked by phone hash)
+    ipHash: v.string(), createdAt: v.number(),
+    reviewedAt: v.optional(v.number()), reviewedBy: v.optional(v.string()),  // reviewedBy: "admin:<userId>"
+    fromWaitlist: v.optional(v.boolean()),     // imported from an old /dealer waitlist row (dealerApps:importLegacyWaitlist)
+  }).index("by_status_createdAt", ["status", "createdAt"]).index("by_phoneHash", ["phoneHash"]),
+
+  testPhones: defineTable({              // the panel's trial test list (R24), alongside TEST_PHONE_HASHES; counts only with BOLNA_TRIAL=true
+    phoneHash: v.string(), dealerId: v.id("dealers"),
+    addedBy: v.string(), at: v.number(),
+  }).index("by_phoneHash", ["phoneHash"]),
 
   contractorDealers: defineTable({
     contractorId: v.id("contractors"),
@@ -390,7 +417,7 @@ export default defineSchema({
 - **Sessions** last up to a year (90 days inactive) with persistent cookies, because the anonymous identity is the browser session. New anonymous accounts are rate-limited deployment-wide (`anonSignUp`).
 - **Internal only:** `sim.*`, `llm.*`, `bolna.*`, `media.copyRecording`, `seed.*`, `calls.claimDial`, the watchdog.
 - **Live mode** requires `contractors.verified` (S1): set by `admin.verifyContractor`, an **internal** mutation run from the Convex CLI by someone with deploy access (R18), and logged in `auditLog`. Name and phone are locked at verification.
-- **Dealers for live mode** are added only through `admin.addDealer` (internal, CLI) or the `/dealer` opt-in (S2). Every admin write is internal; the `ADMIN_USER_IDS` role only opens the read-only `/app/admin`, "Reset demo" and the presenter tools.
+- **Dealers for live mode** are added only through `admin.addDealer` (internal, CLI) or a `/dealer` application that a founder approves in `/app/admin/dealers` (S2, R24). Every other admin write is internal; the `ADMIN_USER_IDS` role opens the read-only `/app/admin`, the dealer applications panel (approve, restrict, re-allow: admin-only mutations, each audit-logged, R24), "Reset demo" and the presenter tools.
 - **Server-to-Convex calls** from Vercel routes run as the user (their auth token is forwarded). The sandbox route uses `sandbox.createDraft({ serverSecret })`, which checks `CONVEX_SERVER_SECRET`.
 - **Prompt-injection hygiene** (S3, R7): names are letters and marks only (max 24 graphemes); site area from the city's area list; delivery time from `deliverBy`; brand from the config enum; free text never reaches agent prompts.
 
@@ -521,10 +548,17 @@ Voice confirm goes through `lib/commands.ts` (V4).
 
 **Canned demo-line parse (G7, DEMO.md fallback 2):** with `DEMO_DEPLOYMENT=true` in the **Next.js server** env (the demo Vercel project, or `.env.local` for a rehearsal), when STT fails or hears nothing on an app order, `POST /api/voice/order` stands in the demo line and its fixed draft (`lib/demoLine.ts`, the golden answer run through `validateParse` → `toDraft`, so the steel tier is still asked); when the parse fails on a transcript that is the demo line (`isDemoLine`: every number, both materials and the site, and no other number), the same draft is used with the real transcript. Each use logs `{"evt":"voice_order_fallback","fallback":"canned_demo_line","reason":…}` and marks the draft's log line. Never in the sandbox, never without the flag.
 
-### 6.13 Waitlist, dealer opt-in and analytics (G5, G6, S2)
-- The landing page and `/dealer` are server components; only their forms are small client components (`features/marketing/WaitlistForm.tsx`, `DealerForm.tsx`). The forms post to **server actions** (`features/marketing/actions.ts`) that check the fields (`lib/waitlist.ts`, the same check `waitlist.join` runs), hash the IP (HMAC-SHA256 with `HASH_SECRET`, B10) and call `waitlist.join({ serverSecret, ipHash, role, name, phone, city, nextOrder, ref, area, materials, consentContact, consentAiCalls })`. The consent checkbox is required.
-- `waitlist.join` and `events.track` are built with `serverMutation` (`convex/lib/functions.ts`): marketing visitors have no Convex session, so the builder checks `CONVEX_SERVER_SECRET` instead of `ctx.auth` before the handler (unset or short: `not_configured`; wrong: `forbidden`). `waitlist.join` consumes `waitlistIp` (5 an hour per IP hash) and a deployment-wide `waitlistAll`, stores the phone in E.164 (`lib/phone.ts`) with the IP hash, and keeps one row per number and role (joining again updates it). Roles: `contractor`, `munshi`, `other` (landing) and `dealer` (`/dealer`). `ref` is a short slug from the query string (`/p` sends `parchi_<mode>`).
-- `/dealer` writes `role: "dealer"` with `consentAiCalls`. This never makes a number callable by itself: an admin calls the dealer back, confirms, and only then runs `admin.addDealer` with `consent: "opted_in"` (S2).
+### 6.13 Waitlist, dealer self-onboarding and analytics (G5, G6, S2, R24)
+- The landing page and `/dealer` are server components; only their forms are small client components (`features/marketing/WaitlistForm.tsx`, `DealerForm.tsx`). The forms post to **server actions** (`features/marketing/actions.ts`) that check the fields (`lib/waitlist.ts`, the same check `waitlist.join` runs), hash the IP (HMAC-SHA256 with `HASH_SECRET`, B10) and call `waitlist.join({ serverSecret, ipHash, role, name, phone, city, nextOrder, ref, area, materials, consentContact, consentAiCalls })` (the landing page; `/dealer` writes a dealer application instead, below). The consent checkbox is required.
+- `waitlist.join` and `events.track` are built with `serverMutation` (`convex/lib/functions.ts`): marketing visitors have no Convex session, so the builder checks `CONVEX_SERVER_SECRET` instead of `ctx.auth` before the handler (unset or short: `not_configured`; wrong: `forbidden`). `waitlist.join` consumes `waitlistIp` (5 an hour per IP hash) and a deployment-wide `waitlistAll`, stores the phone in E.164 (`lib/phone.ts`) with the IP hash, and keeps one row per number and role (joining again updates it). Roles: `contractor`, `munshi`, `other` (landing) and `dealer` (old `/dealer` rows, before R24; still accepted). `ref` is a short slug from the query string (`/p` sends `parchi_<mode>`).
+- `/dealer` (R24) writes a **dealer application**, not a waitlist row: the server action `joinAsDealer` checks the fields (`lib/dealerApplication.ts`), hashes the IP and calls `dealerSignup.apply({ serverSecret, ipHash, shopName, phone, area, materials, consent, geo? })` (`serverMutation`; `dealerApplyIp`, 5 an hour per IP hash, plus `dealerApplyAll`). One row per number: a pending one is updated, an approved or restricted one is left alone, and the answer is the same either way. The optional shop location comes from a tap on "दुकान की जगह जोड़िए" (`navigator.geolocation`; `Permissions-Policy` allows it on `/dealer` only), rounded to 3 decimals (~100 m) in the browser and again on the server, and dropped outside India. **An application never makes a number callable by itself (S2).**
+- **SMS OTP** (R24), on only when `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID` and the server's `FIREBASE_PROJECT_ID` are all set and name the same project (`features/marketing/server.ts`). After the application is saved, `DealerOtpStep` loads with `React.lazy` (it and `firebase/auth` are one lazy chunk, so `/dealer`'s first load never carries Firebase): a named Firebase app with in-memory persistence, invisible reCAPTCHA, `signInWithPhoneNumber`, the six digits, `getIdToken()`, then sign-out. The ID token goes to the `verifyDealerPhone` server action, which verifies it **without firebase-admin** (`lib/server/firebaseToken.ts`, `jose`: RS256 against `https://www.googleapis.com/robot/v1/metadata/jwk/securetoken@system.gserviceaccount.com`, audience `FIREBASE_PROJECT_ID`, issuer `https://securetoken.google.com/<id>`, not expired, `iat` and `auth_time` in the past, the OTP entered within 10 minutes, `firebase.sign_in_provider` = `phone`), requires its `phone_number` to equal the typed number, and calls `dealerSignup.verifyPhone` (`dealerVerifyIp`), which compares it with the stored number again and sets `phoneVerifiedAt` and `verifyMethod: "firebase_otp"`. Without the env vars, or when the dealer skips or anything fails, the application stays `verifyMethod: "none"` and the founders verify by calling back.
+- **The founders' panel, `/app/admin/dealers`** (R24, the one exception to R18's CLI-only admin writes). The page asks `admin.amIAdmin` on the server first. `dealerApps.list` (`adminQuery`) returns the Pending / Approved / Restricted tabs with counts; numbers only as `••••••45`, the OTP badge, the rounded location (for a map link), the dates, the consent and the linked dealer's state. The writes are `adminMutation`s (`requireAdmin`), each with a required note behind a confirmation sheet, each written to `auditLog` as `admin:<userId>`:
+  - `approveForTest`: creates (source `optin`) or links by phone hash the `dealers` row with consent `test_ok`, and adds it to `testPhones`. An unverified number needs `verifiedByCallback: true`. The panel then reminds the founder to verify the number in Bolna (User Profile → Verified Numbers): the trial dials only those.
+  - `approveLive`: consent `opted_in`; needs the SMS OTP; leaves `testPhones`. Guards 7 and 10 still apply (trial off, A2P, live stage).
+  - `restrict` / `unrestrict`: `dealers.restricted` and the application's status. Restricting also takes the number off `testPhones`; re-allowing restores what the consent says (`test_ok`: approved test, back on the list; `opted_in`: approved live; otherwise pending).
+  - An opted-out dealer is never re-enabled from the panel (only `admin:addDealer` with `readdAfterOptOut` and a fresh consent note). An opt-out also takes the number off `testPhones`.
+  - CLI only: `dealerApps:revealPhone` (the full number, logged) and `dealerApps:importLegacyWaitlist` (old `role: "dealer"` waitlist rows become unverified pending applications marked `fromWaitlist`; run once per deployment, idempotent).
 - Analytics: `POST /api/e` (Vercel route; same-origin, at most 1 KB) → `events.track({ serverSecret, ipHash, name, props, path })`, rate-limited by the IP hash (`eventsIp`, plus `eventsAll`); the hash is not stored. Only the event names in G6 are accepted, and `props` only from each event's fixed value lists (`lib/analytics.ts`: `waitlist_submit {role, ref: none|parchi|other}`, `parchi_share|open|cta {mode}`, the rest none), so no phone numbers, names, link ids or free text can be stored. `path` is reduced to its route (`/p/[id]`). The browser sends `parchi_share` (share sheet) and `parchi_cta` (the `/p` CTA) with `navigator.sendBeacon` (`features/marketing/beacon.ts`); the server records `waitlist_submit`, `dealer_optin` and `parchi_open` itself, after the response (`after()`).
 - WhatsApp click-to-chat (`wa.me/<team number>?text=…`) is the main call to action; the form is the fallback. With `NEXT_PUBLIC_WHATSAPP_NUMBER` unset, no WhatsApp link renders.
 - SEO: `app/robots.ts` allows `/`, `/dealer`, `/privacy` and disallows `/app`, `/try`, `/p/`, `/present`, `/styleguide`, `/api/`. `/` has a static bilingual og:image (`app/(marketing)/opengraph-image.tsx`, rendered at build time with `vercel-og`), inherited by `/dealer` and `/privacy`.
@@ -733,13 +767,14 @@ A live dial happens only if **all** pass, checked atomically in one mutation. Ev
 1. `LIVE_CALLS_ENABLED === "true"`.
 2. The contractor is `verified`; per-contractor daily cap not exceeded: `liveDailyCap` live **orders** a day (IST), where an order counts when its first quote or match call dials and its haggle and confirm calls ride on it (R18).
 3. Consent is `test_ok` or `opted_in`, and not `opted_out`.
-4. Dealer limits (S2, R3), counted from `callLog` rows for this `phoneHash` since midnight IST: AI calls come from at most **2 distinct orders** across all contractors (a quote or match call opens an order's slot; that order's haggle and confirm calls ride on it), and per order to this number at most **3 calls before placing** (one opening call, one retry if it didn't connect, one haggle) plus **the confirm call and one retry** (R18). A haggle or confirm call rides only if this order already opened a slot with this number (`callLog.opensSlot`); otherwise it opens one. `claimDial` writes the `callLog` row (with `orderId`, `callId`, `contractorId` and `opensSlot`) when it reserves the dial. Trial mode (B9): instead, `TEST_DAILY_CALLS` (default 10) per day for `test_ok` dealers listed in `TEST_PHONE_HASHES`.
+4. Dealer limits (S2, R3), counted from `callLog` rows for this `phoneHash` since midnight IST: AI calls come from at most **2 distinct orders** across all contractors (a quote or match call opens an order's slot; that order's haggle and confirm calls ride on it), and per order to this number at most **3 calls before placing** (one opening call, one retry if it didn't connect, one haggle) plus **the confirm call and one retry** (R18). A haggle or confirm call rides only if this order already opened a slot with this number (`callLog.opensSlot`); otherwise it opens one. `claimDial` writes the `callLog` row (with `orderId`, `callId`, `contractorId` and `opensSlot`) when it reserves the dial. Trial mode (B9): instead, `TEST_DAILY_CALLS` (default 10) per day for listed `test_ok` dealers (`TEST_PHONE_HASHES`, or the panel's test list, guard 7).
 5. The current time in `Asia/Kolkata` is within `CALL_HOURS_START`–`CALL_HOURS_END` (default 10–19; both must stay within 9–21, R18), and not Sunday unless `ALLOW_SUNDAY`. Skipped in trial mode for listed `test_ok` dealers (teammates).
 6. Under `MAX_LIVE_CALLS_PER_ORDER` (12, refuse; it counts the calls before placing, so confirm calls are never stopped by it, R18), and a live slot is free: fewer than `LIVE_CONCURRENCY` live calls in `dialing`, `ringing`, `in_progress` or `disconnected` (`calls.by_mode_status`, counted in this transaction). A full slot returns **wait** (R2). `MAX_LIVE_SWEEPS_PER_HOUR` is checked in `orders.startSweep`, not per dial.
-7. `BOLNA_FROM_NUMBER` is set (a number registered to our business, from Bolna or our own Plivo/Exotel account, declared for A2P use under TRAI's 2026 rules). In trial mode (`BOLNA_TRIAL=true`) Bolna's trial caller ID is accepted, but only `test_ok` dealers whose phone hash is in `TEST_PHONE_HASHES` can be dialled; `opted_in` dealers always need trial mode off and a registered number. A `test_ok` dealer must be listed in `TEST_PHONE_HASHES` in every mode (R18).
+7. `BOLNA_FROM_NUMBER` is set (a number registered to our business, from Bolna or our own Plivo/Exotel account, declared for A2P use under TRAI's 2026 rules). In trial mode (`BOLNA_TRIAL=true`) Bolna's trial caller ID is accepted, but only listed `test_ok` dealers can be dialled: listed means the phone hash is in `TEST_PHONE_HASHES` **or** the dealer is on the panel's test list (`testPhones`, R24: the row's `dealerId` is this dealer and its hash is the HMAC of the stored number); Bolna's trial itself also dials only numbers verified in its dashboard. `opted_in` dealers always need trial mode off and a registered number. A `test_ok` dealer must be listed in every mode (R18); with trial mode off only `TEST_PHONE_HASHES` counts (set from the CLI), never the panel's list.
 8. `OPENAI_API_KEY` is set, so the call's transcript can be extracted (R19). (The guard keeps its old names: `billedKeySet`, reason `no_billed_key`.)
 9. The number matches `^\+91[6-9]\d{9}$` and the dealer is not `isDemo` (B10).
 10. For `opted_in` dealers (built in 8A, failing closed; extended in Phase 10): `A2P_DECLARED=true`, and the live stage allows it (`LIVE_STAGE=1`: admins only, at most `STAGE1_MAX_DEALERS` dealers marked `stage1`, which Phase 10 builds, so until then stage 1 refuses every opted-in dealer; `LIVE_STAGE=2`: verified contractors).
+11. The dealer is not `restricted` (R24: set in the founders' panel, `/app/admin/dealers`). Checked first, in every mode, listed or not (`dealer_restricted`, shown to contractors as `dealer_unavailable`), and again by the dial job right before Bolna (`bolna.prepareDial`). Restricted dealers are also left out of `dealers.forOrder`, `dealers.listForCity` and `sweep.start`.
 
 Also, failing closed (R18): any malformed guard env value refuses every dial (`config`), and a switch is only `true`, `false` or unset; the dealer's stored hash must equal the HMAC of its stored number; refusals are checked before the slot, so only a call that could dial ever waits. The decisions are pure functions in `lib/liveGuards.ts`; `claimDial` gathers the counts inside its transaction and applies the result.
 
@@ -749,7 +784,8 @@ The client learns whether live mode is available only through `settings.liveAvai
 
 ## 12. Environment variables
 See `.env.example`.
-- **Client-visible:** `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_WHATSAPP_NUMBER`.
+- **Client-visible:** `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_WHATSAPP_NUMBER`; for `/dealer`'s SMS OTP (R24, optional) `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID` (Firebase web config: public by design; abuse is limited by reCAPTCHA, the authorized domains and the SMS region policy, not by secrecy).
+- **Next.js server, for the OTP:** `FIREBASE_PROJECT_ID` (the same project id; the audience every ID token must carry). The OTP step is on only when all four are set and the two project ids match.
 - **Next.js server** (Vercel env when deployed; `.env.local` in local dev, gitignored): Sarvam key and TTS settings, the OpenAI key, `CONVEX_SERVER_SECRET`, `HASH_SECRET`. Every module that reads them starts with `import "server-only"`. The voice routes (§6.1) read:
   - `SARVAM_API_KEY` (required for audio and the read-back); `SARVAM_STT_MODEL` (default `saaras:v4`); `SARVAM_TTS_MODEL` (default `bulbul:v4-flash`); `SARVAM_TTS_SPEAKER` (Hindi, default `ashutosh_hi_conversational`); `SARVAM_TTS_SPEAKER_EN` (English, default `dev_en_conversational`);
   - `OPENAI_API_KEY` (required, every environment), `OPENAI_MODEL` (default `gpt-5.4-mini`);

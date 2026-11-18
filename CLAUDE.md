@@ -63,7 +63,8 @@ Still off-limits without the human's explicit go-ahead in that moment: placing o
    - an opted-in dealer, with AI calls from at most 2 orders a day to that number, and per order at most 3 calls before placing plus the confirm call and one retry (S2, R3, R18);
    - IST call hours;
    - the caps, and a free live slot (a full slot means **wait**, not refuse, R2);
-   - a registered `BOLNA_FROM_NUMBER` (or trial mode with listed test phones only, B9);
+   - a registered `BOLNA_FROM_NUMBER` (or trial mode with listed test phones only (TEST_PHONE_HASHES or the panel's test list), B9, R24);
+   - a dealer the founders haven't restricted in the panel (R24);
    - a valid Indian mobile number and a non-demo dealer (B10);
    - for opted-in (real) dealers: `A2P_DECLARED` and the live stage (Milestone 2, Phase 10);
    - `OPENAI_API_KEY` set.
