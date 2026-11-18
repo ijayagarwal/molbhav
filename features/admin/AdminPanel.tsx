@@ -2,7 +2,8 @@
 
 // /app/admin (Phase 8A, R18): what the founders need to see before and during live calls. Read-only:
 // every write is an internal Convex function run from the CLI, so this page can't change who gets called.
-// Phone hashes for TEST_PHONE_HASHES come from the CLI too (admin:addDealer, admin:phoneHash).
+// Phone hashes for TEST_PHONE_HASHES come from the CLI too (admin:addDealer, admin:phoneHash). The one
+// exception, dealer applications (R24), lives on its own page, /app/admin/dealers.
 import { useConvexAuth, useQuery } from "convex/react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -62,6 +63,7 @@ function Panel() {
           <Row label={t("admin.trial")} value={yes(live.trial)} />
           <Row label={t("admin.fromNumber")} value={yes(live.fromNumberSet)} />
           <Row label={t("admin.testPhones")} value={t("admin.testPhonesValue", { n: live.testPhones, daily: live.testDailyCalls })} />
+          <Row label={t("admin.panelTestPhones")} value={o.panelTestPhones} />
           <Row label={t("admin.billedKey")} value={yes(live.billedKeySet)} tone={live.billedKeySet ? undefined : "lal"} />
           <Row label={t("admin.a2p")} value={yes(live.a2pDeclared)} />
           <Row label={t("admin.stage")} value={live.liveStage} />
@@ -102,7 +104,10 @@ function Panel() {
                   {d.name}
                   {d.isDemo ? ` · ${t("badge.demo")}` : ""}
                 </span>
-                <span className={`text-meta ${d.consent === "opted_out" ? "text-lal" : "text-ink-2"}`}>{t(CONSENT_KEY[d.consent])}</span>
+                <span className={`text-meta ${d.consent === "opted_out" || d.restricted ? "text-lal" : "text-ink-2"}`}>
+                  {t(CONSENT_KEY[d.consent])}
+                  {d.restricted ? ` · ${t("admin.dealerRestricted")}` : ""}
+                </span>
               </span>
               <span className="text-meta text-ink-2">
                 {areaName(d.city, d.area, lang)} · {t(SOURCE_KEY[d.source])}
@@ -156,9 +161,14 @@ export function AdminPanel() {
       ) : isAdmin ? (
         <>
           <p className="text-meta text-ink-2">{t("admin.readOnly")}</p>
-          <Link href="/app/admin/agents" className="inline-flex min-h-14 w-fit items-center gap-2 rounded-card border-[1.5px] border-ink bg-card px-4 text-label">
-            {t("admin.agentsLink")}
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/app/admin/dealers" className="inline-flex min-h-14 w-fit items-center gap-2 rounded-card border-[1.5px] border-ink bg-card px-4 text-label">
+              {t("admin.dealersLink")}
+            </Link>
+            <Link href="/app/admin/agents" className="inline-flex min-h-14 w-fit items-center gap-2 rounded-card border-[1.5px] border-ink bg-card px-4 text-label">
+              {t("admin.agentsLink")}
+            </Link>
+          </div>
           <Panel />
         </>
       ) : (
