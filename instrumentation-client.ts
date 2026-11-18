@@ -7,5 +7,7 @@ initBotId({
   protect: [
     { path: "/api/voice/order", method: "POST" },
     { path: "/api/tts", method: "POST" },
+    // /dealer's server actions post to the page itself; the number check asks checkBotId() (R25).
+    { path: "/dealer", method: "POST" },
   ],
 });

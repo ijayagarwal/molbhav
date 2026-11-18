@@ -4,9 +4,10 @@ import type { WaitlistField } from "@/lib/waitlist";
 // answer, so the form moves focus to the problem again even when the same error repeats.
 export type FormState =
   | { status: "idle"; seq: number }
-  // applicationId: /dealer only, for its SMS OTP step (R24).
-  | { status: "done"; seq: number; applicationId?: string }
+  // applicationId and ticket: /dealer only, for its number check (R24, R25). The ticket is one-time and expires.
+  | { status: "done"; seq: number; applicationId?: string; ticket?: string }
   | { status: "invalid"; fields: WaitlistField[]; seq: number }
-  | { status: "error"; code: "rate_limited" | "server"; seq: number };
+  // google: /dealer's Google sign-in is on and didn't pass (R25).
+  | { status: "error"; code: "rate_limited" | "server" | "google"; seq: number };
 
 export const INITIAL_FORM_STATE: FormState = { status: "idle", seq: 0 };

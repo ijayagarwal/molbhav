@@ -112,8 +112,14 @@ export default defineSchema({
     materials: v.array(material),
     phoneE164: v.string(),               // server-only: never returned to any client; the panel shows it masked
     phoneHash: v.string(),
-    phoneVerifiedAt: v.optional(v.number()),   // the SMS OTP succeeded (Firebase ID token verified on the server)
-    verifyMethod: v.union(v.literal("firebase_otp"), v.literal("none")),  // none: the founders verify by calling back
+    phoneVerifiedAt: v.optional(v.number()),   // the dealer typed the code Bolna sent to this number (R25)
+    verifyMethod: v.union(v.literal("bolna_otp"), v.literal("none")),  // none: the founders verify by calling back
+    bolnaVerifiedAt: v.optional(v.number()),   // on Bolna's trial "Verified numbers" list (our code step, or found there by a sync)
+    // /dealer's code step (R25), server-only: the one-time ticket the form got back (SHA-256 hex; 30 minutes) and
+    // the pending Bolna request. Never returned to any client.
+    otpTicket: v.optional(v.object({ hash: v.string(), exp: v.number() })),
+    bolnaOtp: v.optional(v.object({ requestId: v.string(), sentAt: v.number(), tries: v.number() })),
+    google: v.optional(v.object({ subHash: v.string(), email: v.string(), at: v.number() })),  // signed in with Google (R25, optional)
     geo: v.optional(v.object({ lat: v.number(), lng: v.number() })),     // rounded to 3 decimals (~100 m), optional
     consentAiCalls: v.boolean(), consentAt: v.number(),
     status: v.union(v.literal("pending"), v.literal("approved_test"), v.literal("approved_live"), v.literal("restricted")),

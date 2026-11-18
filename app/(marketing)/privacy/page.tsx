@@ -79,7 +79,7 @@ export default async function PrivacyPage() {
         </Section>
 
         <Section id="p-proc" title={t["privacy.procTitle"]}>
-          <List items={[t["privacy.procSarvam"], t["privacy.procOpenai"], tf("privacy.procBolna", { region: bolnaRegion }), t["privacy.procHosting"]]} />
+          <List items={[t["privacy.procSarvam"], t["privacy.procOpenai"], tf("privacy.procBolna", { region: bolnaRegion }), t["privacy.procGoogle"], t["privacy.procHosting"]]} />
         </Section>
 
         <Section id="p-ret" title={t["privacy.retTitle"]}>

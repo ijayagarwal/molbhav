@@ -32,12 +32,33 @@ export type Endpoint =
   /** POST /call/{id}/stop: stops a queued or scheduled call (Bolna can't stop one in progress). */
   | "call.stop"
   /** POST /web-call/session: a 2-minute single-use browser session (admin web-call page). */
-  | "webcall.session";
+  | "webcall.session"
+  /**
+   * The trial's "Verified numbers" list (Bolna dashboard → User Profile → Verified numbers), which the dashboard
+   * itself drives through these three, with the same Bearer key (R25; not in Bolna's public reference, so the
+   * parsing in verifiedNumbers.ts is defensive). GET /phone-numbers/verified/all
+   */
+  | "verified.list"
+  /** POST /phone-numbers/verified/add { phone_number }: Bolna sends a 6-digit code to that number. No call. */
+  | "verified.add"
+  /** POST /phone-numbers/verify-otp { phone_number, otp, request_id }: the number joins the verified list. */
+  | "verified.check";
 
 /** What the bolna:check and bolna:sync scripts may do: read, and create or update agents. Never dial. */
-export const SCRIPT_ENDPOINTS: readonly Endpoint[] = ["user.me", "agent.list", "agent.get", "agent.create", "agent.update", "voice.providers", "voice.list"];
+export const SCRIPT_ENDPOINTS: readonly Endpoint[] = [
+  "user.me",
+  "agent.list",
+  "agent.get",
+  "agent.create",
+  "agent.update",
+  "voice.providers",
+  "voice.list",
+  "verified.list",
+];
 /** What the Convex side may do. */
 export const DIAL_ENDPOINTS: readonly Endpoint[] = ["execution.get", "execution.list", "call.make", "call.stop", "webcall.session"];
+/** What /dealer's number check (convex/dealerOtp.ts) may do: the verified-numbers list and its code. Never dial. */
+export const VERIFY_ENDPOINTS: readonly Endpoint[] = ["verified.list", "verified.add", "verified.check"];
 
 export class BolnaError extends Error {
   constructor(
@@ -131,6 +152,13 @@ export function createBolnaClient(opts: BolnaClientOptions) {
     makeCall: async (body: MakeCallBody) => request("call.make", "POST", "/call", body, MAKE_CALL_TIMEOUT_MS),
     stopCall: async (executionId: string) => request("call.stop", "POST", `/call/${pathId(executionId)}/stop`),
     mintWebCallSession: async (body: { agent_id: string; user_data: Record<string, string> }) => request("webcall.session", "POST", "/web-call/session", body),
+    /** The trial's verified numbers (R25). */
+    listVerifiedNumbers: async () => request("verified.list", "GET", "/phone-numbers/verified/all"),
+    /** Bolna texts a 6-digit code to this +91 number; the answer carries the request_id the check needs (R25). */
+    sendVerifyCode: async (phoneE164: string) => request("verified.add", "POST", "/phone-numbers/verified/add", { phone_number: phoneE164 }, 15_000),
+    /** Checks the code; on success the number is on the verified list, so the trial can call it (R25). */
+    checkVerifyCode: async (q: { phoneE164: string; otp: string; requestId: string }) =>
+      request("verified.check", "POST", "/phone-numbers/verify-otp", { phone_number: q.phoneE164, otp: q.otp, request_id: q.requestId }, 15_000),
   };
 }
 

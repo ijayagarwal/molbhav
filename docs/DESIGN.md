@@ -150,6 +150,8 @@ Desktop (≥1024 px): `price-hero` 56/60, `title-1` 32/40, `title-2` 24/32; body
 ## 8. Icons
 Phosphor Icons, **Bold** weight (Fill for active states). Sizes 24 px standard, 28 px in primary buttons, 40 px in the mic. Never use the "AI sparkle" cliché. The mic is a simple modern capsule mic, not a 1950s studio mic.
 
+**Third-party marks (R25).** The one exception to our palette is Google's four-colour "G" on /dealer's "Google से जोड़िए" button, which Google's sign-in branding requires. It is an image asset (`public/brand/google-g.svg`, 20 px), never colours in our code, and it sits inside our own SecondaryButton (56 px, our border and type), not Google's 40 px button.
+
 ## 9. Motion
 
 ### Tokens
@@ -566,7 +568,8 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `dealer.errArea` | इलाका चुनिए। | Please choose an area. |
 | `dealer.errMaterials` | कम से कम एक सामान चुनिए। | Please choose at least one material. |
 | `dealer.noticeGeo` | दुकान की जगह जोड़ें तो वो भी, लगभग 100 मीटर तक ही। | If you add the shop's location, that too, only to about 100 m. |
-| `dealer.noticeOtp` | नंबर पक्का करने वाला SMS कोड Google Firebase से जाता है। | The SMS code that confirms your number is sent through Google Firebase. |
+| `dealer.noticeOtp` | नंबर पक्का करने का कोड हमारी कॉलिंग सेवा Bolna भेजती है। | The code that confirms your number is sent by Bolna, the calling service we use. |
+| `dealer.noticeGoogle` | Google से जोड़ें तो आपका email भी रखेंगे, किसी को नहीं दिखाते। | If you connect Google, we also keep your email and show it to no one. |
 | `dealer.geoTitle` | दुकान की जगह (ज़रूरी नहीं) | Shop location (optional) |
 | `dealer.geoNotice` | बटन दबाने पर आपका फ़ोन दुकान की जगह बताएगा। हम उसे लगभग 100 मीटर तक ही रखते हैं, ताकि पास की साइट वाले ऑर्डर में आपसे रेट पूछ सकें। किसी ठेकेदार को नहीं दिखाते। | Tap the button and your phone shares the shop's location. We keep it only to about 100 m, to ask you for rates on orders for sites nearby. Contractors never see it. |
 | `dealer.geoAdd` | दुकान की जगह जोड़िए | Add the shop's location |
@@ -576,24 +579,32 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `dealer.geoErr` | जगह नहीं मिल पाई। कोई बात नहीं, इसके बिना भी दुकान जुड़ जाएगी। | Couldn't get the location. No problem: the shop can be added without it. |
 | `dealer.otpTitle` | अपना नंबर पक्का कीजिए | Confirm your number |
 | `dealer.otpSaved` | दुकान की जानकारी मिल गई। | We have your shop's details. |
-| `dealer.otpBody` | {phone} पर SMS से 6 अंकों का कोड भेजेंगे। इससे पता चलता है कि नंबर आपका ही है। | We'll send a 6-digit code by SMS to {phone}. It shows the number is yours. |
-| `dealer.otpLoading` | तैयार कर रहे हैं… | Getting ready… |
+| `dealer.otpBody` | {phone} पर 6 अंकों का कोड भेजेंगे। इससे पता चलता है कि नंबर आपका ही है। | We'll send a 6-digit code to {phone}. It shows the number is yours. |
 | `dealer.otpSend` | कोड भेजिए | Send the code |
 | `dealer.otpSending` | भेज रहे हैं… | Sending… |
 | `dealer.otpSent` | {phone} पर कोड भेज दिया है। | We've sent the code to {phone}. |
-| `dealer.otpCode` | SMS वाला 6 अंकों का कोड | The 6-digit code from the SMS |
+| `dealer.otpCode` | आया हुआ 6 अंकों का कोड | The 6-digit code you received |
 | `dealer.otpConfirm` | नंबर पक्का कीजिए | Confirm the number |
 | `dealer.otpChecking` | जाँच रहे हैं… | Checking… |
 | `dealer.otpResend` | कोड दोबारा भेजिए | Send the code again |
 | `dealer.otpSkip` | बाद में · हमारी टीम कॉल करके पक्का करेगी | Later · our team will call to confirm |
-| `dealer.otpErrCode` | ये कोड सही नहीं है। SMS फिर से देखिए। | That code isn't right. Please check the SMS again. |
-| `dealer.otpErrDigits` | SMS वाले 6 अंक लिखिए। | Please type the 6 digits from the SMS. |
+| `dealer.otpErrCode` | ये कोड सही नहीं है। मैसेज फिर से देखिए। | That code isn't right. Please check the message again. |
+| `dealer.otpErrDigits` | मैसेज वाले 6 अंक लिखिए। | Please type the 6 digits from the message. |
 | `dealer.otpErrExpired` | कोड का समय निकल गया। नया कोड भेजिए। | The code has expired. Please send a new one. |
 | `dealer.otpErrMany` | अभी बहुत कोशिशें हो गईं। थोड़ी देर बाद कोशिश कीजिए, या हमारी टीम आपको कॉल करेगी। | Too many tries for now. Please try later, or our team will call you. |
-| `dealer.otpErrNetwork` | इंटरनेट नहीं मिल रहा। नेटवर्क देखकर फिर से कोशिश कीजिए। | No internet connection. Please check the network and try again. |
+| `dealer.otpErrSoon` | कोड अभी भेजा है। आधे मिनट बाद दोबारा भेज सकते हैं। | A code was just sent. You can ask for another in half a minute. |
 | `dealer.otpErrFailed` | कोड अभी नहीं भेज पाए। कोई बात नहीं, हमारी टीम कॉल करके नंबर पक्का करेगी। | We couldn't send the code right now. No problem: our team will call to confirm the number. |
 | `dealer.otpErrVerify` | नंबर पक्का नहीं हो पाया। कोई बात नहीं, हमारी टीम कॉल करके पक्का करेगी। | We couldn't confirm the number. No problem: our team will call to confirm it. |
 | `dealer.verifiedTitle` | धन्यवाद, नंबर पक्का हो गया | Thank you, your number is confirmed |
+| `dealer.googleTitle` | Google से पहचान | Sign in with Google |
+| `dealer.googleNotice` | दुकान वाले की पहचान के लिए, बिना SMS के। हम सिर्फ़ email रखते हैं। | So we know who runs the shop, without an SMS. We keep only the email. |
+| `dealer.googleButton` | Google से जोड़िए | Continue with Google |
+| `dealer.googleWaiting` | Google खुल रहा है… | Opening Google… |
+| `dealer.googleDone` | Google खाता जुड़ गया | Google account connected |
+| `dealer.googleDoneAs` | {email} जुड़ गया | {email} connected |
+| `dealer.googleChange` | दूसरा खाता चुनिए | Use another account |
+| `dealer.googleErr` | Google अभी नहीं खुला। थोड़ी देर बाद फिर कोशिश कीजिए। | Google didn't open. Please try again in a moment. |
+| `dealer.googleRequired` | भेजने से पहले Google खाता जोड़िए। | Please connect a Google account before sending. |
 | `privacy.*` (34 keys) | The privacy notice on `/privacy`, in `lib/i18n/hi.ts` and `en.ts`: what we keep, where, processors, retention, erasure, the dealer opt-out. A draft for the founders' lawyer. | Same, in English. |
 | `meta.*` | Page titles and descriptions for `/`, `/dealer`, `/privacy`, and the og:image alt text. | Same, in English. |
 | `try.title` | खुद आज़माइए | Try it yourself |

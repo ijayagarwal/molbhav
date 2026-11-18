@@ -43,26 +43,6 @@ export function ipHashOf(h: Headers): string | null {
   }
 }
 
-/**
- * Firebase's web config for /dealer's SMS OTP step (R24), or null when it is off. On only when the three public
- * values and the server's FIREBASE_PROJECT_ID are all set and name the same project (the server verifies ID
- * tokens against FIREBASE_PROJECT_ID, so a mismatch could never pass). Off: the form submits as before and the
- * founders verify the number by calling back.
- */
-export function firebaseWebConfig(): { apiKey: string; authDomain: string; projectId: string } | null {
-  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim() ?? "";
-  const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim() ?? "";
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim() ?? "";
-  if (apiKey === "" || authDomain === "" || projectId === "" || firebaseProjectId() !== projectId) return null;
-  return { apiKey, authDomain, projectId };
-}
-
-/** FIREBASE_PROJECT_ID (server env): the audience every Firebase ID token must carry. */
-export function firebaseProjectId(): string | null {
-  const id = process.env.FIREBASE_PROJECT_ID?.trim() ?? "";
-  return id === "" ? null : id;
-}
-
 export function log(entry: Record<string, unknown>): void {
   console.info(JSON.stringify(entry));
 }

@@ -4,7 +4,7 @@ This is the living record of what we are building, what is done, and what comes 
 as work happens, so a person or an AI agent can pick up the project from this page. Git history has the
 detail; this page has the story. Newest entries are at the top of each section.
 
-**Last updated:** 17 Nov 2026
+**Last updated:** 18 Nov 2026
 
 ---
 
@@ -100,6 +100,25 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
 (Phase 9).
 
 ## 4. Session log (what happened, newest first)
+
+### 18 Nov 2026: dealers verify their own number through Bolna; Firebase removed (R25)
+- **No more Bolna dashboard step and no SMS bill:** Bolna's dashboard fills its trial "Verified numbers" list
+  through three calls on Bolna's API that accept the Bearer key we already hold (found in the dashboard's code,
+  confirmed with a read-only list call). `/dealer` now does the same: after the application, "कोड भेजिए" makes
+  Bolna text a 6-digit code to the number, the dealer types it, and Bolna checks it. That proves the number is
+  the dealer's **and** puts it on Bolna's list, so a panel-approved test dealer is callable on the trial at once.
+- **Safety:** only our server (secret + BotID + a one-time ticket from the application step) can ask for a code;
+  Bolna always texts the stored number; limits per IP, per number (3, then about 5 a day), per Google account and
+  200 a day overall; 5 tries per code; codes live 15 minutes; restricted, opted-out and demo numbers get nothing.
+  The client used here can't dial. Anything that fails ends in "our team will call back", as before.
+- **Panel:** each card shows whether the number is on Bolna's list ("Bolna की लिस्ट में") and the Google account
+  (masked). "Bolna की लिस्ट से मिलाइए" reads Bolna's list (it found the founder's own number on dev). The
+  "verify in Bolna" reminder now shows only for a number that isn't on the list.
+- **Google sign-in (optional, free):** when `GOOGLE_CLIENT_ID` is set, /dealer asks for "Google से जोड़िए"
+  before sending (Google's popup; the server checks the token with Google against our client id; the email is
+  kept, the account id only hashed). Off until the founders create the OAuth client.
+- **Firebase is gone** (code, the `firebase` and `jose` packages, the env vars). /privacy now names Bolna for the
+  code and Google for sign-in. 1,049+ tests, typecheck and lint pass; checked on /dealer at 360 px in hi and en.
 
 ### 17 Nov 2026 (night): keys in, OpenAI instead of Gemini, /app back under budget
 - **Keys:** the founders sent the Sarvam and OpenAI keys. They are set in `.env.local`, Vercel production and
@@ -345,7 +364,8 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
 | Later: Bolna account + teammates' phone numbers | The Team test (real AI calls to teammates only) | START_HERE.md Part C5 |
 | Later: the team's WhatsApp Business number | The landing page's main call to action (Phase 1C; hidden until set) | WhatsApp Business app on a team phone; send the number |
 | Later: a privacy contact (email or the WhatsApp number) and the legal entity name | /privacy says how to ask for erasure (DPDP) | Send them; Claude fills `features/marketing/contact.ts` |
-| Firebase project for dealers' SMS codes (R24) | Dealers verify their own number at /dealer | console.firebase.google.com → Add project → Blaze plan (billing + budget alert) → Authentication → Phone → Enable → Authorized domains: localhost, molbhav-weld.vercel.app → SMS region policy: allow India → Project settings → Your apps → Web app → send Claude apiKey, authDomain, projectId |
+| ~~Firebase project for dealers' SMS codes (R24)~~ | Not needed any more: Bolna's own code verifies dealers' numbers (R25) | Nothing to do |
+| Optional: a Google OAuth client id (R25) | Turns on "Google से जोड़िए" on /dealer (free; no SMS) | console.cloud.google.com → new project "Molbhav" → APIs & Services → OAuth consent screen: External, app name Molbhav, support email, scopes email + openid, then **Publish app** → Credentials → Create credentials → OAuth client ID → Web application → Authorized JavaScript origins: `https://molbhav-weld.vercel.app` and `http://localhost:3000` → send Claude the Client ID (ends in `.apps.googleusercontent.com`; not secret; no client secret needed) |
 | Later: phone-number login | So logging out doesn't lose the account | An SMS OTP provider (needs DLT registration in India) or WhatsApp OTP; founders choose and sign up |
 | Later: a lawyer's read of /privacy and the consent text | Before the landing link is shared publicly (Phase 1C, DPDP) | Claude drafts both; the lawyer reviews |
 | Anytime: 30 minutes of a native Hindi speaker's time | A pass over every Hindi string ("match" vs "मैच", tone) | Claude exports the copy deck as a list to read through |

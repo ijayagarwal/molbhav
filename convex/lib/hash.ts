@@ -34,3 +34,14 @@ export async function hashIp(ip: string): Promise<string> {
 export async function hashDemoPhone(fakeNumber: string): Promise<string> {
   return await hmacSha256Hex(hashSecret(), `demo:${fakeNumber}`);
 }
+
+/** Hash of a Google account id (R25), domain-tagged like the rest: rate-limit keys and the panel's "same account". */
+export async function hashGoogleSub(sub: string): Promise<string> {
+  return await hmacSha256Hex(hashSecret(), `google:${sub}`);
+}
+
+/** Plain SHA-256 hex, for one-time tickets (stored hashed, compared hashed). */
+export async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}

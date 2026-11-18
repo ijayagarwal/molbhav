@@ -9,15 +9,17 @@
 // - An application never makes a number callable by itself (S2). Approval creates or links the `dealers` row;
 //   claimDial still checks every guard per call (ARCHITECTURE §11).
 // - A test approval adds the number to the panel's test list (`testPhones`), which counts only while
-//   BOLNA_TRIAL=true; Bolna's trial still dials only numbers verified in its own dashboard.
+//   BOLNA_TRIAL=true; Bolna's trial still dials only numbers on its "Verified numbers" list, which /dealer's
+//   code step fills (dealerOtp.ts, R25). The panel shows which numbers are on it (bolnaVerified).
 // - A dealer who opted out stays opted out: nothing here re-enables one (the CLI's addDealer with
 //   readdAfterOptOut and a fresh consent note is the only way back).
 // - Phone numbers never leave the server: the panel gets "••••••78".
 import { ConvexError, v } from "convex/values";
 import { CITIES, CITY_AREAS, type City } from "../lib/config";
-import { dealerNameFrom, maskPhone } from "../lib/dealerApplication";
+import { dealerNameFrom, maskEmail, maskPhone } from "../lib/dealerApplication";
 import { isIndianMobileE164 } from "../lib/phone";
 import { DEALER_MATERIALS } from "../lib/waitlist";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { audit, requireNote } from "./lib/audit";
@@ -68,6 +70,10 @@ async function view(ctx: Ctx, app: App) {
     verified: app.phoneVerifiedAt !== undefined,
     verifyMethod: app.verifyMethod,
     phoneVerifiedAt: app.phoneVerifiedAt ?? null,
+    /** On Bolna's trial "Verified numbers" list, so the trial can call it (R25). */
+    bolnaVerified: app.bolnaVerifiedAt !== undefined,
+    /** Signed in with Google (R25): the address masked ("ra•••@gmail.com"). */
+    googleEmail: app.google === undefined ? null : maskEmail(app.google.email),
     geo: app.geo ?? null,
     consentAiCalls: app.consentAiCalls,
     consentAt: app.consentAt,
@@ -175,9 +181,9 @@ const note = v.string();
 
 /**
  * Trial: the dealer becomes a test dealer (consent test_ok, source optin) and joins the panel's test list. An
- * application without a verified phone (no SMS OTP) is refused unless the founder called the number back and
- * says so (`verifiedByCallback: true`, with the note). Bolna's trial also needs the number verified in its
- * dashboard (User Profile → Verified Numbers); the panel says so after this.
+ * application without a verified phone (no code step) is refused unless the founder called the number back and
+ * says so (`verifiedByCallback: true`, with the note). Bolna's trial also needs the number on its "Verified
+ * numbers" list: the code step put it there (bolnaVerified), else the panel says how.
  */
 export const approveForTest = adminMutation({
   args: { applicationId: v.id("dealerApplications"), note, verifiedByCallback: v.optional(v.boolean()) },
@@ -193,13 +199,16 @@ export const approveForTest = adminMutation({
     const now = Date.now();
     await ctx.db.patch(app._id, { status: "approved_test", dealerId, reviewedAt: now, reviewedBy: who });
     await audit(ctx, who, "dealer.approve_test", dealerId, { applicationId: app._id, created, verified: otp ? "otp" : "callback", consentNote });
-    return { dealerId, created, trial: liveEnv().trial };
+    // Not on Bolna's list yet as far as we know: look once (a founder may have added it in Bolna's dashboard).
+    if (app.bolnaVerifiedAt === undefined) await ctx.scheduler.runAfter(0, internal.dealerOtp.syncBolnaList, {});
+    return { dealerId, created, trial: liveEnv().trial, bolnaVerified: app.bolnaVerifiedAt !== undefined };
   },
 });
 
 /**
  * Opted in (consent opted_in): for real AI quote calls once trial mode is off, A2P is declared and the live
- * stage allows it (guards 7 and 10). Needs the phone verified by SMS OTP. Leaves the trial test list.
+ * stage allows it (guards 7 and 10). Needs the phone verified by the dealer's own code step. Leaves the trial
+ * test list.
  */
 export const approveLive = adminMutation({
   args: { applicationId: v.id("dealerApplications"), note },
@@ -273,8 +282,8 @@ function actorTag(raw: string): string {
 }
 
 /**
- * The full number of one application, for verifying it in Bolna's dashboard (trial) when the founder doesn't
- * have it already. CLI only (`npx convex run dealerApps:revealPhone '{"applicationId":"…","actor":"jay"}'`), and
+ * The full number of one application, for calling the dealer back or adding it in Bolna's dashboard when the
+ * dealer skipped the code step. CLI only (`npx convex run dealerApps:revealPhone '{"applicationId":"…","actor":"jay"}'`), and
  * logged: the panel never shows a number (hard rule 6).
  */
 export const revealPhone = internalMutation({

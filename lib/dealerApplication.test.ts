@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { checkDealerApplication, dealerNameFrom, maskPhone, parseCoordinate, roundGeo } from "./dealerApplication";
+import { checkDealerApplication, dealerNameFrom, maskEmail, maskPhone, parseCoordinate, roundGeo } from "./dealerApplication";
 
 const GOOD = { shopName: " Agarwal  Steels ", phone: "098290 12345", area: "mansarovar", materials: ["cement", "tmt_steel"], consent: true };
 
@@ -57,5 +57,13 @@ describe("maskPhone and dealerNameFrom", () => {
     expect(dealerNameFrom("श्री बालाजी सीमेंट")).toBe("श्री बालाजी सीमेंट");
     expect(dealerNameFrom("one two three four five six seven")).toBe("one two three four five six");
     expect(dealerNameFrom("  ")).toBeNull();
+  });
+});
+
+describe("maskEmail", () => {
+  test("keeps two letters and the domain", () => {
+    expect(maskEmail("ramesh.steels@gmail.com")).toBe("ra•••@gmail.com");
+    expect(maskEmail("a@x.in")).toBe("a•••@x.in");
+    expect(maskEmail("nope")).toBe("•••");
   });
 });

@@ -31,8 +31,14 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // dealerSignup.apply (/dealer self-onboarding, R24): like the waitlist, 5 an hour per IP hash plus a ceiling.
   dealerApplyIp: { kind: "token bucket", rate: 5, period: HOUR, capacity: 5 },
   dealerApplyAll: { kind: "token bucket", rate: 300, period: HOUR, capacity: 60 },
-  // dealerSignup.verifyPhone (after a Firebase SMS OTP): a few tries per IP hash. Firebase limits the SMS itself.
-  dealerVerifyIp: { kind: "token bucket", rate: 10, period: HOUR, capacity: 10 },
+  // dealerOtp.send (R25): every send makes Bolna text a code to a real phone, so it is tight per IP hash, per
+  // number, per Google account, and deployment-wide.
+  dealerOtpSendIp: { kind: "token bucket", rate: 6, period: HOUR, capacity: 4 },
+  dealerOtpSendPhone: { kind: "token bucket", rate: 5, period: DAY, capacity: 3 },
+  dealerOtpSendGoogle: { kind: "token bucket", rate: 10, period: DAY, capacity: 5 },
+  dealerOtpSendAll: { kind: "token bucket", rate: 200, period: DAY, capacity: 40 },
+  // dealerOtp.check: a few tries per IP hash (and at most 5 per sent code, counted on the application).
+  dealerVerifyIp: { kind: "token bucket", rate: 20, period: HOUR, capacity: 10 },
   // events.track (POST /api/e and the server-side events, G6) per IP hash (generous for CGNAT), and overall.
   eventsIp: { kind: "token bucket", rate: 300, period: HOUR, capacity: 60 },
   eventsAll: { kind: "token bucket", rate: 30000, period: HOUR, capacity: 3000 },

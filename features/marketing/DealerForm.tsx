@@ -4,11 +4,11 @@
 // optional shop location and the required consent to contact and to AI quote calls. It writes a
 // dealerApplications row through the server action; it never makes the number callable (a founder reviews it
 // in /app/admin/dealers first, S2).
-// When Firebase is configured (`otp`), a saved application goes on to the SMS OTP step, which is loaded only
-// then (React.lazy), so /dealer's first load never carries the Firebase SDK. Without it, the form ends as before
-// and the founders verify the number by calling back.
+// A saved application goes on to the number check (R25): Bolna texts a code to the number and the dealer types it
+// (DealerOtpStep). When the site has Google sign-in on (`googleClientId`, R25), the form also asks the dealer to
+// connect a Google account before it sends: free, instead of paid SMS.
 import Link from "next/link";
-import { lazy, Suspense, useId, useState } from "react";
+import { useId, useState } from "react";
 import { PrimaryButton, SecondaryButton } from "@/components/mb/Buttons";
 import { CheckBold, PinBold } from "@/components/mb/icons";
 import { CITY_AREAS } from "@/lib/config";
@@ -18,11 +18,10 @@ import { useT } from "@/lib/i18n/useT";
 import { normaliseIndianMobile } from "@/lib/phone";
 import { DEALER_CITY, type WaitlistField } from "@/lib/waitlist";
 import { joinAsDealer } from "./actions";
+import DealerOtpStep from "./DealerOtpStep";
 import { ChoiceChip, ConsentBox, Field, FieldError, FormAlert, FormDone, SelectBox, inputClass } from "./FormParts";
-import type { FirebaseWebConfig } from "./otp";
+import { GoogleSignIn } from "./GoogleSignIn";
 import { useFormFlow } from "./useFormFlow";
-
-const DealerOtpStep = lazy(() => import("./DealerOtpStep"));
 
 const ERRORS: Record<WaitlistField, DictKey> = {
   name: "dealer.errShop",
@@ -97,7 +96,7 @@ function ShopLocation() {
   );
 }
 
-export function DealerForm({ otp }: { otp: FirebaseWebConfig | null }) {
+export function DealerForm({ googleClientId }: { googleClientId: string | null }) {
   const { t, lang } = useT();
   const id = useId();
   const { state, dispatch, pending, formRef, alertRef, onSubmit, invalid } = useFormFlow(joinAsDealer);
@@ -109,19 +108,18 @@ export function DealerForm({ otp }: { otp: FirebaseWebConfig | null }) {
 
   if (state.status === "done") {
     const phoneE164 = normaliseIndianMobile(phone);
-    if (otp !== null && state.applicationId !== undefined && phoneE164 !== null) {
-      return (
-        <Suspense fallback={<p role="status" className="text-body text-ink-2">{t("dealer.otpLoading")}</p>}>
-          <DealerOtpStep applicationId={state.applicationId} phoneE164={phoneE164} config={otp} />
-        </Suspense>
-      );
+    if (state.applicationId !== undefined && state.ticket !== undefined && phoneE164 !== null) {
+      return <DealerOtpStep applicationId={state.applicationId} ticket={state.ticket} phoneE164={phoneE164} />;
     }
     return <FormDone title={t("dealer.doneTitle")} body={t("dealer.done")} />;
   }
 
   const err = (field: WaitlistField) => (invalid(field) ? t(ERRORS[field]) : null);
   const described = (field: WaitlistField) => (invalid(field) ? `${id}-${field}-err` : undefined);
-  const notice = [t("dealer.notice"), t("dealer.noticeGeo"), otp !== null ? t("dealer.noticeOtp") : null].filter(Boolean).join(" ");
+  const googleMissing = state.status === "error" && state.code === "google";
+  const notice = [t("dealer.notice"), t("dealer.noticeGeo"), t("dealer.noticeOtp"), googleClientId !== null ? t("dealer.noticeGoogle") : null]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <form ref={formRef} action={dispatch} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
@@ -196,6 +194,7 @@ export function DealerForm({ otp }: { otp: FirebaseWebConfig | null }) {
         />
       </Field>
       <ShopLocation />
+      {googleClientId !== null ? <GoogleSignIn clientId={googleClientId} invalid={googleMissing} errorId={`${id}-google-err`} /> : null}
       <ConsentBox
         id={`${id}-consent`}
         notice={notice}
@@ -210,7 +209,10 @@ export function DealerForm({ otp }: { otp: FirebaseWebConfig | null }) {
         }
       />
       {state.status === "error" ? (
-        <FormAlert ref={alertRef} message={t(state.code === "rate_limited" ? "waitlist.errBusy" : "waitlist.errServer")} />
+        <FormAlert
+          ref={alertRef}
+          message={t(state.code === "rate_limited" ? "waitlist.errBusy" : state.code === "google" ? "dealer.googleRequired" : "waitlist.errServer")}
+        />
       ) : null}
       <PrimaryButton type="submit" disabled={pending} aria-busy={pending}>
         {pending ? t("waitlist.sending") : t("dealer.submit")}

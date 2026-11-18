@@ -125,14 +125,14 @@ Bolna's **Web Call SDK** ([docs](https://www.bolna.ai/docs/developer-resources/s
 
 ## 8a. Adding friends' and pilot dealers' shops (R24)
 
-No CLI session per dealer any more. On the trial, two places must both say yes before a friend's shop can get a test call:
+No CLI session per dealer and no Bolna dashboard step any more (R25). On the trial, two things must both be true before a friend's shop can get a test call:
 
-1. **The dealer applies at `/dealer`** (shop, area, materials, WhatsApp number, optional location, consent). With Firebase configured they confirm the number by SMS OTP; otherwise the card says "नंबर पक्का नहीं" and a founder calls them back first.
+1. **The dealer applies at `/dealer` and confirms the number with Bolna's code** (shop, area, materials, WhatsApp number, optional location, consent, and Google sign-in when `GOOGLE_CLIENT_ID` is set). "कोड भेजिए" makes Bolna text a 6-digit code to that number; when the dealer types it, the number is proved to be theirs **and** lands on Bolna's "Verified numbers" list, exactly as if a founder had added it in the dashboard. The card then shows "OTP से पक्का" and "Bolna की लिस्ट में". If the dealer skips it or it fails, the card says "नंबर पक्का नहीं" and a founder calls them back first.
 2. **A founder approves it in `/app/admin/dealers` → नए → "टेस्ट dealer बनाइए"**, with a short note (for an unverified number, also tick "called back"). This creates or links the `dealers` row with consent `test_ok` and puts the number on the panel's test list (`testPhones`), which claimDial accepts alongside `TEST_PHONE_HASHES` **only while `BOLNA_TRIAL=true`**. No env var changes.
-3. **The same founder verifies the number in Bolna**: dashboard → **User Profile → Verified Numbers** → add the number; Bolna sends an OTP to the dealer's phone and the dealer reads it out. The panel shows this reminder after every test approval. The trial refuses any number not on Bolna's list, whatever our side says. The panel never shows the full number: use the one the dealer gave you, or `npx convex run dealerApps:revealPhone '{"applicationId":"…","actor":"<you>"}'` (logged).
+3. **Only if the card says "Bolna की लिस्ट में नहीं"** (the dealer skipped the code): add the number in Bolna's dashboard (User Profile → Verified numbers) while the dealer reads out Bolna's code, then press "Bolna की लिस्ट से मिलाइए" in the panel. The trial refuses any number not on Bolna's list, whatever our side says. The panel never shows the full number: use the one the dealer gave you, or `npx convex run dealerApps:revealPhone '{"applicationId":"…","actor":"<you>"}'` (logged).
 4. **To stop calls to a shop**: "रोकिए" (restrict) in the panel. The dealer disappears from every list and claimDial refuses it at once (`dealer_restricted`); "फिर से चालू कीजिए" undoes it. A dealer who says "आगे कॉल मत करना" is opted out, and the panel can never re-enable an opt-out.
 
-"Live के लिए मंज़ूर कीजिए" (consent `opted_in`, SMS OTP required) is for later: opted-in dealers never dial on the trial, only with a registered number, `A2P_DECLARED=true` and the live stage (guards 7 and 10). Every panel action is in the audit log on `/app/admin`.
+"Live के लिए मंज़ूर कीजिए" (consent `opted_in`, the dealer's own code step required) is for later: opted-in dealers never dial on the trial, only with a registered number, `A2P_DECLARED=true` and the live stage (guards 7 and 10). Every panel action is in the audit log on `/app/admin`.
 
 Once per deployment, after this code is deployed: `npx convex run dealerApps:importLegacyWaitlist '{"actor":"claude"}'` turns the old /dealer opt-ins (waitlist rows) into unverified pending applications.
 

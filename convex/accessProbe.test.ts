@@ -32,6 +32,22 @@ interface PublicFn {
   args: Record<string, { fieldType: { type: string; tableName?: string }; optional: boolean }>;
 }
 
+/** Every public action, with why it is safe (actions aren't probed below: they can't be run on fixtures alone). */
+const PUBLIC_ACTIONS: Record<string, string> = {
+  "dealerOtp:send": "serverAction: needs CONVEX_SERVER_SECRET and the application's one-time ticket; texts only the stored number; rate-limited; dealerOtp.test.ts",
+  "dealerOtp:check": "serverAction: needs CONVEX_SERVER_SECRET and the ticket; 5 tries per code; returns only ok/code; dealerOtp.test.ts",
+  "dealerOtp:syncFromBolna": "adminAction: ADMIN_USER_IDS only; reads Bolna's verified list and returns counts; dealerOtp.test.ts",
+};
+
+const publicActions: string[] = Object.entries(loaded).flatMap(([path, mod]) => {
+  const moduleName = path.replace(/^\.\//, "").replace(/\.ts$/, "");
+  if (moduleName === "auth") return [];
+  return Object.entries(mod as Record<string, unknown>).flatMap(([name, value]) => {
+    const fn = value as unknown as Registered;
+    return typeof value === "function" && fn.isPublic && fn.isAction ? [`${moduleName}:${name}`] : [];
+  });
+});
+
 const publicFns: PublicFn[] = Object.entries(loaded).flatMap(([path, mod]) => {
   const moduleName = path.replace(/^\.\//, "").replace(/\.ts$/, "");
   if (moduleName === "auth") return []; // Convex Auth's own signIn/signOut actions
@@ -56,7 +72,6 @@ const NOT_PROBED: Record<string, string> = {
   "waitlist:join": "serverMutation: needs CONVEX_SERVER_SECRET (only the Next.js server action has it), reads no user data and returns none; secret, consent, phone and rate limit in waitlist.test.ts",
   "events:track": "serverMutation: needs CONVEX_SERVER_SECRET (only the Next.js server has it), writes allow-listed enum props only and returns nothing; covered in events.test.ts",
   "dealerSignup:apply": "serverMutation: needs CONVEX_SERVER_SECRET (only the /dealer server action has it), never writes a dealers row, returns only the application id; secret, rate limit and fields in dealerApps.test.ts",
-  "dealerSignup:verifyPhone": "serverMutation: needs CONVEX_SERVER_SECRET (only the server action that verified the Firebase ID token has it), changes only phoneVerifiedAt when the number matches; covered in dealerApps.test.ts",
 };
 
 /** Modules whose every public function is for admins only (S1, R18, R24); admin.amIAdmin is the one exception. */
@@ -185,6 +200,10 @@ describe("access probes over every public function", () => {
     const { byTable } = await setup();
     const unprobed = publicFns.filter((f) => Object.keys(f.args).length > 0 && fillArgs(f, byTable) === null).map((f) => `${f.module}:${f.name}`);
     expect(unprobed.sort()).toEqual(Object.keys(NOT_PROBED).sort());
+  });
+
+  test("every public action is listed with a reason", () => {
+    expect(publicActions.sort()).toEqual(Object.keys(PUBLIC_ACTIONS).sort());
   });
 
   for (const fn of publicFns) {

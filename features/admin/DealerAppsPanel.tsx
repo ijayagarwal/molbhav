@@ -1,12 +1,13 @@
 "use client";
 
-// /app/admin/dealers (DECISIONS R24): the founders review /dealer applications. Three tabs (pending, approved,
-// restricted); each card shows the shop, area, materials, the number masked with its OTP badge, a map link when
-// the dealer shared a location, the dates and the consent. Approving (as a trial test dealer, or as opted in),
+// /app/admin/dealers (DECISIONS R24, R25): the founders review /dealer applications. Three tabs (pending,
+// approved, restricted); each card shows the shop, area, materials, the number masked with its code-step badge,
+// whether it is on Bolna's trial list (which the dealer's code step fills; "Check Bolna's list" reads it again),
+// the Google account masked, a map link when the dealer shared a location, the dates and the consent. Approving (as a trial test dealer, or as opted in),
 // restricting and re-allowing go through a confirmation sheet with a required note; the mutations are admin-only
 // and audit-logged (dealerApps.ts), and claimDial still checks every guard per call. Numbers are never shown in
 // full (hard rule 6).
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
@@ -103,6 +104,14 @@ function AppCard({ app, onAction }: { app: DealerAppView; onAction: (a: Action) 
             {t("admin.appNotVerified")}
           </Badge>
         )}
+        {app.bolnaVerified ? (
+          <Badge tone="hara" icon={<CheckBold aria-hidden="true" className="size-4" />}>
+            {t("admin.appBolna")}
+          </Badge>
+        ) : (
+          <Badge tone="ink">{t("admin.appNotInBolna")}</Badge>
+        )}
+        {app.googleEmail !== null ? <Badge tone="ink">{t("admin.appGoogle", { email: app.googleEmail })}</Badge> : null}
         {app.fromWaitlist ? <Badge tone="ink">{t("admin.appLegacy")}</Badge> : null}
         {app.dealer?.onTestList ? <Badge tone="ink">{t("admin.appOnTestList")}</Badge> : null}
       </div>
@@ -237,6 +246,30 @@ function ConfirmSheet({ app, action, onClose, onDone }: { app: DealerAppView; ac
   );
 }
 
+/** Reads Bolna's trial "Verified numbers" list and marks the applications on it (dealerOtp.syncFromBolna). */
+function BolnaSync() {
+  const { t } = useT();
+  const sync = useAction(api.dealerOtp.syncFromBolna);
+  const [state, setState] = useState<{ busy: boolean; message: string | null }>({ busy: false, message: null });
+  const run = async () => {
+    setState({ busy: true, message: null });
+    const r = await sync({}).catch(() => ({ ok: false as const, code: "failed" as const }));
+    setState({ busy: false, message: r.ok ? t("admin.bolnaSynced", { listed: r.listed, marked: r.marked }) : t("admin.bolnaSyncErr") });
+  };
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+      <SecondaryButton onClick={run} disabled={state.busy} aria-busy={state.busy} className="w-full sm:w-fit">
+        {state.busy ? t("admin.bolnaSyncing") : t("admin.bolnaSync")}
+      </SecondaryButton>
+      {state.message !== null ? (
+        <p role="status" className="text-meta text-ink-2">
+          {state.message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function Panel() {
   const { t } = useT();
   const [tab, setTab] = useState<Tab>("pending");
@@ -258,6 +291,8 @@ function Panel() {
           </SecondaryButton>
         </div>
       ) : null}
+
+      <BolnaSync />
 
       <div role="tablist" aria-label={t("admin.dealersTitle")} className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
         {TABS.map(({ tab: id, label }) => (
@@ -296,7 +331,7 @@ function Panel() {
           onClose={() => setOpen(null)}
           onDone={(action, app) => {
             setOpen(null);
-            if (action === "approveTest") setReminder(app.phoneMasked);
+            if (action === "approveTest" && !app.bolnaVerified) setReminder(app.phoneMasked);
           }}
         />
       ) : null}

@@ -6,10 +6,11 @@
 //
 // Ownership of a specific document is still checked in the handler (requireOwnedOrder), because
 // it depends on the arguments.
-import { customCtx, customMutation, customQuery } from "convex-helpers/server/customFunctions";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { customAction, customCtx, customMutation, customQuery } from "convex-helpers/server/customFunctions";
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "../_generated/server";
-import { optionalUser, requireAdmin, requireContractor, requireUser } from "./access";
+import { action, mutation, query } from "../_generated/server";
+import { accessError, isAdminUserId, optionalUser, requireAdmin, requireContractor, requireUser } from "./access";
 
 /** Signed-out callers get `ctx.userId === null`. Only for answers that are safe to give anyone (e.g. "am I an admin?"). */
 export const optionalUserQuery = customQuery(
@@ -60,14 +61,41 @@ export const adminMutation = customMutation(
  * never reaches it. Unset or shorter than 32 characters: `not_configured` (fail closed); wrong: `forbidden`.
  * Same constant-time comparison as limits.serverSecretMatches (not imported: limits.ts imports this file).
  */
+function checkServerSecret(serverSecret: string): void {
+  const expected = process.env.CONVEX_SERVER_SECRET ?? "";
+  if (expected.length < 32) throw new ConvexError({ code: "not_configured" });
+  let diff = serverSecret.length ^ expected.length;
+  for (let i = 0; i < expected.length; i++) diff |= (serverSecret.charCodeAt(i) || 0) ^ expected.charCodeAt(i);
+  if (diff !== 0) throw new ConvexError({ code: "forbidden" });
+}
+
 export const serverMutation = customMutation(mutation, {
   args: { serverSecret: v.string() },
   input: async (_ctx, { serverSecret }) => {
-    const expected = process.env.CONVEX_SERVER_SECRET ?? "";
-    if (expected.length < 32) throw new ConvexError({ code: "not_configured" });
-    let diff = serverSecret.length ^ expected.length;
-    for (let i = 0; i < expected.length; i++) diff |= (serverSecret.charCodeAt(i) || 0) ^ expected.charCodeAt(i);
-    if (diff !== 0) throw new ConvexError({ code: "forbidden" });
+    checkServerSecret(serverSecret);
     return { ctx: {}, args: {} };
   },
 });
+
+/**
+ * serverMutation's twin for work that needs the network (dealerOtp.send/check, R25: they call Bolna). The same
+ * secret check before the handler; the handler does its writes through internal mutations.
+ */
+export const serverAction = customAction(action, {
+  args: { serverSecret: v.string() },
+  input: async (_ctx, { serverSecret }) => {
+    checkServerSecret(serverSecret);
+    return { ctx: {}, args: {} };
+  },
+});
+
+/** Admins only, for reads that need the network (dealerOtp.syncFromBolna, R25): `ctx.adminUserId`. */
+export const adminAction = customAction(
+  action,
+  customCtx(async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw accessError("unauthenticated");
+    if (!isAdminUserId(userId)) throw accessError("forbidden");
+    return { adminUserId: userId };
+  }),
+);

@@ -66,6 +66,13 @@ export function maskPhone(e164: string): string {
   return `••••••${e164.slice(-2)}`;
 }
 
+/** "ra•••@gmail.com": the first two letters and the domain, for the founders' panel. */
+export function maskEmail(email: string): string {
+  const at = email.lastIndexOf("@");
+  if (at < 1) return "•••";
+  return `${email.slice(0, Math.min(2, at))}•••${email.slice(at)}`;
+}
+
 /** Checks and normalises one application. Invalid fields come back in the form's order (the first is focused). */
 export function checkDealerApplication(input: DealerApplicationInput): DealerApplicationCheck {
   const check = checkWaitlist({

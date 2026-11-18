@@ -1,61 +1,60 @@
 "use client";
 
-// /dealer's SMS OTP step (DECISIONS R24), loaded with React.lazy by DealerForm once the application is saved;
-// this module and firebaseOtp.ts (the Firebase SDK) form their own chunk. The dealer taps "कोड भेजिए" (invisible
-// reCAPTCHA, then Firebase sends the SMS), types the six digits, and the Firebase ID token goes to the
-// verifyDealerPhone server action, which checks it on the server and records the verification. Skipping, or
-// any failure, ends like the form without OTP: the founders verify by calling back. Nothing is stored in the
-// browser.
+// /dealer's number check (DECISIONS R24, R25), shown once the application is saved. The dealer taps "कोड भेजिए",
+// Bolna texts a 6-digit code to the number on the application, the dealer types it, and Bolna checks it: the
+// number is proved to be theirs and goes on Bolna's trial list, so test calls can reach it. No SMS service of
+// our own, no third-party script on the page. Skipping, or any failure we can't fix here, ends like the form
+// without the check: the founders call back. Nothing is stored in the browser.
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { PrimaryButton, SecondaryButton } from "@/components/mb/Buttons";
 import { CheckBold } from "@/components/mb/icons";
 import type { DictKey } from "@/lib/i18n/hi";
 import { useT } from "@/lib/i18n/useT";
-import { verifyDealerPhone } from "./actions";
-import { createOtpSession, type OtpSession } from "./firebaseOtp";
+import { checkDealerOtp, sendDealerOtp } from "./actions";
 import { Field, FormAlert, FormDone, inputClass } from "./FormParts";
-import { cleanOtp, OTP_ERROR_KEY, OtpError, type FirebaseWebConfig } from "./otp";
+import { cleanOtp, OTP_PROBLEM, type OtpAnswer } from "./otp";
 
-type Phase = "ready" | "sending" | "sent" | "checking" | "verified" | "unverified" | "skipped";
+type Phase = "ready" | "sending" | "sent" | "checking" | "verified" | "fallback" | "skipped";
 
 /** "+91 98290 12345": the dealer's own number, on the dealer's own phone. */
 const spaced = (e164: string) => `${e164.slice(0, 3)} ${e164.slice(3, 8)} ${e164.slice(8)}`;
 
-export default function DealerOtpStep({ applicationId, phoneE164, config }: { applicationId: string; phoneE164: string; config: FirebaseWebConfig }) {
-  const { t, lang } = useT();
-  const recaptchaRef = useRef<HTMLDivElement>(null);
+const FAILED: OtpAnswer = { ok: false, code: "failed" };
+
+export default function DealerOtpStep({ applicationId, ticket, phoneE164 }: { applicationId: string; ticket: string; phoneE164: string }) {
+  const { t } = useT();
   const codeRef = useRef<HTMLInputElement>(null);
   const alertRef = useRef<HTMLParagraphElement>(null);
-  const session = useRef<OtpSession | null>(null);
   const [phase, setPhase] = useState<Phase>("ready");
   const [code, setCode] = useState("");
   const [error, setError] = useState<DictKey | null>(null);
 
-  useEffect(() => () => session.current?.dispose(), []);
   useEffect(() => {
     if (error !== null) alertRef.current?.focus();
     else if (phase === "sent") codeRef.current?.focus();
   }, [error, phase]);
 
-  const otp = (): OtpSession => {
-    if (session.current === null) {
-      if (recaptchaRef.current === null) throw new OtpError("failed");
-      session.current = createOtpSession(config, recaptchaRef.current, lang);
+  /** Shows a refusal and moves the step on (stay, ask for a new code, or the call-back ending). */
+  const refuse = (answer: Extract<OtpAnswer, { ok: false }>, here: Phase) => {
+    const problem = OTP_PROBLEM[answer.code];
+    if (problem.next === "fallback") {
+      setPhase("fallback");
+      return;
     }
-    return session.current;
+    setError(problem.key);
+    setPhase(problem.next === "resend" ? "ready" : here);
   };
 
   const send = async () => {
+    if (phase === "sending" || phase === "checking") return;
+    const was = phase;
     setError(null);
     setPhase("sending");
-    try {
-      await otp().send(phoneE164);
+    const answer = await sendDealerOtp({ applicationId, ticket }).catch(() => FAILED);
+    if (answer.ok) {
       setCode("");
       setPhase("sent");
-    } catch (e) {
-      setError(OTP_ERROR_KEY[e instanceof OtpError ? e.code : "failed"]);
-      setPhase("ready");
-    }
+    } else refuse(answer, was === "sent" ? "sent" : "ready");
   };
 
   const confirm = async (e: FormEvent<HTMLFormElement>) => {
@@ -68,24 +67,16 @@ export default function DealerOtpStep({ applicationId, phoneE164, config }: { ap
     }
     setError(null);
     setPhase("checking");
-    let idToken: string;
-    try {
-      idToken = await otp().confirm(digits);
-    } catch (err) {
-      const c = err instanceof OtpError ? err.code : "failed";
-      setError(OTP_ERROR_KEY[c]);
-      setPhase(c === "bad_code" ? "sent" : "ready");
-      return;
-    }
-    const answer = await verifyDealerPhone({ applicationId, phone: phoneE164, idToken }).catch(() => ({ ok: false as const, code: "server" as const }));
-    setPhase(answer.ok ? "verified" : "unverified");
+    const answer = await checkDealerOtp({ applicationId, ticket, code: digits }).catch(() => FAILED);
+    if (answer.ok) setPhase("verified");
+    else refuse(answer, "sent");
   };
 
   if (phase === "verified") return <FormDone title={t("dealer.verifiedTitle")} body={t("dealer.done")} />;
-  if (phase === "skipped" || phase === "unverified") {
+  if (phase === "skipped" || phase === "fallback") {
     return (
       <div className="flex flex-col gap-3">
-        {phase === "unverified" ? <p className="text-label text-ink-2">{t("dealer.otpErrVerify")}</p> : null}
+        {phase === "fallback" ? <p className="text-label text-ink-2">{t("dealer.otpErrVerify")}</p> : null}
         <FormDone title={t("dealer.doneTitle")} body={t("dealer.done")} />
       </div>
     );
@@ -138,13 +129,11 @@ export default function DealerOtpStep({ applicationId, phoneE164, config }: { ap
       <button
         type="button"
         onClick={() => setPhase("skipped")}
-        disabled={phase === "checking"}
+        disabled={phase === "checking" || phase === "sending"}
         className="inline-flex min-h-14 w-fit items-center text-label text-neel underline underline-offset-4 disabled:text-ink-3"
       >
         {t("dealer.otpSkip")}
       </button>
-      {/* Invisible reCAPTCHA (Firebase) renders here. */}
-      <div ref={recaptchaRef} />
     </div>
   );
 }

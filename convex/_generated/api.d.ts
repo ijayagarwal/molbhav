@@ -17,6 +17,7 @@ import type * as calls from "../calls.js";
 import type * as contractors from "../contractors.js";
 import type * as crons from "../crons.js";
 import type * as dealerApps from "../dealerApps.js";
+import type * as dealerOtp from "../dealerOtp.js";
 import type * as dealerSignup from "../dealerSignup.js";
 import type * as dealers from "../dealers.js";
 import type * as engine from "../engine.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   contractors: typeof contractors;
   crons: typeof crons;
   dealerApps: typeof dealerApps;
+  dealerOtp: typeof dealerOtp;
   dealerSignup: typeof dealerSignup;
   dealers: typeof dealers;
   engine: typeof engine;

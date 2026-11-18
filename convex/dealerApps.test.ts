@@ -1,5 +1,6 @@
 // Dealer self-onboarding and the founders' panel (DECISIONS R24, S2, R18; ARCHITECTURE §6.13, §11):
-// - dealerSignup.apply / verifyPhone (the /dealer server actions' mutations): secret, fields, rate limit, OTP match;
+// - dealerSignup.apply (the /dealer server action's mutation): secret, fields, rate limit (the code step is in
+//   dealerOtp.test.ts; here `verify` records its success directly);
 // - dealerApps.* (admin only): masked list, approve for test / live, restrict / re-allow, the audit log;
 // - the guards end to end: a panel-approved test dealer dials on the trial (every other guard satisfied), an
 //   application alone never does, the panel's list means nothing with trial mode off, a restricted dealer is
@@ -81,8 +82,9 @@ async function apply(t: T, over: Partial<typeof APPLY> & { geo?: { lat: number; 
   return r.applicationId;
 }
 
+/** What a successful code step leaves behind (dealerOtp.check → recordVerified). */
 const verify = (t: T, applicationId: Id<"dealerApplications">, phoneE164 = PHONE) =>
-  t.mutation(api.dealerSignup.verifyPhone, { serverSecret: SECRET, ipHash: IP, applicationId, phoneE164 });
+  t.mutation(internal.dealerOtp.recordVerified, { applicationId, phoneE164 });
 
 /** convex-test moves the clock a millisecond per transaction. */
 const soon = expect.toSatisfy((n: number) => n >= MON_11 && n < MON_11 + 1000);
@@ -123,7 +125,7 @@ describe("dealerSignup.apply (S2, S4)", () => {
     const first = await apply(t);
     await verify(t, first);
     expect(await apply(t, { shopName: "Agarwal Steel & Cement", phone: "+91 98290 12345" })).toBe(first);
-    expect(await getApp(t, first)).toMatchObject({ shopName: "Agarwal Steel & Cement", verifyMethod: "firebase_otp" });
+    expect(await getApp(t, first)).toMatchObject({ shopName: "Agarwal Steel & Cement", verifyMethod: "bolna_otp" });
     await asAdmin.mutation(api.dealerApps.approveForTest, { applicationId: first, note: "Friend's shop, OTP verified" });
     expect(await apply(t, { shopName: "Someone Else" })).toBe(first);
     expect(await getApp(t, first)).toMatchObject({ shopName: "Agarwal Steel & Cement", status: "approved_test" });
@@ -133,20 +135,6 @@ describe("dealerSignup.apply (S2, S4)", () => {
     const { t } = await setup();
     for (let i = 0; i < 5; i++) await apply(t, { phone: `98290123${40 + i}` });
     expect(await t.mutation(api.dealerSignup.apply, { ...APPLY, phone: "9829012399" })).toMatchObject({ ok: false, code: "rate_limited" });
-  });
-});
-
-describe("dealerSignup.verifyPhone", () => {
-  test("records the OTP only when the proved number is the application's own", async () => {
-    const { t } = await setup();
-    const id = await apply(t);
-    expect(await verify(t, id, "+919829099999")).toEqual({ ok: false, code: "phone_mismatch" });
-    expect((await getApp(t, id)).phoneVerifiedAt).toBeUndefined();
-    expect(await verify(t, id)).toEqual({ ok: true });
-    expect(await getApp(t, id)).toMatchObject({ phoneVerifiedAt: soon, verifyMethod: "firebase_otp", status: "pending" });
-    await expect(t.mutation(api.dealerSignup.verifyPhone, { serverSecret: "x".repeat(40), ipHash: IP, applicationId: id, phoneE164: PHONE })).rejects.toThrow(
-      /forbidden/,
-    );
   });
 });
 
@@ -160,7 +148,7 @@ describe("dealerApps.list (admins only, masked)", () => {
     expect(pending.counts).toEqual({ pending: 2, approved: 0, restricted: 0 });
     expect(pending.trial).toBe(true);
     const item = pending.items.find((i) => i._id === a)!;
-    expect(item).toMatchObject({ phoneMasked: "••••••45", verified: true, verifyMethod: "firebase_otp", geo: { lat: 26.912, lng: 75.787 }, dealer: null });
+    expect(item).toMatchObject({ phoneMasked: "••••••45", verified: true, verifyMethod: "bolna_otp", geo: { lat: 26.912, lng: 75.787 }, dealer: null });
     const json = JSON.stringify(pending);
     expect(json).not.toContain("9829012345");
     expect(json).not.toContain(await t.run(() => hashPhone(PHONE)));
