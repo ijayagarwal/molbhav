@@ -17,5 +17,23 @@
       "match": "b09347c6-fdcb-4cc0-92b4-7d6a703af35b",
       "confirm": "268b0e8c-22be-49fa-bca9-68eae6b52636"
     }
+  },
+  "prod": {
+    "sarvam": {
+      "target": "prod",
+      "voice": "Sarvam bulbul:v4-flash ashutosh_hi_conversational / dev_en_conversational",
+      "quote": "758ffa19-5006-4e7b-ab7a-e8710c3f850f",
+      "haggle": "8cc2e024-38a1-4f92-aa29-6cf4bd775903",
+      "match": "45655675-cdf1-4280-8a83-4a45272fabb4",
+      "confirm": "f585b9d4-c51a-45de-bb74-4915fc762f4e"
+    },
+    "elevenlabs": {
+      "target": "prod-elevenlabs",
+      "voice": "ElevenLabs eleven_v4_turbo Abhay (E0XZpcnyzAqDnxXoA920), Hindi and English",
+      "quote": "0018be19-76e1-4c1b-9428-a33e05af4f0a",
+      "haggle": "722b95e0-40f5-4172-94d4-e806d6320b15",
+      "match": "049ba7a0-475e-47e4-bdef-c8ad94442e07",
+      "confirm": "835e4314-4696-4ffa-96a2-82fe239e4e06"
+    }
   }
 }

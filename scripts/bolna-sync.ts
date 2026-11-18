@@ -151,7 +151,8 @@ export async function main(argv: readonly string[], log: (s: string) => void = c
   if (args.flags.has("build-only")) return 0;
 
   const target = args.values.get("target") ?? "dev";
-  const prod = target === "prod";
+  // "prod" and any "prod-…" set (e.g. prod-elevenlabs) belong to production: its secrets and its site.
+  const prod = target === "prod" || target.startsWith("prod-");
   const fromConvex = args.flags.has("from-convex");
   const apiKey = readSetting("BOLNA_API_KEY", { fromConvex, prod });
   if (apiKey === undefined) {
@@ -161,6 +162,10 @@ export async function main(argv: readonly string[], log: (s: string) => void = c
   const secret = readSetting("BOLNA_WEBHOOK_SECRET", { fromConvex, prod });
   if (secret === undefined) {
     log("BOLNA_WEBHOOK_SECRET is not set (same places as BOLNA_API_KEY). Nothing was sent.");
+    return 1;
+  }
+  if (prod && args.values.get("site-url") === undefined) {
+    log("A production target needs --site-url https://<prod deployment>.convex.site (the default comes from .env.local, which is dev). Nothing was sent.");
     return 1;
   }
   const site = siteUrl(args.values.get("site-url"));

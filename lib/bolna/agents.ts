@@ -365,7 +365,8 @@ export function buildAgentConfigs(callScriptMd: string, opts: BuildOptions = {})
 
 /** Fills the placeholders. Throws if one is left, so a template can never reach Bolna. */
 export function fillPlaceholders(config: AgentConfig, values: { siteUrl: string; secret: string; target: string }): AgentConfig {
-  if (!/^https:\/\/[a-z0-9-]+\.convex\.site$/.test(values.siteUrl)) throw new Error("site URL must be https://<deployment>.convex.site");
+  // A deployment outside the default region has a region label: https://<name>.eu-west-1.convex.site (production).
+  if (!/^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)?\.convex\.site$/.test(values.siteUrl)) throw new Error("site URL must be https://<deployment>[.<region>].convex.site");
   if (values.secret.length < 24) throw new Error("BOLNA_WEBHOOK_SECRET must be at least 24 characters");
   if (!/^[a-z0-9-]{1,20}$/.test(values.target)) throw new Error("target must be a short name like dev, demo or prod");
   const text = JSON.stringify(config)
