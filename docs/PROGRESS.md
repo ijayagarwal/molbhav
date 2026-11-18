@@ -174,6 +174,11 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
   third call asked every step and produced a comparable quote (₹3,62,520 all-in, GST extra, 6 days' credit);
   the read-back still added an unsaid term and skipped re-confirming a correction (fixed in the prompt). Dealers
   who ask get the buyer's number (R21, Settings switch).
+- **Production is ready for live calls, switched off (18 Nov 2026, morning):** the latest code is deployed; production
+  Convex has the Bolna key and its own webhook secret; two production agent sets exist (`[prod]` Sarvam, active,
+  and `[prod-elevenlabs]`), all checks ok; the production webhook accepts its token (200) and refuses requests
+  without it (401). Still off until a founder says "go" for production: `BOLNA_TRIAL`, `LIVE_CALLS_ENABLED`,
+  the test phones, and the founder's production account (admin + verified).
 - **Phase 8C merged:** live calls' recordings are copied into Convex storage, played through 10-minute signed links
   (`/rec`, seekable) on the board and on Result; recordings and transcripts are deleted at 30 days, callLog after a
   year, never-onboarded anonymous users after 7 days. Inert until live calls exist.
