@@ -33,7 +33,10 @@ function facts(over: Partial<DialFacts> = {}, dealer: Partial<DialFacts["dealer"
     orderId: "order1",
     round: "quote",
     contractor: { verified: true, liveDailyCap: 3 },
-    dealer: { consent: "test_ok", phoneE164: "+919812345678", isDemo: false, phoneHash: HASH, storedHashMatches: true, ...dealer },
+    dealer: {
+      consent: "test_ok", phoneE164: "+919812345678", isDemo: false, phoneHash: HASH, storedHashMatches: true, restricted: false, onPanelTestList: false,
+      ...dealer,
+    },
     activeLiveCalls: 0,
     orderSweepDials: 0,
     dealerSweepCallsThisOrder: 0,
@@ -215,6 +218,41 @@ describe("dealerRefusal (the Choose screen's callable list)", () => {
     expect(dealerRefusal(live(), facts().dealer)).toBeNull();
     expect(dealerRefusal(live(), facts({}, { phoneHash: OTHER_HASH }).dealer)).toBe("test_phone_unlisted");
     expect(dealerRefusal(trial(), facts({}, { consent: "opted_in", phoneHash: OTHER_HASH }).dealer)).toBe("trial_test_phones_only");
+  });
+});
+
+describe("R24: the panel's test list and restricted dealers", () => {
+  const panelListed = { phoneHash: OTHER_HASH, onPanelTestList: true };
+
+  test("a test_ok dealer on the panel's list dials on the trial, like one in TEST_PHONE_HASHES", () => {
+    expect(decide(trial(), facts({}, panelListed))).toBe("ok");
+    expect(decide(trial(), facts({}, { phoneHash: OTHER_HASH }))).toBe("test_phone_unlisted");
+  });
+
+  test("with trial mode off, the panel's list counts for nothing: only TEST_PHONE_HASHES (set from the CLI) does", () => {
+    expect(decide(live(), facts({}, panelListed))).toBe("test_phone_unlisted");
+    expect(decide(live({ A2P_DECLARED: "true", LIVE_STAGE: "2" }), facts({}, panelListed))).toBe("test_phone_unlisted");
+  });
+
+  test("the panel's list never helps an opted-in dealer on the trial, nor a dealer without consent", () => {
+    expect(decide(trial(), facts({}, { ...panelListed, consent: "opted_in" }))).toBe("trial_test_phones_only");
+    expect(decide(trial(), facts({}, { ...panelListed, consent: "unknown" }))).toBe("no_consent");
+    expect(decide(trial(), facts({}, { ...panelListed, consent: "opted_out" }))).toBe("no_consent");
+  });
+
+  test("a restricted dealer is refused first, in every mode, listed or not", () => {
+    for (const env of [live(), trial(), live({ A2P_DECLARED: "true", LIVE_STAGE: "2" })]) {
+      expect(decide(env, facts({}, { restricted: true }))).toBe("dealer_restricted");
+      expect(decide(env, facts({}, { ...panelListed, restricted: true }))).toBe("dealer_restricted");
+      expect(dealerRefusal(env, facts({}, { restricted: true }).dealer)).toBe("dealer_restricted");
+    }
+  });
+
+  test("liveAvailability on the trial counts the panel's list too; off the trial it doesn't matter", () => {
+    const verified = { verified: true, liveDailyCap: 2 };
+    expect(liveAvailability(trial({ TEST_PHONE_HASHES: "" }), verified, 0, MON_11, 0).reason).toBe("live_off");
+    expect(liveAvailability(trial({ TEST_PHONE_HASHES: "" }), verified, 0, MON_11, 1)).toEqual({ available: true, reason: null });
+    expect(liveAvailability(live({ BOLNA_FROM_NUMBER: undefined }), verified, 0, MON_11, 3).reason).toBe("live_off");
   });
 });
 

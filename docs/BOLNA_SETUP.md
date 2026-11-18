@@ -29,7 +29,7 @@ How the four phone agents get into Bolna, what the founders do in Bolna's dashbo
 | `BOLNA_WEBHOOK_SECRET` | generated, 64 hex characters (`openssl rand -hex 32`, never echoed); at least 24 characters or every webhook and tool call is refused | with the key |
 | `BOLNA_QUOTE_AGENT_ID`, `BOLNA_HAGGLE_AGENT_ID`, `BOLNA_MATCH_AGENT_ID`, `BOLNA_CONFIRM_AGENT_ID` | the ids `pnpm bolna:sync` prints (not secrets) | after the sync |
 | `BOLNA_TRIAL` | `true` (no `BOLNA_FROM_NUMBER` on the trial) | with the key |
-| `TEST_PHONE_HASHES` | comma-separated hashes from `admin:addDealer` (or `admin:phoneHash`) | after adding the teammates as `test_ok` dealers |
+| `TEST_PHONE_HASHES` | comma-separated hashes from `admin:addDealer` (or `admin:phoneHash`) | after adding the teammates as `test_ok` dealers (dealers approved in `/app/admin/dealers` need no entry here on the trial, section 8a) |
 | `OPENAI_API_KEY` | already set (R19); guard 8 needs it | — |
 | `REC_TOKEN_SECRET` | generated (used by Phase 8C's recording links) | with the key |
 | `LIVE_CONCURRENCY` | `2` (the trial's limit) | with the key |
@@ -122,6 +122,19 @@ Bolna's **Web Call SDK** ([docs](https://www.bolna.ai/docs/developer-resources/s
 7. Founders: the webhook header on each agent (section 1, step 4). Then `pnpm bolna:check --from-convex` shows four `checks: ok`.
 8. Optional: a founder tries each agent at `/app/admin/agents` (no phone).
 9. **Stop and ask.** A founder says "go" → `npx convex env set LIVE_CALLS_ENABLED true` on dev only. The founder then starts the first live sweep from the app (the LIVE toggle on Choose dealers, which calls `sweep.start` with `mode: "live"`; the toggle itself is a `features/app` change that Phase 8B's backend is ready for) with the teammates ready, while Claude Code watches `npx convex logs`. Roll back at any time with `npx convex env set LIVE_CALLS_ENABLED false`; calls already placed finish, and the watchdog closes anything stuck.
+
+## 8a. Adding friends' and pilot dealers' shops (R24)
+
+No CLI session per dealer any more. On the trial, two places must both say yes before a friend's shop can get a test call:
+
+1. **The dealer applies at `/dealer`** (shop, area, materials, WhatsApp number, optional location, consent). With Firebase configured they confirm the number by SMS OTP; otherwise the card says "नंबर पक्का नहीं" and a founder calls them back first.
+2. **A founder approves it in `/app/admin/dealers` → नए → "टेस्ट dealer बनाइए"**, with a short note (for an unverified number, also tick "called back"). This creates or links the `dealers` row with consent `test_ok` and puts the number on the panel's test list (`testPhones`), which claimDial accepts alongside `TEST_PHONE_HASHES` **only while `BOLNA_TRIAL=true`**. No env var changes.
+3. **The same founder verifies the number in Bolna**: dashboard → **User Profile → Verified Numbers** → add the number; Bolna sends an OTP to the dealer's phone and the dealer reads it out. The panel shows this reminder after every test approval. The trial refuses any number not on Bolna's list, whatever our side says. The panel never shows the full number: use the one the dealer gave you, or `npx convex run dealerApps:revealPhone '{"applicationId":"…","actor":"<you>"}'` (logged).
+4. **To stop calls to a shop**: "रोकिए" (restrict) in the panel. The dealer disappears from every list and claimDial refuses it at once (`dealer_restricted`); "फिर से चालू कीजिए" undoes it. A dealer who says "आगे कॉल मत करना" is opted out, and the panel can never re-enable an opt-out.
+
+"Live के लिए मंज़ूर कीजिए" (consent `opted_in`, SMS OTP required) is for later: opted-in dealers never dial on the trial, only with a registered number, `A2P_DECLARED=true` and the live stage (guards 7 and 10). Every panel action is in the audit log on `/app/admin`.
+
+Once per deployment, after this code is deployed: `npx convex run dealerApps:importLegacyWaitlist '{"actor":"claude"}'` turns the old /dealer opt-ins (waitlist rows) into unverified pending applications.
 
 ## 9. What was confirmed in Bolna's docs (17 Nov 2026)
 

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { liveAvailability } from "../lib/liveGuards";
 import { contractorQuery } from "./lib/functions";
-import { contractorOrdersToday, liveEnv } from "./lib/live";
+import { contractorOrdersToday, liveEnv, panelTestPhoneCount } from "./lib/live";
 
 /**
  * Whether the caller may start a live sweep right now (ARCHITECTURE §11): a boolean and a reason code
@@ -18,6 +18,6 @@ export const liveAvailable = contractorQuery({
   handler: async (ctx) => {
     const now = Date.now();
     const opened = await contractorOrdersToday(ctx, ctx.contractor._id, now);
-    return liveAvailability(liveEnv(), ctx.contractor, opened.size, now);
+    return liveAvailability(liveEnv(), ctx.contractor, opened.size, now, await panelTestPhoneCount(ctx));
   },
 });

@@ -91,7 +91,7 @@ export const claimDial = internalMutation({
     const contractor = linked !== null && linked.userId === order.ownerUserId ? linked : null;
 
     const env = liveEnv();
-    const dealerF = await dealerFacts(dealer);
+    const dealerF = await dealerFacts(ctx, dealer);
     const counts = await dialCounts(ctx, dealerF.phoneHash, order._id, now);
     const decision = evaluateDial(env, {
       now,

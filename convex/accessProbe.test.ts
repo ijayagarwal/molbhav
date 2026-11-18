@@ -55,7 +55,12 @@ const NOT_PROBED: Record<string, string> = {
   "sandbox:createDraft": "serverMutation that also needs the visitor's session: writes only that visitor's own sandbox draft; secret, session and items are covered in sandbox.test.ts",
   "waitlist:join": "serverMutation: needs CONVEX_SERVER_SECRET (only the Next.js server action has it), reads no user data and returns none; secret, consent, phone and rate limit in waitlist.test.ts",
   "events:track": "serverMutation: needs CONVEX_SERVER_SECRET (only the Next.js server has it), writes allow-listed enum props only and returns nothing; covered in events.test.ts",
+  "dealerSignup:apply": "serverMutation: needs CONVEX_SERVER_SECRET (only the /dealer server action has it), never writes a dealers row, returns only the application id; secret, rate limit and fields in dealerApps.test.ts",
+  "dealerSignup:verifyPhone": "serverMutation: needs CONVEX_SERVER_SECRET (only the server action that verified the Firebase ID token has it), changes only phoneVerifiedAt when the number matches; covered in dealerApps.test.ts",
 };
+
+/** Modules whose every public function is for admins only (S1, R18, R24); admin.amIAdmin is the one exception. */
+const ADMIN_MODULES = new Set(["admin", "dealerApps"]);
 
 /**
  * Sample values for non-id arguments, so these functions are probed like the rest (another user, signed
@@ -75,6 +80,11 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   "share:get": { publicId: "AAAAAAAAAAAAAAAAAAAAAA" },
   "sandbox:createSample": { sample: "demo", lang: "hi" },
   "sandbox:answer": { itemId: "steel", tier: "local_isi" },
+  "dealerApps:list": { tab: "pending" },
+  "dealerApps:approveForTest": { note: "probe: called back and confirmed", verifiedByCallback: true },
+  "dealerApps:approveLive": { note: "probe: verified and agreed" },
+  "dealerApps:restrict": { note: "probe: restrict this dealer" },
+  "dealerApps:unrestrict": { note: "probe: allow this dealer again" },
 };
 /** String-typed ids (getOrNull takes a raw string so malformed links read as "not found"). */
 const STRING_IDS: Record<string, Record<string, string>> = { "orders:getOrNull": { orderId: "orders" } };
@@ -117,11 +127,16 @@ async function setup() {
       saidFinal: false, confidence: 0.9, readBackConfirmed: true, totalSource: "computed",
       landed: { subtotal: 0, gst: 0, delivery: 0, unloading: 0, total: 0 }, flags: [], comparable: true, citable: true,
     });
-    return { userA, userB, contractorA, dealer, siteA, order, call, quote };
+    const application = await ctx.db.insert("dealerApplications", {
+      shopName: "Agarwal Steels", area: "mansarovar", city: "Jaipur", materials: ["tmt_steel"], phoneE164: SECRETS.phone,
+      phoneHash: SECRETS.phoneHash, verifyMethod: "none", consentAiCalls: true, consentAt: 1, status: "pending", ipHash: "i".repeat(64), createdAt: 1,
+    });
+    return { userA, userB, contractorA, dealer, siteA, order, call, quote, application };
   });
   /** A's documents by table, used to fill v.id() arguments. */
   const byTable: Record<string, string> = {
     orders: ids.order, calls: ids.call, quotes: ids.quote, dealers: ids.dealer, sites: ids.siteA, contractors: ids.contractorA, users: ids.userA,
+    dealerApplications: ids.application,
   };
   const as = (userId: Id<"users">) => t.withIdentity({ subject: `${userId}|session` });
   return { t, ids, byTable, asA: as(ids.userA), asB: as(ids.userB) };
@@ -147,7 +162,7 @@ const mref = (fn: PublicFn): AnyMutation => makeFunctionReference<"mutation", Re
 
 async function snapshot(t: Awaited<ReturnType<typeof setup>>["t"]) {
   return await t.run(async (ctx) => {
-    const tables = ["orders", "calls", "quotes", "contractors", "dealers", "sites"] as const;
+    const tables = ["orders", "calls", "quotes", "contractors", "dealers", "sites", "dealerApplications", "testPhones"] as const;
     const out: Record<string, unknown> = {};
     for (const table of tables) out[table] = await ctx.db.query(table).collect();
     return JSON.stringify(out);
@@ -210,7 +225,7 @@ describe("access probes over every public function", () => {
       });
     }
 
-    if (fn.module === "admin" && fn.name !== "amIAdmin") {
+    if (ADMIN_MODULES.has(fn.module) && fn.name !== "amIAdmin") {
       test(`${id}: non-admins are refused`, async () => {
         vi.stubEnv("ADMIN_USER_IDS", "");
         const { asA, byTable } = await setup();

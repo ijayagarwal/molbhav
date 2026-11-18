@@ -14,7 +14,7 @@ export function publicDealer(d: Doc<"dealers">) {
     city: d.city,
     materials: d.materials,
     isDemo: d.isDemo,
-    callable: d.consent === "test_ok" || d.consent === "opted_in",
+    callable: (d.consent === "test_ok" || d.consent === "opted_in") && d.restricted !== true,
   };
 }
 export type PublicDealer = ReturnType<typeof publicDealer>;

@@ -51,5 +51,11 @@ export async function applyOptOut(ctx: MutationCtx, dealerId: Id<"dealers">, now
     await ctx.scheduler.runAfter(0, internal.calls.deleteDealerRecordings, { dealerId: row._id });
   }
   for (const orderId of moveOn) await ctx.scheduler.runAfter(0, internal.engine.advance, { orderId });
+  // The number leaves the panel's trial test list too (R24); consent alone already refuses every dial.
+  const listed = await ctx.db
+    .query("testPhones")
+    .withIndex("by_phoneHash", (q) => q.eq("phoneHash", dealer.phoneHash))
+    .collect();
+  for (const row of listed) await ctx.db.delete(row._id);
   return { dealers: rows.length, cancelled };
 }

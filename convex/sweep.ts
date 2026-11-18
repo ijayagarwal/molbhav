@@ -7,7 +7,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { createCall, MAX_SWEEP_DEALERS, orderCity, simPace, stopOrder } from "./engine";
 import { requireOwnedOrder } from "./lib/access";
 import { userMutation } from "./lib/functions";
-import { consumeLiveSweep, contractorOrdersToday, liveEnv } from "./lib/live";
+import { consumeLiveSweep, contractorOrdersToday, liveEnv, panelTestPhoneCount } from "./lib/live";
 import { PACES } from "./sim/script";
 
 /** Every item has a quantity, a unit and exactly one tier (steel: branded or local ISI; cement: branded or any). */
@@ -60,7 +60,7 @@ export const start = userMutation({
       // contractor is non-null here: a sandbox order was refused above and an app order needs its owner's profile.
       const now = Date.now();
       const opened = await contractorOrdersToday(ctx, contractor!._id, now);
-      const live = liveAvailability(liveEnv(), contractor!, opened.size, now);
+      const live = liveAvailability(liveEnv(), contractor!, opened.size, now, await panelTestPhoneCount(ctx));
       if (!live.available) throw new ConvexError({ code: "live_unavailable", reason: live.reason });
       if (order.siteId === undefined) throw new ConvexError({ code: "no_site" });
     }
@@ -68,8 +68,9 @@ export const start = userMutation({
     // Sim calls only DEMO dealers; live only real dealers who may get AI calls (test_ok, opted_in), so a live order
     // never holds a fictional regular dealer for the match round (claimDial would refuse it anyway, B10).
     const fitsMode = (d: Doc<"dealers">) => (mode === "sim" ? d.isDemo === true : d.isDemo !== true && (d.consent === "test_ok" || d.consent === "opted_in"));
+    // A dealer the founders restricted in the panel is never part of a sweep (R24; claimDial refuses it too).
     const usable = (d: Doc<"dealers"> | null): d is Doc<"dealers"> =>
-      d !== null && d.city === city && d.consent !== "opted_out" && !blocked.has(d._id) && fitsMode(d);
+      d !== null && d.city === city && d.consent !== "opted_out" && d.restricted !== true && !blocked.has(d._id) && fitsMode(d);
 
     const picked = [...new Set(dealerIds)];
     if (picked.length > MAX_SWEEP_DEALERS) throw new ConvexError({ code: "too_many_dealers", max: MAX_SWEEP_DEALERS });

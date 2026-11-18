@@ -43,7 +43,7 @@ const cancelReason = v.union(
   v.literal("trial_test_phones_only"), v.literal("test_phone_unlisted"), v.literal("no_billed_key"), v.literal("invalid_number"),
   v.literal("demo_dealer"), v.literal("phone_hash_mismatch"), v.literal("a2p_not_declared"), v.literal("live_stage"),
   v.literal("queue_timeout"), v.literal("round_closed"), v.literal("opted_out"), v.literal("stopped"),
-  v.literal("bolna_rescheduled"),
+  v.literal("bolna_rescheduled"), v.literal("dealer_restricted"),
 );
 export const consent = v.union(v.literal("test_ok"), v.literal("opted_in"), v.literal("unknown"), v.literal("opted_out"));
 
@@ -104,7 +104,29 @@ export default defineSchema({
     language: v.optional(v.string()),
     isDemo: v.boolean(),
     simPersona: v.optional(v.string()),
+    restricted: v.optional(v.boolean()),  // set in the founders' panel (R24): never listed, never dialled (claimDial guard)
   }).index("by_city", ["city"]).index("by_phoneHash", ["phoneHash"]),
+
+  dealerApplications: defineTable({      // /dealer self-onboarding (R24); never makes a number callable by itself (S2)
+    shopName: v.string(), area: v.string(), city: v.string(),
+    materials: v.array(material),
+    phoneE164: v.string(),               // server-only: never returned to any client; the panel shows it masked
+    phoneHash: v.string(),
+    phoneVerifiedAt: v.optional(v.number()),   // the SMS OTP succeeded (Firebase ID token verified on the server)
+    verifyMethod: v.union(v.literal("firebase_otp"), v.literal("none")),  // none: the founders verify by calling back
+    geo: v.optional(v.object({ lat: v.number(), lng: v.number() })),     // rounded to 3 decimals (~100 m), optional
+    consentAiCalls: v.boolean(), consentAt: v.number(),
+    status: v.union(v.literal("pending"), v.literal("approved_test"), v.literal("approved_live"), v.literal("restricted")),
+    dealerId: v.optional(v.id("dealers")),     // set on approval (created, or linked by phone hash)
+    ipHash: v.string(), createdAt: v.number(),
+    reviewedAt: v.optional(v.number()), reviewedBy: v.optional(v.string()),  // reviewedBy: "admin:<userId>"
+    fromWaitlist: v.optional(v.boolean()),     // imported from an old /dealer waitlist row (dealerApps:importLegacyWaitlist)
+  }).index("by_status_createdAt", ["status", "createdAt"]).index("by_phoneHash", ["phoneHash"]),
+
+  testPhones: defineTable({              // the panel's trial test list (R24), alongside TEST_PHONE_HASHES; counts only with BOLNA_TRIAL=true
+    phoneHash: v.string(), dealerId: v.id("dealers"),
+    addedBy: v.string(), at: v.number(),
+  }).index("by_phoneHash", ["phoneHash"]),
 
   contractorDealers: defineTable({
     contractorId: v.id("contractors"),

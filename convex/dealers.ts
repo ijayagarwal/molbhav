@@ -4,7 +4,7 @@ import { requireOwnedOrder } from "./lib/access";
 import { contractorMutation, contractorQuery } from "./lib/functions";
 import { publicDealer } from "./lib/projections";
 
-/** Dealers in a city for the Choose screen, public fields only. Opted-out dealers are hidden. */
+/** Dealers in a city for the Choose screen, public fields only. Opted-out and restricted (R24) dealers are hidden. */
 export const listForCity = contractorQuery({
   args: { city: v.string() },
   handler: async (ctx, { city }) => {
@@ -12,7 +12,7 @@ export const listForCity = contractorQuery({
       .query("dealers")
       .withIndex("by_city", (q) => q.eq("city", city))
       .take(200);
-    return dealers.filter((d) => d.consent !== "opted_out").map(publicDealer);
+    return dealers.filter((d) => d.consent !== "opted_out" && d.restricted !== true).map(publicDealer);
   },
 });
 
@@ -21,6 +21,7 @@ export const listForCity = contractorQuery({
  * match call unless askFirst, P1), the dealer book ("saved", on by default, R13), then the other dealers in
  * the city, same area first. Sim (the default): only DEMO dealers (personas). Live: only real dealers who may get
  * AI calls (consent test_ok in trial, opted_in later; DESIGN §12.4); claimDial still checks every guard per call.
+ * A dealer the founders restricted in the panel is never listed, in either mode (R24).
  */
 export const forOrder = contractorQuery({
   args: { orderId: v.id("orders"), mode: v.optional(v.union(v.literal("sim"), v.literal("live"))) },
@@ -36,6 +37,7 @@ export const forOrder = contractorQuery({
       d !== null &&
       d.city === city &&
       d.consent !== "opted_out" &&
+      d.restricted !== true &&
       ((mode ?? order.mode) === "sim" ? d.isDemo === true : d.isDemo !== true && (d.consent === "test_ok" || d.consent === "opted_in"));
     // The contractor's own dealers always show, read by id; the rest of the city is capped for the list.
     const own = (await Promise.all(relations.map((r) => ctx.db.get(r.dealerId)))).filter(callable);

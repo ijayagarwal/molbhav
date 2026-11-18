@@ -6,17 +6,20 @@
 // so a stolen anonymous admin cookie can't aim AI calls at anyone. Every write is audit-logged
 // with the actor named on the command line. The /app/admin page only reads; phone hashes for
 // TEST_PHONE_HASHES come from addDealer's result or `admin:phoneHash`, never from a browser.
+// The one exception (R24) is the dealer applications panel, /app/admin/dealers: approving, restricting and
+// re-allowing a self-onboarded dealer run from the browser through admin-only mutations in dealerApps.ts.
 import { ConvexError, v } from "convex/values";
 import { CALLS, CITIES, CITY_AREAS, PRICING, type City } from "../lib/config";
 import { liveChecklist } from "../lib/liveGuards";
 import { normaliseDealerName } from "../lib/names";
 import { normaliseIndianMobile } from "../lib/phone";
 import type { Id } from "./_generated/dataModel";
-import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { isAdminUserId } from "./lib/access";
+import { audit, requireNote } from "./lib/audit";
 import { adminMutation, adminQuery, optionalUserQuery } from "./lib/functions";
 import { hashPhone } from "./lib/hash";
-import { contractorOrdersToday, countActiveLiveCalls, liveEnv } from "./lib/live";
+import { contractorOrdersToday, countActiveLiveCalls, liveEnv, panelTestPhoneCount } from "./lib/live";
 import { applyOptOut } from "./lib/optOut";
 import { publicDealer } from "./lib/projections";
 import { resetDemoData } from "./seed";
@@ -61,6 +64,7 @@ export const overview = adminQuery({
     const bands = await ctx.db.query("priceBands").take(50);
     return {
       live: liveChecklist(liveEnv()),
+      panelTestPhones: await panelTestPhoneCount(ctx),
       activeLiveCalls: await countActiveLiveCalls(ctx),
       contractors: await Promise.all(
         contractors.map(async (c) => ({
@@ -72,7 +76,7 @@ export const overview = adminQuery({
           isDemo: c.isDemo === true,
         })),
       ),
-      dealers: dealers.map((d) => ({ ...publicDealer(d), nameHi: d.nameHi ?? null, consent: d.consent, source: d.source })),
+      dealers: dealers.map((d) => ({ ...publicDealer(d), nameHi: d.nameHi ?? null, consent: d.consent, source: d.source, restricted: d.restricted === true })),
       bands: bands.map((b) => ({
         _id: b._id,
         city: b.city,
@@ -173,22 +177,6 @@ const actor = v.string();
 function actorTag(raw: string): string {
   if (!/^[a-z][a-z0-9_-]{1,31}$/i.test(raw)) throw new ConvexError({ code: "invalid_actor" });
   return `cli:${raw}`;
-}
-
-function requireNote(note: string, min = 8): string {
-  const clean = note.trim().replace(/\s+/g, " ");
-  if (clean.length < min || clean.length > 300) throw new ConvexError({ code: "invalid_note", min });
-  return clean;
-}
-
-async function audit(ctx: MutationCtx, who: string, action: string, target: string, detail?: Record<string, unknown>) {
-  await ctx.db.insert("auditLog", {
-    actor: who,
-    action,
-    target,
-    at: Date.now(),
-    detail: detail === undefined ? undefined : JSON.stringify(detail),
-  });
 }
 
 function checkCap(cap: number): number {

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ClockBold, MatchBold, StopBold, WaveformBold } from "@/components/mb/icons";
 import { DealerForm } from "@/features/marketing/DealerForm";
+import { firebaseWebConfig } from "@/features/marketing/server";
 import { SiteFooter, SiteHeader } from "@/features/marketing/SiteChrome";
 import { WhatsAppLink } from "@/features/marketing/WhatsAppLink";
 import { getServerDict } from "@/lib/i18n/server";
@@ -10,6 +11,8 @@ import { getServerDict } from "@/lib/i18n/server";
 // phone first, server-rendered; only the form is a client component. It says plainly what Molbhav is, that
 // calls are AI and recorded, the 2-orders-a-day limit and the stop phrase. Pilot wording (G2): our team calls
 // today; AI calls are "जल्द". The form never makes a number callable: our team calls back first (S2).
+// R24: the form writes a dealer application for the founders' panel; with Firebase configured it then asks for
+// an SMS OTP (its code loads only at that step), and the shop location is an optional tap, kept to ~100 m.
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getServerDict();
   return {
@@ -57,7 +60,7 @@ export default async function DealerOptInPage() {
           <h2 id="dealer-form" className="font-display text-title-2">
             {t["dealer.formTitle"]}
           </h2>
-          <DealerForm />
+          <DealerForm otp={firebaseWebConfig()} />
           <WhatsAppLink text={t["landing.whatsappText"]} label={t["landing.whatsapp"]} variant="secondary" className="w-full" />
         </section>
       </main>
