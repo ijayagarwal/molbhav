@@ -1,18 +1,28 @@
 "use client";
 
-// The dealer opt-in on /dealer (DECISIONS G5, S2, S4): shop name, area, materials, WhatsApp number and the
-// required consent to contact and to AI quote calls. It writes a waitlist row with role "dealer"; it never
-// makes the number callable (an admin calls back and confirms first, S2).
+// The dealer application on /dealer (DECISIONS G5, S2, S4, R24): shop name, area, materials, WhatsApp number, an
+// optional shop location and the required consent to contact and to AI quote calls. It writes a
+// dealerApplications row through the server action; it never makes the number callable (a founder reviews it
+// in /app/admin/dealers first, S2).
+// When Firebase is configured (`otp`), a saved application goes on to the SMS OTP step, which is loaded only
+// then (React.lazy), so /dealer's first load never carries the Firebase SDK. Without it, the form ends as before
+// and the founders verify the number by calling back.
 import Link from "next/link";
-import { useId, useState } from "react";
-import { PrimaryButton } from "@/components/mb/Buttons";
+import { lazy, Suspense, useId, useState } from "react";
+import { PrimaryButton, SecondaryButton } from "@/components/mb/Buttons";
+import { CheckBold, PinBold } from "@/components/mb/icons";
 import { CITY_AREAS } from "@/lib/config";
+import { roundGeo } from "@/lib/dealerApplication";
 import type { DictKey } from "@/lib/i18n/getDict";
 import { useT } from "@/lib/i18n/useT";
+import { normaliseIndianMobile } from "@/lib/phone";
 import { DEALER_CITY, type WaitlistField } from "@/lib/waitlist";
 import { joinAsDealer } from "./actions";
 import { ChoiceChip, ConsentBox, Field, FieldError, FormAlert, FormDone, SelectBox, inputClass } from "./FormParts";
+import type { FirebaseWebConfig } from "./otp";
 import { useFormFlow } from "./useFormFlow";
+
+const DealerOtpStep = lazy(() => import("./DealerOtpStep"));
 
 const ERRORS: Record<WaitlistField, DictKey> = {
   name: "dealer.errShop",
@@ -30,7 +40,64 @@ const MATERIALS = [
   { value: "cement", label: "item.cement" },
 ] as const satisfies readonly { value: string; label: DictKey }[];
 
-export function DealerForm() {
+/** The optional shop location (R24): asked only on a tap, rounded to 3 decimals (~100 m) before it leaves the phone. */
+function ShopLocation() {
+  const { t } = useT();
+  const id = useId();
+  const [geo, setGeo] = useState<{ lat: number; lng: number } | null>(null);
+  const [state, setState] = useState<"idle" | "finding" | "error">("idle");
+
+  const find = () => {
+    if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
+      setState("error");
+      return;
+    }
+    setState("finding");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const rounded = roundGeo(pos.coords.latitude, pos.coords.longitude);
+        setGeo(rounded);
+        setState(rounded === null ? "error" : "idle");
+      },
+      () => setState("error"),
+      { enableHighAccuracy: false, timeout: 15_000, maximumAge: 60_000 },
+    );
+  };
+
+  return (
+    <fieldset className="flex min-w-0 flex-col gap-2" aria-describedby={`${id}-geo-notice`}>
+      <legend className="mb-1.5 text-label">{t("dealer.geoTitle")}</legend>
+      <p id={`${id}-geo-notice`} className="text-meta text-ink-2">
+        {t("dealer.geoNotice")}
+      </p>
+      {geo === null ? (
+        <SecondaryButton onClick={find} disabled={state === "finding"} aria-busy={state === "finding"} icon={<PinBold className="size-5" />} className="w-full sm:w-fit">
+          {state === "finding" ? t("dealer.geoFinding") : t("dealer.geoAdd")}
+        </SecondaryButton>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <p role="status" className="flex items-center gap-2 text-label text-hara">
+            <CheckBold aria-hidden="true" className="size-5 shrink-0" />
+            {t("dealer.geoAdded")}
+          </p>
+          <button type="button" onClick={() => setGeo(null)} className="inline-flex min-h-14 items-center text-label text-neel underline underline-offset-4">
+            {t("dealer.geoRemove")}
+          </button>
+          <input type="hidden" name="lat" value={geo.lat.toFixed(3)} />
+          <input type="hidden" name="lng" value={geo.lng.toFixed(3)} />
+        </div>
+      )}
+      {/* Optional and never the dealer's fault: a plain note, not a red field error. */}
+      {state === "error" ? (
+        <p role="status" className="text-label text-ink-2">
+          {t("dealer.geoErr")}
+        </p>
+      ) : null}
+    </fieldset>
+  );
+}
+
+export function DealerForm({ otp }: { otp: FirebaseWebConfig | null }) {
   const { t, lang } = useT();
   const id = useId();
   const { state, dispatch, pending, formRef, alertRef, onSubmit, invalid } = useFormFlow(joinAsDealer);
@@ -40,10 +107,21 @@ export function DealerForm() {
   const [materials, setMaterials] = useState<string[]>([]);
   const [consent, setConsent] = useState(false);
 
-  if (state.status === "done") return <FormDone title={t("dealer.doneTitle")} body={t("dealer.done")} />;
+  if (state.status === "done") {
+    const phoneE164 = normaliseIndianMobile(phone);
+    if (otp !== null && state.applicationId !== undefined && phoneE164 !== null) {
+      return (
+        <Suspense fallback={<p role="status" className="text-body text-ink-2">{t("dealer.otpLoading")}</p>}>
+          <DealerOtpStep applicationId={state.applicationId} phoneE164={phoneE164} config={otp} />
+        </Suspense>
+      );
+    }
+    return <FormDone title={t("dealer.doneTitle")} body={t("dealer.done")} />;
+  }
 
   const err = (field: WaitlistField) => (invalid(field) ? t(ERRORS[field]) : null);
   const described = (field: WaitlistField) => (invalid(field) ? `${id}-${field}-err` : undefined);
+  const notice = [t("dealer.notice"), t("dealer.noticeGeo"), otp !== null ? t("dealer.noticeOtp") : null].filter(Boolean).join(" ");
 
   return (
     <form ref={formRef} action={dispatch} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
@@ -117,9 +195,10 @@ export function DealerForm() {
           className={`${inputClass} font-mono`}
         />
       </Field>
+      <ShopLocation />
       <ConsentBox
         id={`${id}-consent`}
-        notice={t("dealer.notice")}
+        notice={notice}
         label={t("dealer.consent")}
         checked={consent}
         onChange={setConsent}

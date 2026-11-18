@@ -33,6 +33,12 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "microphone=(self), camera=(), geolocation=(), payment=()" },
         ],
       },
+      {
+        // /dealer's optional "दुकान की जगह जोड़िए" (R24) needs geolocation on this page only. Listed after the
+        // catch-all, so this value wins for /dealer.
+        source: "/dealer",
+        headers: [{ key: "Permissions-Policy", value: "microphone=(self), camera=(), geolocation=(self), payment=()" }],
+      },
     ];
   },
   turbopack: {
