@@ -297,6 +297,7 @@ export default defineSchema({
     termsChangedQuoteIds: v.optional(v.array(v.id("quotes"))),  // placed offers set aside after the confirm call (terms changed, declined, not reached; C5); never offered again
     setAsideReason: v.optional(v.union(v.literal("terms_changed"), v.literal("declined"), v.literal("not_reached"))),  // why the latest one was set aside (Result's notice)
     placedQuoteId: v.optional(v.id("quotes")),   // the offer being placed (placing → placed); cleared on undo or set-aside
+    followUpsRunning: v.optional(v.array(v.object({ callId: v.id("calls"), dealerId: v.id("dealers"), quoteId: v.id("quotes") }))),  // R28: follow-ups on now (§6.14)
     publicId: v.optional(v.string()),    // legacy (before the shares table); no longer written or read
     shareMode: v.optional(v.union(v.literal("full"), v.literal("savings"), v.literal("munshi"))),  // legacy, as above
     expiresAt: v.optional(v.number()),   // sandbox: 24 h
@@ -322,6 +323,8 @@ export default defineSchema({
     retryAt: v.optional(v.number()),     // live only: this call's one retry is scheduled then (no answer: +3 min; callback: the dealer's time, ≤ 30 min; P8, R15); the round waits for it
     citedQuoteId: v.optional(v.id("quotes")),    // haggle and match calls: the citable quote whose exact total was cited (C3)
     confirmQuoteId: v.optional(v.id("quotes")),  // confirm calls: the approved quote being relayed (C5)
+    followUpOf: v.optional(v.id("quotes")),      // R28: a quote-round follow-up of this quote, while the order is ready (§6.14)
+    followUpAsk: v.optional(v.array(v.string())), // R28: the gap keys it asks (lib/followUp.ts)
     extract: v.union(v.literal("pending"), v.literal("running"), v.literal("done"), v.literal("failed")),
     extractAttempts: v.number(),
     terminationReason: v.optional(v.string()),   // Bolna's, kept server-side
@@ -362,6 +365,8 @@ export default defineSchema({
     flags: v.array(flag),
     comparable: v.boolean(),             // may win
     citable: v.boolean(),                // may be cited in haggle/match
+    followUpOf: v.optional(v.id("quotes")),   // R28: that quote with a follow-up's answers merged in (callId = the follow-up call)
+    supersededBy: v.optional(v.id("quotes")), // R28: replaced by a follow-up; kept for history and proof, never ranked
   }).index("by_order", ["orderId"]).index("by_call", ["callId"]),
 
   providerEvents: defineTable({
@@ -577,6 +582,13 @@ Voice confirm goes through `lib/commands.ts` (V4).
 - Analytics: `POST /api/e` (Vercel route; same-origin, at most 1 KB) → `events.track({ serverSecret, ipHash, name, props, path })`, rate-limited by the IP hash (`eventsIp`, plus `eventsAll`); the hash is not stored. Only the event names in G6 are accepted, and `props` only from each event's fixed value lists (`lib/analytics.ts`: `waitlist_submit {role, ref: none|parchi|other}`, `parchi_share|open|cta {mode}`, the rest none), so no phone numbers, names, link ids or free text can be stored. `path` is reduced to its route (`/p/[id]`). The browser sends `parchi_share` (share sheet) and `parchi_cta` (the `/p` CTA) with `navigator.sendBeacon` (`features/marketing/beacon.ts`); the server records `waitlist_submit`, `dealer_optin` and `parchi_open` itself, after the response (`after()`).
 - WhatsApp click-to-chat (`wa.me/<team number>?text=…`) is the main call to action; the form is the fallback. With `NEXT_PUBLIC_WHATSAPP_NUMBER` unset, no WhatsApp link renders.
 - SEO: `app/robots.ts` allows `/`, `/dealer`, `/privacy` and disallows `/app`, `/try`, `/p/`, `/present`, `/styleguide`, `/api/`. `/` has a static bilingual og:image (`app/(marketing)/opengraph-image.tsx`, rendered at build time with `vercel-og`), inherited by `/dealer` and `/privacy`.
+
+### 6.14 Follow-up calls (R28)
+`convex/followUp.ts` with the pure `lib/followUp.ts`:
+1. `followUp.forOrder({ orderId })` lists, per standing quote of the current round, its gaps (`listGaps`: fixed order, stable keys; stated facts are never gaps), follow-ups used, whether one is on, and why a new one can't start (`not_ready`, `no_gaps`, `running`, `cap`, `dealer`, `set_aside`, `stale`, `live`).
+2. `followUp.start({ orderId, quoteId })` (owner; approved for app orders) creates a quote-round call with `followUpOf` and `followUpAsk` in the order's mode, via `createCall`. The order stays `ready` and lists it in `followUpsRunning`. Sim: `sim.runCall` scripts it from the persona's follow-up answers. Live: the dial job goes through `claimDial`, which allows a follow-up only while the order is `ready` (`callFitsOrder`) and checks every other guard as usual; `prepareDial` adds `quote_opening`, `is_followup` and `followup_ask` to `user_data`.
+3. Extraction runs the same job; the LLM gets the earlier quote and `followUpAsked`. `followUp.applyFollowUp` checks the disclosure (S5), checks only the new figures in the dealer's turns (`followUpFigures`), merges (`mergeFollowUp`), prices with `lib/pricing.ts` (carrying `outlier`/`lump_sum_mismatch` unless the rate was confirmed again), inserts a new quote row (`followUpOf`), sets `supersededBy` on the old one, and recomputes `ranking` and `winningQuoteId` with `engine.rankResult` (the same code as `freezeReady`). Any other outcome leaves the old quote. Every path ends in `afterCallSettled`, which takes the call off `followUpsRunning`.
+4. Staleness: `engine.roundOpen` treats a follow-up as open only while the order is `ready` and in the same `roundSeq`. `placing.place` refuses (`follow_up_running`) while one is dialing or talking and cancels one still queued, so none is ever on after the order leaves `ready`. `roundQuotes`, `lib/result.ts` and `lib/board.ts` ignore superseded quotes.
 
 ## 7. External APIs (verified November 2026)
 

@@ -101,6 +101,19 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
 
 ## 4. Session log (what happened, newest first)
 
+### 20 Nov 2026: follow-up calls for missing information (R28)
+- **Built:** Result lists, per quote, what the dealer hasn't said or confirmed ("बाकी जानकारी": GST, भाड़ा, उतराई, a missing
+  item's rate, stock, weighing, brand, bill, credit, delivery time, the rate once more) and "दोबारा कॉल करके पूछिए" calls
+  that dealer again to ask only those things (at most 2 per dealer per order, only while the order is ready). The answers
+  merge into his quote (a new quote row; the old one and both recordings stay), lib/pricing.ts prices it, and the ranking
+  and winner are computed again. Sim runs it end to end at zero cost (card C, Rathore: ₹2,02,960 can't win → asked again →
+  ₹2,03,460, comparable, ranked). Live follow-ups dial only through claimDial, which allows them only while ready.
+- **Code:** `lib/followUp.ts` (gaps, spoken asks, merge), `convex/followUp.ts` (`forOrder`, `start`, the merge after
+  extraction), the Quote agent's follow-up branch and `{quote_opening}` in `docs/CALL_SCRIPT.md` (normal welcome unchanged),
+  `features/app/FollowUpSection.tsx` + `components/mb/MissingInfo.tsx` on Result.
+- **Still to do:** `pnpm bolna:sync` for dev and prod (the Quote agent's welcome and prompt changed); a native speaker's look
+  at the `followUp.*` copy; the DESIGN.md copy-deck rows; a visual check of Result at 360 and 1440 px.
+
 ### 20 Nov 2026: live on www.callagent.dev, a fresh database, live calls on (trial)
 - **First live tests (night of 20 Nov):** Vercel BotID marked every phone as a bot while callagent.dev went through
   Cloudflare's proxy (spoken orders, /try and the dealer code all refused). Fixed: the founders switched Cloudflare

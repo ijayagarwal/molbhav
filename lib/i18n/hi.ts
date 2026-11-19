@@ -1012,6 +1012,33 @@ export const hi = {
   "adminUsers.errNotVerified": "इनके लिए असली कॉल चालू नहीं हैं।",
   "adminUsers.errLocked": "असली कॉल पहले से किसी और पक्के नंबर के साथ चालू हैं। पहले असली कॉल बंद कीजिए।",
   "adminUsers.errNotFound": "ये अब लिस्ट में नहीं हैं। लिस्ट अपने आप ताज़ा हो जाती है।",
+
+  // R28: follow-up calls that ask only what a quote left out (Result). Native-speaker review pending.
+  "followUp.title": "बाकी जानकारी",
+  "followUp.heading": "{dealer} से ये बातें अभी पक्की नहीं हुईं:",
+  "followUp.callAgain": "दोबारा कॉल करके पूछिए",
+  "followUp.calling": "दोबारा कॉल चल रही है · सिर्फ़ ये बातें पूछ रहे हैं",
+  "followUp.done": "दोबारा कॉल से रेट पूरा हुआ",
+  "followUp.startFailed": "कॉल शुरू नहीं हो पाई · फिर से कोशिश कीजिए",
+  "followUp.why.not_ready": "ऑर्डर पक्का हो रहा है, अब दोबारा कॉल नहीं होगी",
+  "followUp.why.no_gaps": "सब पक्का है",
+  "followUp.why.running": "दोबारा कॉल चल रही है",
+  "followUp.why.cap": "इस dealer को {max} बार दोबारा कॉल हो चुकी है",
+  "followUp.why.dealer": "इस dealer को अब कॉल नहीं कर सकते",
+  "followUp.why.set_aside": "ये रेट अलग रखा गया है",
+  "followUp.why.stale": "नतीजा बदल गया है",
+  "followUp.why.live": "अभी असली कॉल नहीं जा सकती",
+  "followUp.gap.gst": "GST रेट में मिलाके है या अलग ({items})",
+  "followUp.gap.delivery": "भाड़ा कितना लगेगा",
+  "followUp.gap.unloading": "उतराई कितनी लगेगी",
+  "followUp.gap.item": "{items} का रेट नहीं मिला",
+  "followUp.gap.stock": "पूरा माल स्टॉक में है या नहीं ({items})",
+  "followUp.gap.weight": "तौल कांटे की होगी या standard",
+  "followUp.gap.brand": "कौन सी कंपनी का माल ({items})",
+  "followUp.gap.bill": "पक्का बिल मिलेगा या नहीं",
+  "followUp.gap.credit": "{n} दिन उधार पे यही रेट रहेगा या नहीं",
+  "followUp.gap.delivery_time": "साइट पे कब तक पहुँचेगा",
+  "followUp.gap.rate_confirm": "रेट दोबारा पक्का नहीं हुआ",
 } as const;
 
 export type DictKey = keyof typeof hi;

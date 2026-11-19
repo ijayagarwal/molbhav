@@ -32,6 +32,7 @@ import { resultSummaryText } from "@/lib/readback";
 import { buildResult, type ResultQuote } from "@/lib/result";
 import { ShareSheet } from "@/features/share/ShareSheet";
 import { AppFrame } from "./AppFrame";
+import { FollowUpSection } from "./FollowUpSection";
 import { speak } from "@/lib/client/speak";
 import { OrderLoading, OrderMissing } from "./OrderStates";
 import { useOrderScreen } from "./useOrderScreen";
@@ -264,6 +265,19 @@ export function ResultScreen({ orderId }: { orderId: string }) {
           <p className="text-meta text-ink-2">{view.notComparable.map((q) => `${nameOf(q.dealerId)} (${formatPaise(q.total)})`).join(" · ")}</p>
         </section>
       ) : null}
+
+      <FollowUpSection
+        orderId={order._id}
+        items={data.order.items as OrderItem[]}
+        creditDaysWanted={data.order.creditDaysWanted}
+        quotes={[...view.ranked, ...view.notComparable].map((q) => ({
+          _id: q._id,
+          dealerId: q.dealerId,
+          total: q.total,
+          followUpOf: data.quotes.find((x) => x._id === q._id)?.followUpOf,
+        }))}
+        nameOf={nameOf}
+      />
 
       {recordings.length > 0 ? (
         <section className="flex flex-col" aria-labelledby="result-recordings">
