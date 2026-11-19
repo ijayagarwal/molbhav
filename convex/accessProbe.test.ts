@@ -74,8 +74,8 @@ const NOT_PROBED: Record<string, string> = {
   "dealerSignup:apply": "serverMutation: needs CONVEX_SERVER_SECRET (only the /dealer server action has it), never writes a dealers row, returns only the application id; secret, rate limit and fields in dealerApps.test.ts",
 };
 
-/** Modules whose every public function is for admins only (S1, R18, R24); admin.amIAdmin is the one exception. */
-const ADMIN_MODULES = new Set(["admin", "dealerApps"]);
+/** Modules whose every public function is for admins only (S1, R18, R24, R26); admin.amIAdmin is the one exception. */
+const ADMIN_MODULES = new Set(["admin", "dealerApps", "adminUsers"]);
 
 /**
  * Sample values for non-id arguments, so these functions are probed like the rest (another user, signed
@@ -101,6 +101,11 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   "dealerApps:approveLive": { note: "probe: verified and agreed" },
   "dealerApps:restrict": { note: "probe: restrict this dealer" },
   "dealerApps:unrestrict": { note: "probe: allow this dealer again" },
+  "adminUsers:list": { tab: "all", search: "probe" },
+  "adminUsers:setAccess": { access: "approved", note: "probe: approve this person" },
+  "adminUsers:allowLive": { liveDailyCap: 3, note: "probe: called back, it is theirs", calledBack: true },
+  "adminUsers:stopLive": { note: "probe: stop real calls" },
+  "adminUsers:setCap": { liveDailyCap: 3, note: "probe: change the daily limit" },
 };
 /** String-typed ids (getOrNull takes a raw string so malformed links read as "not found"). */
 const STRING_IDS: Record<string, Record<string, string>> = { "orders:getOrNull": { orderId: "orders" } };

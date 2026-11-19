@@ -8,6 +8,8 @@
 // TEST_PHONE_HASHES come from addDealer's result or `admin:phoneHash`, never from a browser.
 // The one exception (R24) is the dealer applications panel, /app/admin/dealers: approving, restricting and
 // re-allowing a self-onboarded dealer run from the browser through admin-only mutations in dealerApps.ts.
+// R26 extends it to people, /app/admin/users: access (approve, block) and real calls for a contractor (verify
+// with the number they gave, stop, the daily limit) run through admin-only mutations in adminUsers.ts.
 import { ConvexError, v } from "convex/values";
 import { CALLS, CITIES, CITY_AREAS, PRICING, type City } from "../lib/config";
 import { liveChecklist } from "../lib/liveGuards";
@@ -179,9 +181,13 @@ function actorTag(raw: string): string {
   return `cli:${raw}`;
 }
 
-function checkCap(cap: number): number {
-  if (!Number.isInteger(cap) || cap < 0 || cap > CALLS.maxContractorDailyOrders) {
-    throw new ConvexError({ code: "invalid_cap", max: CALLS.maxContractorDailyOrders });
+/**
+ * A contractor's live orders a day (guard 2): a whole number from `min` to CALLS.maxContractorDailyOrders.
+ * Shared with the People panel (adminUsers.ts, R26), which asks for at least 1 (stopping is its own action).
+ */
+export function checkCap(cap: number, min = 0): number {
+  if (!Number.isInteger(cap) || cap < min || cap > CALLS.maxContractorDailyOrders) {
+    throw new ConvexError({ code: "invalid_cap", min, max: CALLS.maxContractorDailyOrders });
   }
   return cap;
 }
