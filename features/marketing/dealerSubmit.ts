@@ -135,7 +135,8 @@ async function stepArgs(input: StepInput, deps: OtpDeps, at: string): Promise<Ot
   }
   if (await deps.isBot().catch(() => true)) {
     deps.log({ at, code: "bot" });
-    return { ok: false, code: "failed" };
+    // Still refused; the dealer is told to reload and try again rather than sent to the call-back ending.
+    return { ok: false, code: "browser_check" };
   }
   const missing = deps.missingConfig();
   const secret = deps.secret();

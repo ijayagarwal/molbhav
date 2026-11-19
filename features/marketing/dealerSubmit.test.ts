@@ -117,7 +117,7 @@ describe("the number check (R25)", () => {
 
   test("bots, bad input and missing config never reach Convex", async () => {
     const bot = otpDeps({ isBot: vi.fn(async () => true) });
-    expect(await sendDealerOtpWith({ applicationId: APP_ID, ticket: TICKET }, bot)).toEqual({ ok: false, code: "failed" });
+    expect(await sendDealerOtpWith({ applicationId: APP_ID, ticket: TICKET }, bot)).toEqual({ ok: false, code: "browser_check" });
     const d = otpDeps();
     expect(await sendDealerOtpWith({ applicationId: "../x", ticket: TICKET }, d)).toEqual({ ok: false, code: "failed" });
     expect(await sendDealerOtpWith({ applicationId: APP_ID, ticket: "nope" }, d)).toEqual({ ok: false, code: "failed" });

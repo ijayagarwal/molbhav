@@ -18,6 +18,7 @@ import { isIndianMobileE164 } from "../lib/phone";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, type ActionCtx, type MutationCtx } from "./_generated/server";
+import { audit } from "./lib/audit";
 import { adminAction, serverAction } from "./lib/functions";
 import { hashPhone, sha256Hex } from "./lib/hash";
 import { rateLimiter } from "./limits";
@@ -33,10 +34,13 @@ const IP_HASH = /^[0-9a-f]{64}$/;
 const TICKET = /^[0-9a-f]{64}$/;
 const CODE = /^\d{6}$/;
 
-/** What /dealer hears back. `failed`: the founders call back instead (R24's fallback). */
+/**
+ * What /dealer hears back. `failed`: the founders call back instead (R24's fallback). `browser_check`: the
+ * /dealer server action refused the request (Vercel BotID) before it reached here; the dealer can reload and retry.
+ */
 export type OtpAnswer =
   | { ok: true }
-  | { ok: false; code: "rate_limited" | "too_soon" | "bad_code" | "expired" | "no_code" | "already_verified" | "not_configured" | "failed" };
+  | { ok: false; code: "rate_limited" | "too_soon" | "bad_code" | "expired" | "no_code" | "already_verified" | "not_configured" | "failed" | "browser_check" };
 
 type App = Doc<"dealerApplications">;
 type Refusal = Extract<OtpAnswer, { ok: false }>;
@@ -64,11 +68,12 @@ async function ticketMatches(app: App, ticket: string, now: number): Promise<boo
 async function openApp(
   ctx: MutationCtx,
   applicationId: Id<"dealerApplications">,
-  ticket: string,
+  /** The form's one-time ticket; null only for the founders' panel path (adminSend/adminCheck, admin-checked). */
+  ticket: string | null,
   now: number,
 ): Promise<{ app: App } | Refusal> {
   const app = await ctx.db.get(applicationId);
-  if (app === null || !(await ticketMatches(app, ticket, now))) return { ok: false, code: "failed" };
+  if (app === null || (ticket !== null && !(await ticketMatches(app, ticket, now)))) return { ok: false, code: "failed" };
   if (app.status === "restricted" || !isIndianMobileE164(app.phoneE164)) return { ok: false, code: "failed" };
   const dealer = await ctx.db
     .query("dealers")
@@ -281,4 +286,111 @@ export const syncFromBolna = adminAction({
 export const syncBolnaList = internalAction({
   args: {},
   handler: async (ctx) => await syncList(ctx),
+});
+
+// ── The founders' panel path (R27) ──────────────────────────────────────────────────────────
+// A founder on a call with the dealer sends Bolna's code from /app/admin/dealers and types the six digits the
+// dealer reads out. The admin session replaces the form's ticket and BotID; the per-number and deployment-wide
+// limits, the resend gap, the tries per code and the code's lifetime still apply, and both steps are audited.
+
+export const reserveAdminSend = internalMutation({
+  args: { applicationId: v.id("dealerApplications") },
+  handler: async (ctx, args): Promise<{ ok: true; phoneE164: string } | Refusal> => {
+    const now = Date.now();
+    const opened = await openApp(ctx, args.applicationId, null, now);
+    if (!("app" in opened)) return opened;
+    const { app } = opened;
+    if (app.phoneVerifiedAt !== undefined && app.bolnaVerifiedAt !== undefined) return { ok: false, code: "already_verified" };
+    if (app.bolnaOtp !== undefined && now - app.bolnaOtp.sentAt < RESEND_GAP_MS) return { ok: false, code: "too_soon" };
+    const keys = [
+      ["dealerOtpSendPhone", app.phoneHash],
+      ["dealerOtpSendAll", "all"],
+    ] as const;
+    for (const [name, key] of keys) {
+      const r = await rateLimiter.check(ctx, name, { key });
+      if (!r.ok) return { ok: false, code: "rate_limited" };
+    }
+    for (const [name, key] of keys) await rateLimiter.limit(ctx, name, { key, throws: true });
+    return { ok: true, phoneE164: app.phoneE164 };
+  },
+});
+
+export const reserveAdminCheck = internalMutation({
+  args: { applicationId: v.id("dealerApplications") },
+  handler: async (ctx, args): Promise<{ ok: true; phoneE164: string; requestId: string } | Refusal> => {
+    const now = Date.now();
+    const opened = await openApp(ctx, args.applicationId, null, now);
+    if (!("app" in opened)) return opened;
+    const pending = opened.app.bolnaOtp;
+    if (pending === undefined) return { ok: false, code: "no_code" };
+    if (now - pending.sentAt > CODE_TTL_MS || pending.tries >= MAX_TRIES) return { ok: false, code: "expired" };
+    await ctx.db.patch(opened.app._id, { bolnaOtp: { ...pending, tries: pending.tries + 1 } });
+    return { ok: true, phoneE164: opened.app.phoneE164, requestId: pending.requestId };
+  },
+});
+
+export const auditPanelCode = internalMutation({
+  args: { who: v.string(), action: v.string(), applicationId: v.id("dealerApplications"), outcome: v.string() },
+  handler: async (ctx, { who, action, applicationId, outcome }) => {
+    await audit(ctx, who, action, applicationId, { outcome });
+  },
+});
+
+/** Panel: "कोड भेजिए" for one application. Bolna texts the stored number. */
+export const adminSend = adminAction({
+  args: { applicationId: v.id("dealerApplications") },
+  handler: async (ctx, { applicationId }): Promise<OtpAnswer> => {
+    const who = `admin:${ctx.adminUserId}`;
+    const key = bolnaKey();
+    if (key === null) return { ok: false, code: "not_configured" };
+    const reserved = await ctx.runMutation(internal.dealerOtp.reserveAdminSend, { applicationId });
+    let answer: OtpAnswer;
+    if (!reserved.ok) answer = reserved;
+    else {
+      try {
+        const raw = await createBolnaClient({ apiKey: key, allow: VERIFY_ENDPOINTS }).sendVerifyCode(reserved.phoneE164);
+        const requestId = otpRequestId(raw);
+        if (requestId === null) answer = { ok: false, code: "failed" };
+        else {
+          await ctx.runMutation(internal.dealerOtp.recordSent, { applicationId, requestId });
+          answer = { ok: true };
+        }
+      } catch (e) {
+        const problem = sendProblem(e);
+        log({ evt: "admin_send", code: problem, ...problemLog(e) });
+        if (problem === "already_verified") await ctx.runMutation(internal.dealerOtp.recordListed, { applicationId });
+        answer = toAnswer(problem);
+      }
+    }
+    await ctx.runMutation(internal.dealerOtp.auditPanelCode, { who, action: "dealer.code_sent", applicationId, outcome: answer.ok ? "sent" : answer.code });
+    return answer;
+  },
+});
+
+/** Panel: the six digits the dealer read out. On success the number is the dealer's and on Bolna's list. */
+export const adminCheck = adminAction({
+  args: { applicationId: v.id("dealerApplications"), code: v.string() },
+  handler: async (ctx, { applicationId, code }): Promise<OtpAnswer> => {
+    const who = `admin:${ctx.adminUserId}`;
+    if (!CODE.test(code)) return { ok: false, code: "bad_code" };
+    const key = bolnaKey();
+    if (key === null) return { ok: false, code: "not_configured" };
+    const reserved = await ctx.runMutation(internal.dealerOtp.reserveAdminCheck, { applicationId });
+    let answer: OtpAnswer;
+    if (!reserved.ok) answer = reserved;
+    else {
+      try {
+        await createBolnaClient({ apiKey: key, allow: VERIFY_ENDPOINTS }).checkVerifyCode({ phoneE164: reserved.phoneE164, otp: code, requestId: reserved.requestId });
+        await ctx.runMutation(internal.dealerOtp.recordVerified, { applicationId, phoneE164: reserved.phoneE164 });
+        answer = { ok: true };
+      } catch (e) {
+        const problem = checkProblem(e);
+        log({ evt: "admin_check", code: problem, ...problemLog(e) });
+        if (problem === "already_verified") await ctx.runMutation(internal.dealerOtp.recordListed, { applicationId });
+        answer = toAnswer(problem);
+      }
+    }
+    await ctx.runMutation(internal.dealerOtp.auditPanelCode, { who, action: "dealer.code_checked", applicationId, outcome: answer.ok ? "verified" : answer.code });
+    return answer;
+  },
 });

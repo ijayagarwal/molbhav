@@ -238,3 +238,38 @@ describe("Bolna's list → the panel", () => {
     await expect(apply(t, { google: { sub: "not-a-number", email: "x@y.z" } })).rejects.toThrow(/invalid_google/);
   });
 });
+
+describe("the founders' panel path (R27)", () => {
+  test("an admin sends the code and types what the dealer reads out; no ticket needed; audited; non-admins refused", async () => {
+    const { t, asAdmin, asUser } = await setup();
+    const id = await apply(t);
+    await expect(asUser.action(api.dealerOtp.adminSend, { applicationId: id })).rejects.toThrow(/forbidden/);
+    await expect(t.action(api.dealerOtp.adminSend, { applicationId: id })).rejects.toThrow(/unauthenticated/);
+    replies.push({ status: 200, body: { request_id: "panel-1" } });
+    expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: true });
+    expect(seen[0]).toEqual({ url: "https://api.bolna.ai/phone-numbers/verified/add", method: "POST", body: { phone_number: PHONE } });
+    replies.push({ status: 400, body: { detail: "Invalid OTP" } });
+    expect(await asAdmin.action(api.dealerOtp.adminCheck, { applicationId: id, code: "000000" })).toEqual({ ok: false, code: "bad_code" });
+    replies.push({ status: 200, body: { message: "verified" } });
+    expect(await asAdmin.action(api.dealerOtp.adminCheck, { applicationId: id, code: "482913" })).toEqual({ ok: true });
+    expect(await getApp(t, id)).toMatchObject({ verifyMethod: "bolna_otp", phoneVerifiedAt: expect.any(Number), bolnaVerifiedAt: expect.any(Number), status: "pending" });
+    const actions = await t.run(async (ctx) => (await ctx.db.query("auditLog").collect()).map((a) => `${a.action}:${(JSON.parse(a.detail ?? "{}") as { outcome?: string }).outcome}`));
+    expect(actions).toEqual(["dealer.code_sent:sent", "dealer.code_checked:bad_code", "dealer.code_checked:verified"]);
+  });
+
+  test("the per-number limit and the resend gap still hold; restricted applications get nothing", async () => {
+    const { t, asAdmin } = await setup();
+    const id = await apply(t);
+    for (let i = 0; i < 3; i++) {
+      vi.setSystemTime(T0 + i * (RESEND_GAP_MS + 1000));
+      replies.push({ status: 200, body: { request_id: `r${i}` } });
+      expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: true });
+    }
+    expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: false, code: "too_soon" });
+    vi.setSystemTime(T0 + 3 * (RESEND_GAP_MS + 1000));
+    expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: false, code: "rate_limited" });
+    const other = await apply(t, { phone: "9829054321" });
+    await t.run(async (ctx) => ctx.db.patch(other, { status: "restricted" }));
+    expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: other })).toEqual({ ok: false, code: "failed" });
+  });
+});

@@ -20,6 +20,7 @@ export const OTP_PROBLEM: Record<OtpProblem, { key: DictKey; next: "stay" | "res
   already_verified: { key: "dealer.otpErrFailed", next: "fallback" },
   not_configured: { key: "dealer.otpErrFailed", next: "fallback" },
   failed: { key: "dealer.otpErrFailed", next: "fallback" },
+  browser_check: { key: "dealer.otpErrBrowser", next: "stay" },
 };
 
 /** The six digits as typed ("123 456"); Devanagari digits aren't accepted (the SMS has Western digits). */

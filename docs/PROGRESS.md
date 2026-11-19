@@ -102,6 +102,11 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
 ## 4. Session log (what happened, newest first)
 
 ### 20 Nov 2026: live on www.callagent.dev, a fresh database, live calls on (trial)
+- **First live tests (night of 20 Nov):** Vercel BotID marked every phone as a bot while callagent.dev went through
+  Cloudflare's proxy (spoken orders, /try and the dealer code all refused). Fixed: the founders switched Cloudflare
+  to DNS only; signed-in voice and read-back requests treat BotID as a logged signal (R27); Home's example plays a
+  recorded clip in our voice; the dealer page says "reload and retry" when the check fails; founders can verify a
+  dealer's number by code from the panel during a call; Choose dealers says why Live is missing.
 - **New address:** the founders pointed callagent.dev at the site (it forwards to **www.callagent.dev**). Sign-in now
   returns to whichever address the visitor started on (www.callagent.dev or molbhav-weld.vercel.app), and only to
   those; production's SITE_URL is https://www.callagent.dev.

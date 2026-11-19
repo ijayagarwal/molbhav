@@ -36,6 +36,8 @@ interface PublicFn {
 const PUBLIC_ACTIONS: Record<string, string> = {
   "dealerOtp:send": "serverAction: needs CONVEX_SERVER_SECRET and the application's one-time ticket; texts only the stored number; rate-limited; dealerOtp.test.ts",
   "dealerOtp:check": "serverAction: needs CONVEX_SERVER_SECRET and the ticket; 5 tries per code; returns only ok/code; dealerOtp.test.ts",
+  "dealerOtp:adminSend": "adminAction: admins only; Bolna texts the application's stored number; per-number and global limits; audited; dealerOtp.test.ts",
+  "dealerOtp:adminCheck": "adminAction: admins only; checks the six digits with Bolna; 5 tries per code; audited; dealerOtp.test.ts",
   "dealerOtp:syncFromBolna": "adminAction: ADMIN_USER_IDS only; reads Bolna's verified list and returns counts; dealerOtp.test.ts",
   "adminStats:bolnaWallet": "adminAction: admins only; GET /user/me only (its client allows nothing else); returns the wallet and concurrency numbers, never the key; adminStats.test.ts",
 };

@@ -70,7 +70,7 @@ function StatusBadge({ app }: { app: DealerAppView }) {
   return null;
 }
 
-function AppCard({ app, onAction }: { app: DealerAppView; onAction: (a: Action) => void }) {
+function AppCard({ app, onAction, onVerify }: { app: DealerAppView; onAction: (a: Action) => void; onVerify: () => void }) {
   const { t, lang } = useT();
   const optedOut = app.dealer?.consent === "opted_out";
   const canApproveLive = app.verified && !optedOut && (app.status === "pending" || app.status === "approved_test");
@@ -161,6 +161,14 @@ function AppCard({ app, onAction }: { app: DealerAppView; onAction: (a: Action) 
           <SecondaryButton onClick={() => onAction("unrestrict")}>{t("admin.actUnrestrict")}</SecondaryButton>
         )}
       </div>
+      {(!app.verified || !app.bolnaVerified) && !optedOut && app.status !== "restricted" ? (
+        <div className="flex flex-col gap-1.5 border-t border-dashed border-rule pt-3">
+          <SecondaryButton onClick={onVerify} className="w-full sm:w-fit">
+            {t("admin.verifyByCode")}
+          </SecondaryButton>
+          <p className="text-meta text-ink-2">{t("admin.verifyByCodeHint")}</p>
+        </div>
+      ) : null}
       {!app.verified && !optedOut && (app.status === "pending" || app.status === "approved_test") ? (
         <p className="text-meta text-ink-2">{t("admin.liveNeedsOtp")}</p>
       ) : null}
@@ -272,10 +280,127 @@ function BolnaSync() {
 }
 
 /** The applications review (tabs, cards, sheets); the page around it is DealerAppsPanel or DealersAdmin (R26). */
+/**
+ * R27: the founders verify a dealer's number from here, on a call with the dealer: "कोड भेजिए" makes Bolna text
+ * a 6-digit code to the number on the application (never shown here), the dealer reads it out, and the founder
+ * types it. Success proves the number and puts it on Bolna's list, like the dealer's own step on /dealer.
+ */
+const CODE_ERR: Record<string, DictKey> = {
+  bad_code: "dealer.otpErrCode",
+  expired: "dealer.otpErrExpired",
+  no_code: "dealer.otpErrExpired",
+  too_soon: "dealer.otpErrSoon",
+  rate_limited: "dealer.otpErrMany",
+  already_verified: "admin.verifyAlreadyListed",
+  not_configured: "admin.errGeneric",
+  failed: "admin.verifyFailed",
+};
+
+function VerifyCodeSheet({ app, onClose }: { app: DealerAppView; onClose: () => void }) {
+  const { t } = useT();
+  const send = useAction(api.dealerOtp.adminSend);
+  const check = useAction(api.dealerOtp.adminCheck);
+  const [phase, setPhase] = useState<"ready" | "sending" | "sent" | "checking" | "done">("ready");
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const failKey = (c: string) => t(CODE_ERR[c] ?? "admin.verifyFailed", { code: c });
+
+  const doSend = async () => {
+    setError(null);
+    setPhase("sending");
+    const r = await send({ applicationId: app._id }).catch(() => ({ ok: false as const, code: "failed" as const }));
+    if (r.ok) {
+      setCode("");
+      setPhase("sent");
+    } else {
+      setError(failKey(r.code));
+      setPhase(r.code === "too_soon" ? "sent" : "ready");
+    }
+  };
+  const doCheck = async () => {
+    const digits = code.replace(/\s+/g, "");
+    if (!/^\d{6}$/.test(digits)) {
+      setError(t("dealer.otpErrDigits"));
+      return;
+    }
+    setError(null);
+    setPhase("checking");
+    const r = await check({ applicationId: app._id, code: digits }).catch(() => ({ ok: false as const, code: "failed" as const }));
+    if (r.ok) setPhase("done");
+    else {
+      setError(failKey(r.code));
+      setPhase(r.code === "expired" || r.code === "no_code" ? "ready" : "sent");
+    }
+  };
+
+  return (
+    <BottomSheet open title={t("admin.verifyTitle")} onClose={onClose} closeLabel={t("admin.sheetCancel")}>
+      <p className="text-body">
+        <span className="font-ui-semibold">{app.shopName}</span> · <span className="font-mono">{app.phoneMasked}</span>
+      </p>
+      {phase === "done" ? (
+        <>
+          <p role="status" className="flex items-center gap-2 text-label text-hara">
+            <CheckBold aria-hidden="true" className="size-5 shrink-0" />
+            {t("admin.verifyDone")}
+          </p>
+          <PrimaryButton size="md" onClick={onClose}>
+            {t("admin.dismiss")}
+          </PrimaryButton>
+        </>
+      ) : (
+        <>
+          <p className="text-label text-ink-2">{t("admin.verifyBody")}</p>
+          {phase === "sent" || phase === "checking" ? (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="admin-verify-code" className="text-label">
+                {t("admin.verifyCodeLabel")}
+              </label>
+              <input
+                id="admin-verify-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={7}
+                className="h-14 w-full rounded-card border-[1.5px] border-ink bg-card px-4 font-mono text-body tracking-[0.3em]"
+              />
+            </div>
+          ) : null}
+          {error !== null ? (
+            <p role="alert" className="flex items-start gap-2 text-label text-lal">
+              <WarningBold aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
+              <span>{error}</span>
+            </p>
+          ) : null}
+          <div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-start">
+            {phase === "sent" || phase === "checking" ? (
+              <>
+                <PrimaryButton size="md" onClick={doCheck} disabled={phase === "checking"} aria-busy={phase === "checking"}>
+                  {phase === "checking" ? t("dealer.otpChecking") : t("admin.verifyConfirm")}
+                </PrimaryButton>
+                <SecondaryButton onClick={doSend} disabled={phase === "checking"}>
+                  {t("dealer.otpResend")}
+                </SecondaryButton>
+              </>
+            ) : (
+              <PrimaryButton size="md" onClick={doSend} disabled={phase === "sending"} aria-busy={phase === "sending"}>
+                {phase === "sending" ? t("dealer.otpSending") : t("dealer.otpSend")}
+              </PrimaryButton>
+            )}
+            <SecondaryButton onClick={onClose}>{t("admin.sheetCancel")}</SecondaryButton>
+          </div>
+        </>
+      )}
+    </BottomSheet>
+  );
+}
+
 export function DealerApplications() {
   const { t } = useT();
   const [tab, setTab] = useState<Tab>("pending");
   const [open, setOpen] = useState<{ app: DealerAppView; action: Action } | null>(null);
+  const [verifying, setVerifying] = useState<DealerAppView | null>(null);
   const [reminder, setReminder] = useState<string | null>(null);
   const data = useQuery(api.dealerApps.list, { tab });
 
@@ -319,12 +444,13 @@ export function DealerApplications() {
         ) : (
           <ul className="grid items-start gap-4 lg:grid-cols-2">
             {data.items.map((app) => (
-              <AppCard key={app._id} app={app} onAction={(action) => setOpen({ app, action })} />
+              <AppCard key={app._id} app={app} onAction={(action) => setOpen({ app, action })} onVerify={() => setVerifying(app)} />
             ))}
           </ul>
         )}
       </div>
 
+      {verifying !== null ? <VerifyCodeSheet key={verifying._id} app={verifying} onClose={() => setVerifying(null)} /> : null}
       {open !== null ? (
         <ConfirmSheet
           key={`${open.app._id}:${open.action}`}
