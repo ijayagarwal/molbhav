@@ -49,7 +49,8 @@ async function dealerFor(ctx: Ctx, app: App): Promise<Doc<"dealers"> | null> {
     .first();
 }
 
-async function testListRows(ctx: Ctx, phoneHash: string) {
+/** The panel's trial test list rows for one number (R24). Also used by adminDealers.ts (R26). */
+export async function testListRows(ctx: Ctx, phoneHash: string) {
   return await ctx.db
     .query("testPhones")
     .withIndex("by_phoneHash", (q) => q.eq("phoneHash", phoneHash))
@@ -166,12 +167,14 @@ async function upsertDealer(ctx: MutationCtx, app: App, consent: "test_ok" | "op
   return { dealerId, created: true };
 }
 
-async function addToTestList(ctx: MutationCtx, dealerId: Id<"dealers">, phoneHash: string, who: string): Promise<void> {
+/** Puts this dealer's number on the panel's trial test list, once (R24). */
+export async function addToTestList(ctx: MutationCtx, dealerId: Id<"dealers">, phoneHash: string, who: string): Promise<void> {
   const rows = await testListRows(ctx, phoneHash);
   if (!rows.some((r) => r.dealerId === dealerId)) await ctx.db.insert("testPhones", { phoneHash, dealerId, addedBy: who, at: Date.now() });
 }
 
-async function removeFromTestList(ctx: MutationCtx, phoneHash: string): Promise<number> {
+/** Takes every row with this number off the panel's trial test list; returns how many. */
+export async function removeFromTestList(ctx: MutationCtx, phoneHash: string): Promise<number> {
   const rows = await testListRows(ctx, phoneHash);
   for (const r of rows) await ctx.db.delete(r._id);
   return rows.length;
