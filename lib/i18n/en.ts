@@ -173,7 +173,8 @@ export const en: Record<DictKey, string> = {
   "moneyShot.bigOrder": "A big order: money never wraps",
 
   "dial.liveOff": "Live calls are off right now",
-  "dial.notVerified": "Live calls need an in-person check by our team",
+  "dial.notVerified": "Real calls aren't switched on for your account yet. Our team will switch them on after checking your number; meanwhile run the demo.",
+  "dial.notVerifiedAdmin": "Admin: Settings → admin panel → People → 'Allow real calls' on your card.",
   "dial.dailyCap": "Today's live calls are used up",
   "dial.dealerUnavailable": "Live calls can't go to this dealer yet",
   "dial.dealerRested": "No more calls to this dealer today",

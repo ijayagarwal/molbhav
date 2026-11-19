@@ -413,7 +413,8 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `status.optedOut` | आगे कॉल नहीं | No more calls |
 | `status.disclosureFailed` | रेट नहीं गिना गया | Quote not counted |
 | `dial.liveOff` | अभी असली कॉल बंद हैं | Live calls are off right now |
-| `dial.notVerified` | असली कॉल के लिए टीम से मिलकर पहचान ज़रूरी है | Live calls need an in-person check by our team |
+| `dial.notVerified` | असली कॉल अभी आपके खाते पर चालू नहीं हैं। हमारी टीम आपका नंबर पक्का करके चालू करेगी; तब तक डेमो चलाइए। | Real calls aren't switched on for your account yet. Our team will switch them on after checking your number; meanwhile run the demo. |
+| `dial.notVerifiedAdmin` | एडमिन: सेटिंग → एडमिन पैनल → लोग → अपने कार्ड पर 'असली कॉल चालू कीजिए'। | Admin: Settings → admin panel → People → 'Allow real calls' on your card. |
 | `dial.dailyCap` | आज की असली कॉल पूरी हो गईं | Today's live calls are used up |
 | `dial.dealerUnavailable` | इस dealer को अभी असली कॉल नहीं जा सकती | Live calls can't go to this dealer yet |
 | `dial.dealerRested` | इस dealer को आज और कॉल नहीं करेंगे | No more calls to this dealer today |

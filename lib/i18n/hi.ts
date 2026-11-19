@@ -175,7 +175,8 @@ export const hi = {
 
   // Phase 8A (R18): why a call didn't dial, and the founders' admin page.
   "dial.liveOff": "अभी असली कॉल बंद हैं",
-  "dial.notVerified": "असली कॉल के लिए टीम से मिलकर पहचान ज़रूरी है",
+  "dial.notVerified": "असली कॉल अभी आपके खाते पर चालू नहीं हैं। हमारी टीम आपका नंबर पक्का करके चालू करेगी; तब तक डेमो चलाइए।",
+  "dial.notVerifiedAdmin": "एडमिन: सेटिंग → एडमिन पैनल → लोग → अपने कार्ड पर 'असली कॉल चालू कीजिए'।",
   "dial.dailyCap": "आज की असली कॉल पूरी हो गईं",
   "dial.dealerUnavailable": "इस dealer को अभी असली कॉल नहीं जा सकती",
   "dial.dealerRested": "इस dealer को आज और कॉल नहीं करेंगे",

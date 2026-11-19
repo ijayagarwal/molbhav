@@ -25,6 +25,20 @@ import { AppFrame } from "./AppFrame";
 import { toBoardData } from "./boardData";
 import { useNow } from "./useNow";
 
+
+/**
+ * Home's example in our own recorded voice (public/audio/example-<lang>.mp3, scripts/example-audio.ts): many
+ * phones have no Hindi voice for the browser to speak with, so speak() alone was silent. The browser's voice is
+ * only the fallback when the clip can't play.
+ */
+let exampleClip: HTMLAudioElement | null = null;
+function playExample(lang: "hi" | "en", text: string) {
+  exampleClip?.pause();
+  const clip = new Audio(`/audio/example-${lang}.mp3`);
+  exampleClip = clip;
+  void clip.play().catch(() => speak(text, lang));
+}
+
 function Skeleton() {
   return (
     <div aria-hidden="true" className="flex flex-col gap-4 pt-2">
@@ -98,7 +112,7 @@ export function HomeBody({ me }: { me: Me }) {
         </h2>
         <p className="text-body-lg">{`“${example}”`}</p>
         <div className="flex flex-wrap gap-3">
-          <SecondaryButton icon={<PlayBold className="size-4" />} onClick={() => speak(example, lang)}>
+          <SecondaryButton icon={<PlayBold className="size-4" />} onClick={() => playExample(lang, example)}>
             {t("home.listen")}
           </SecondaryButton>
           <PrimaryButton size="md" className="flex-1" onClick={start} disabled={starting} aria-busy={starting}>

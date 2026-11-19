@@ -197,16 +197,21 @@ export async function handleVoiceOrder(req: Request, deps: VoiceOrderDeps, opts:
   const canned = !sandbox && deps.demoFallback?.() === true;
 
   let t = t0;
-  if (await deps.isBot()) {
+  // R27: BotID is a hard stop only for requests without a session. A signed-in request is already gated by
+  // Google sign-in, the founders' approval (limits.consume*) and per-person limits, and BotID misreads real
+  // phones behind a proxy (callagent.dev through Cloudflare), so there it is only logged.
+  const bot = await deps.isBot();
+  t = mark("bot", t);
+  const token = await deps.token();
+  if (bot && token === undefined) {
     log("bot");
     return refuse(STATUS.bot, "bot");
   }
-  t = mark("bot", t);
-  const token = await deps.token();
   if (token === undefined) {
     log("unauthenticated");
     return refuse(STATUS.unauthenticated, "unauthenticated");
   }
+  if (bot) deps.log({ evt: "voice_order_bot_signal", ...(sandbox ? { sandbox: true } : {}) });
 
   const input = await readInput(req, sandbox);
   t = mark("read", t);

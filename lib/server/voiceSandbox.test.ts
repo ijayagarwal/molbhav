@@ -85,8 +85,8 @@ describe("the sandbox route (?sandbox=1)", () => {
     expect(d.transcribe).not.toHaveBeenCalled();
   });
 
-  test("bots are refused (BotID) before anything is read or spent; so are visitors without a session", async () => {
-    const bot = deps({ isBot: async () => true });
+  test("bots without a session are refused (BotID) before anything is read or spent; so are visitors without a session", async () => {
+    const bot = deps({ isBot: async () => true, token: async () => undefined });
     const r1 = await handleVoiceOrder(audioRequest(), bot.d, { sandbox: true });
     expect([r1.status, await lines(r1)]).toEqual([403, [{ type: "error", code: "bot" }]]);
     const anon = deps({ token: async () => undefined });

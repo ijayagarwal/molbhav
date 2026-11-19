@@ -85,9 +85,12 @@ export async function handleTts(req: Request, deps: TtsDeps): Promise<Response> 
     return refuse(code, retryAfterMs);
   };
 
-  if (await deps.isBot()) return fail("bot");
+  // R27: a hard stop only without a session; a signed-in request is gated by sign-in, approval and limits.
+  const bot = await deps.isBot();
   const token = await deps.token();
+  if (bot && token === undefined) return fail("bot");
   if (token === undefined) return fail("unauthenticated");
+  if (bot) deps.log({ evt: "tts_readback_bot_signal" });
 
   let body: unknown;
   try {

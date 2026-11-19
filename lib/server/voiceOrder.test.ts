@@ -111,10 +111,14 @@ describe("POST /api/voice/order: the happy paths", () => {
 });
 
 describe("POST /api/voice/order: refusals before any spend", () => {
-  test("bot → 403, no token → 401, both before reading the body", async () => {
-    const bot = deps({ isBot: async () => true });
+  test("bot without a session → 403, no token → 401, both before reading the body; a signed-in bot verdict goes on (R27)", async () => {
+    const bot = deps({ isBot: async () => true, token: async () => undefined });
     const r1 = await handleVoiceOrder(audioRequest(), bot.d);
     expect([r1.status, await lines(r1)]).toEqual([403, [{ type: "error", code: "bot" }]]);
+    const signedIn = deps({ isBot: async () => true });
+    const r3 = await handleVoiceOrder(audioRequest(), signedIn.d);
+    expect(r3.status).toBe(200);
+    expect(signedIn.d.consume).toHaveBeenCalled();
     const anon = deps({ token: async () => undefined });
     const r2 = await handleVoiceOrder(audioRequest(), anon.d);
     expect([r2.status, await lines(r2)]).toEqual([401, [{ type: "error", code: "unauthenticated" }]]);

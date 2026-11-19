@@ -75,6 +75,7 @@ export function DealersScreen({ orderId }: { orderId: string }) {
   // sweep.start and claimDial check everything again). Sim stays the default for every order (hard rule 1).
   const minute = Math.floor(useNow(30_000) / 60_000);
   const liveStatus = useQuery(api.settings.liveAvailable, order ? { at: minute } : "skip");
+  const isAdmin = useQuery(api.admin.amIAdmin, liveStatus?.reason === "not_verified" ? {} : "skip");
   const [chosenMode, setChosenMode] = useState<"sim" | "live">("sim");
   const mode = liveStatus?.available === true ? chosenMode : "sim";
   const view = useQuery(api.dealers.forOrder, order ? { orderId: order._id, mode } : "skip");
@@ -167,11 +168,12 @@ export function DealersScreen({ orderId }: { orderId: string }) {
           ))}
         </div>
       ) : null}
-      {/* A verified contractor on a live-ready deployment hears why live is off for now (daily limit, call hours);
-          everyone else sees nothing (live_off and not_verified are checked first, so they say nothing personal). */}
-      {liveStatus && !liveStatus.available && (liveStatus.reason === "daily_cap" || liveStatus.reason === "call_hours") ? (
+      {/* On a live-ready deployment the contractor hears why Live isn't offered: real calls not switched on for
+          them yet (with the admin's path for an admin), the daily limit, or call hours. live_off says nothing. */}
+      {liveStatus && !liveStatus.available && (liveStatus.reason === "not_verified" || liveStatus.reason === "daily_cap" || liveStatus.reason === "call_hours") ? (
         <p role="status" className="rounded-card border border-rule bg-card px-4 py-3 text-meta text-ink-2">
           {t(REFUSAL[liveStatus.reason])}
+          {liveStatus.reason === "not_verified" && isAdmin === true ? ` ${t("dial.notVerifiedAdmin")}` : ""}
         </p>
       ) : null}
       {mode === "live" ? (

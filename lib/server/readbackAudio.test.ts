@@ -61,7 +61,9 @@ describe("POST /api/tts (V3)", () => {
   });
 
   test("bot 403, signed out 401, someone else's or unknown draft 404, not a draft or incomplete 409", async () => {
-    expect((await handleTts(req({ draftId: ID }), deps({ isBot: async () => true }).d)).status).toBe(403);
+    // R27: BotID stops a request without a session; a signed-in one goes on (sign-in, approval, limits gate it).
+    expect((await handleTts(req({ draftId: ID }), deps({ isBot: async () => true, token: async () => undefined }).d)).status).toBe(403);
+    expect((await handleTts(req({ draftId: ID }), deps({ isBot: async () => true }).d)).status).toBe(200);
     expect((await handleTts(req({ draftId: ID }), deps({ token: async () => undefined }).d)).status).toBe(401);
     const notFound = deps({ readBack: async () => Promise.reject(Object.assign(new Error("x"), { data: { code: "not_found" } })) });
     expect([(await handleTts(req({ draftId: ID }), notFound.d)).status]).toEqual([404]);
