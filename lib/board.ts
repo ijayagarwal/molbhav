@@ -21,6 +21,8 @@ export interface BoardCall {
   endedAt?: number;
   slots?: { rate: boolean; gst: boolean; delivery: boolean; credit: boolean };
   provisionalTotal?: number;
+  /** R28: a follow-up call (after the result), not part of the sweep's progress. */
+  followUpOf?: string;
 }
 
 export interface BoardEvent {
@@ -47,6 +49,8 @@ export interface BoardQuote {
   billType?: "pakka" | "kachcha" | "unknown";
   weightBasis?: "kanta" | "standard" | "unknown";
   readBackConfirmed?: boolean;
+  /** R28: replaced by a follow-up's merged quote; never shown as the dealer's standing total. */
+  supersededBy?: string;
 }
 
 export interface BoardDealer {
@@ -134,6 +138,7 @@ export function buildBoard(data: BoardData, now: number): BoardView {
 
   // A quote is visible once its call has visibly ended (sim) or as soon as it exists (live).
   const visibleQuotes = data.quotes.filter((q) => {
+    if (q.supersededBy !== undefined) return false;
     const call = data.calls.find((c) => c._id === q.callId);
     if (!call) return false;
     return FINAL.has(statusAt(call, eventsByCall.get(call._id) ?? [], now));
@@ -188,7 +193,7 @@ export function buildBoard(data: BoardData, now: number): BoardView {
 
   const comparable = rows.filter((r) => r.quote?.comparable && r.total !== undefined);
   const bestRow = comparable.sort((a, b) => (a.total ?? 0) - (b.total ?? 0))[0];
-  const quoteCalls = data.calls.filter((c) => c.round === "quote");
+  const quoteCalls = data.calls.filter((c) => c.round === "quote" && c.followUpOf === undefined);
   const done = quoteCalls.filter((c) => FINAL.has(statusAt(c, eventsByCall.get(c._id) ?? [], now))).length;
   const phase = data.status === "haggling" ? "haggle" : data.status === "matching" ? "match" : data.status === "sweeping" || data.status === "confirmed" ? "quote" : "done";
 

@@ -4,8 +4,10 @@
 // no gendered first-person verbs, and read-backs repeat only the dealer's own figures (R1). Every number a
 // dealer "says" is spoken from the persona's ground truth with lib/numbers.ts, so the code checks
 // (amountSaid, the read-back "हाँ", S5) run on the sim transcript exactly as they will on a live one.
+import { quoteOpening } from "../../lib/bolna/userData";
 import { DELIVER_BY } from "../../lib/config";
 import type { DeliverBy, GstMode, Material, OrderItem, QuoteLine, Round, Unit } from "../../lib/domain";
+import { followUpSpoken, type Gap } from "../../lib/followUp";
 import { hindiNumberWords, hindiRupees, spokenOrder } from "../../lib/numbers";
 import type { QuoteFacts } from "../../lib/pricing";
 import type { PersonaKey, PersonaOutcome } from "./personas";
@@ -37,6 +39,8 @@ export interface ScriptContext {
   earlier?: QuoteFacts;
   /** Confirm calls: the approved quote and its landed total (paise), relayed, never renegotiated (C5). */
   approved?: { totalPaise: number; facts: QuoteFacts };
+  /** A follow-up (R28): the gaps asked, nothing else. */
+  followUp?: { gaps: readonly Gap[] };
 }
 
 // ── Spoken pieces ──────────────────────────────────────────────────────────────────────
@@ -64,6 +68,9 @@ export interface WelcomeVars {
   /** DELIVER_BY[deliverBy].spokenHi; empty for "flexible", so the clause is left out (R15). */
   deliverSpoken: string;
   orderSpoken: string;
+  /** Quote calls: the order's items, and whether this is a follow-up (R28; its welcome's second sentence differs). */
+  items?: readonly OrderItem[];
+  followUp?: boolean;
 }
 
 /** The four welcomes, word for word from docs/CALL_SCRIPT.md (a test compares them). */
@@ -72,7 +79,8 @@ export function welcome(round: Round, w: WelcomeVars): string {
   const disclose = (from: string) => `नमस्ते जी, ये मोलभाव से AI कॉल है, ${name} जी की तरफ़ से${from}, और कॉल रिकॉर्ड हो रही है।`;
   switch (round) {
     case "quote":
-      return `${disclose("")} ${join([`${w.siteAreaHi} साइट पे`, w.deliverSpoken, w.orderSpoken], " ")} चाहिए, स्टॉक में है?`;
+      // {quote_opening}?, built by the same function as the live call's user_data.
+      return `${disclose("")} ${quoteOpening({ ...w, items: w.items ?? [] }, w.followUp === true)}?`;
     case "haggle":
       return `${disclose(" दोबारा")} आपके रेट के बारे में एक मिनट बात करनी थी।`;
     case "match":
@@ -217,7 +225,116 @@ function welcomeVars(ctx: ScriptContext): WelcomeVars {
     siteAreaHi: ctx.siteAreaHi,
     deliverSpoken: DELIVER_BY[ctx.deliverBy].spokenHi,
     orderSpoken: spokenOrder(ctx.items),
+    items: ctx.items,
+    followUp: ctx.followUp !== undefined,
   };
+}
+
+/** A follow-up answer, in the dealer's words: only what the gap asked, from the persona's said facts. */
+function followUpAnswer(g: Gap, f: QuoteFacts, items: OrderItem[]): { text: string; slots: Slot[] } {
+  const lineFor = (id: string) => f.lines.find((l) => l.orderItemId === id);
+  const rates = (ids: readonly string[]) => ids.map(lineFor).filter((l): l is QuoteLine => l !== undefined && l.inStock !== "no").map((l) => dealerRateLine(l, items)).join(" ");
+  switch (g.kind) {
+    case "gst":
+      return { text: rates(g.itemIds), slots: ["rate", "gst"] };
+    case "delivery":
+      return { text: f.deliveryCharge === undefined ? "भाड़ा बाद में बताएँगे।" : `${deliverySaid(f.deliveryCharge)}।`, slots: f.deliveryCharge === undefined ? [] : ["delivery"] };
+    case "unloading":
+      return { text: f.unloadingCharge === undefined ? "उतराई बाद में बताएँगे।" : `${unloadingSaid(f.unloadingCharge)}।`, slots: [] };
+    case "item": {
+      const l = lineFor(g.itemIds[0]);
+      if (l === undefined) return { text: "वो अभी नहीं बता पाएँगे।", slots: [] };
+      if (l.inStock === "no") return { text: `${MATERIAL_HI[materialOf(items, l.orderItemId)]} अभी नहीं है जी।`, slots: [] };
+      return { text: dealerRateLine(l, items), slots: ["rate"] };
+    }
+    case "stock":
+      return { text: g.itemIds.every((id) => lineFor(id)?.inStock === "yes") ? "हाँ जी, पूरा माल है।" : "देखना पड़ेगा जी।", slots: [] };
+    case "weight":
+      return { text: f.weightBasis === "kanta" ? "कांटे पे।" : f.weightBasis === "standard" ? "standard तौल।" : "वो देख लेंगे।", slots: [] };
+    case "brand": {
+      const named = g.itemIds
+        .map(lineFor)
+        .filter((l): l is QuoteLine => l?.brandOffered !== undefined)
+        .map((l) => `${MATERIAL_HI[materialOf(items, l.orderItemId)]} ${brandHi(l.brandOffered)}`);
+      return { text: named.length > 0 ? `${named.join(", ")}।` : "जो मिल जाए जी।", slots: [] };
+    }
+    case "bill":
+      return { text: f.billType === "pakka" ? "हाँ जी, पक्का बिल।" : "बिल की बात बाद में।", slots: [] };
+    case "credit":
+      return {
+        text: f.creditDays === undefined ? "उधार की बात बाद में कर लेंगे।" : f.creditDays > 0 ? `${daysSpoken(f.creditDays)} उधार दे देंगे, रेट यही रहेगा।` : "उधार नहीं, कैश ही चलेगा।",
+        slots: f.creditDays === undefined ? [] : ["credit"],
+      };
+    case "delivery_time":
+      return { text: f.deliveryBy === undefined ? "जल्दी भेज देंगे।" : `${DELIVER_BY[f.deliveryBy].hi} तक पहुँचा देंगे।`, slots: [] };
+    case "rate_confirm":
+      if (g.allIn && f.lumpSumSaidThisCall && f.lumpSumTotal !== undefined) return { text: `सब मिलाके ${hindiRupees(f.lumpSumTotal)}, GST, भाड़ा, उतराई सब शामिल।`, slots: ["rate"] };
+      return { text: `जी, ${rates(g.itemIds)}`, slots: ["rate"] };
+  }
+}
+
+/** The follow-up's read-back: only what the dealer said in this call (R1, R28), then "सही है?". */
+function followUpReadBack(gaps: readonly Gap[], f: QuoteFacts, items: OrderItem[]): string {
+  const rateSaid = new Set(gaps.filter((g) => g.kind === "gst" || g.kind === "item" || (g.kind === "rate_confirm" && !g.allIn)).flatMap((g) => g.itemIds));
+  const brandSaid = new Set(gaps.filter((g) => g.kind === "brand").flatMap((g) => g.itemIds));
+  const stockSaid = new Set(gaps.filter((g) => g.kind === "stock").flatMap((g) => g.itemIds));
+  const lines = f.lines
+    .filter((l) => l.inStock !== "no")
+    .map((l) =>
+      join(
+        [
+          MATERIAL_HI[materialOf(items, l.orderItemId)],
+          brandSaid.has(l.orderItemId) || rateSaid.has(l.orderItemId) ? brandHi(l.brandOffered) : undefined,
+          rateSaid.has(l.orderItemId) ? rateSpoken(l) : undefined,
+          rateSaid.has(l.orderItemId) ? gstSpoken(l.gstMode) : undefined,
+          stockSaid.has(l.orderItemId) && l.inStock === "yes" ? "पूरा माल" : undefined,
+        ],
+        " ",
+      ),
+    )
+    .filter((s) => s.includes(" "));
+  const kinds = new Set(gaps.map((g) => g.kind));
+  const parts = join([
+    ...lines,
+    f.lumpSumSaidThisCall && f.lumpSumTotal !== undefined ? `सब मिलाके ${hindiRupees(f.lumpSumTotal)}` : undefined,
+    kinds.has("delivery") && f.deliveryCharge !== undefined ? (f.deliveryCharge === 0 ? "भाड़ा फ्री" : `भाड़ा ${hindiNumberWords(f.deliveryCharge)}`) : undefined,
+    kinds.has("unloading") && f.unloadingCharge !== undefined ? (f.unloadingCharge === 0 ? "उतराई फ्री" : `उतराई ${hindiNumberWords(f.unloadingCharge)}`) : undefined,
+    kinds.has("bill") && f.billType === "pakka" ? "पक्का बिल" : undefined,
+    kinds.has("weight") ? (f.weightBasis === "kanta" ? "कांटे की तौल" : f.weightBasis === "standard" ? "standard तौल" : undefined) : undefined,
+    kinds.has("credit") && f.creditDays !== undefined ? (f.creditDays > 0 ? `${daysSpoken(f.creditDays)} उधार` : "उधार नहीं") : undefined,
+    kinds.has("delivery_time") && f.deliveryBy !== undefined ? DELIVER_BY[f.deliveryBy].hi : undefined,
+  ]);
+  return `तो ${parts}। सही है?`;
+}
+
+/**
+ * A follow-up call (R28, CALL_SCRIPT Quote agent's follow-up branch): the welcome says a few things were left
+ * from the last call, the agent asks only the listed gaps (one per turn, from followUpSpoken), reads back only
+ * what the dealer said now and closes.
+ */
+function followUpScript(out: PersonaOutcome, ctx: ScriptContext, gaps: readonly Gap[]): ScriptLine[] {
+  const lines: ScriptLine[] = [{ speaker: "agent", text: welcome("quote", welcomeVars(ctx)) }];
+  if (out.kind === "callback") {
+    lines.push({ speaker: "dealer", text: `अभी सेठ जी नहीं हैं, ${out.whenText} कॉल कीजिए।` });
+    lines.push({ speaker: "agent", text: "जी, धन्यवाद।" });
+    return lines;
+  }
+  if (out.kind !== "quoted") {
+    lines.push({ speaker: "dealer", text: "अभी नहीं हो पाएगा जी।" });
+    lines.push({ speaker: "agent", text: "जी, धन्यवाद।" });
+    return lines;
+  }
+  const f = out.facts;
+  lines.push({ speaker: "dealer", text: "हाँ जी, बोलिए।" });
+  for (const g of gaps) {
+    lines.push({ speaker: "agent", text: `${followUpSpoken([g], ctx.items, "hi")}?` });
+    const a = followUpAnswer(g, f, ctx.items);
+    lines.push({ speaker: "dealer", text: a.text, ...(a.slots.length > 0 ? { slots: a.slots } : {}) });
+  }
+  lines.push({ speaker: "agent", text: followUpReadBack(gaps, f, ctx.items) });
+  lines.push({ speaker: "dealer", text: readBackReply(f) });
+  lines.push({ speaker: "agent", text: "बस इतना ही पूछना था, धन्यवाद जी।" });
+  return lines;
 }
 
 function confirmScript(out: PersonaOutcome, ctx: ScriptContext): ScriptLine[] {
@@ -256,6 +373,7 @@ export function buildScript(out: PersonaOutcome, ctx: ScriptContext): SimScript 
   const w = welcomeVars(ctx);
   const name = ctx.contractorName;
   if (ctx.round === "confirm") return { answered: true, lines: confirmScript(out, ctx) };
+  if (ctx.followUp !== undefined) return { answered: true, lines: followUpScript(out, ctx, ctx.followUp.gaps) };
 
   const lines: ScriptLine[] = [{ speaker: "agent", text: welcome(ctx.round, w) }];
   if (out.kind === "declined") {

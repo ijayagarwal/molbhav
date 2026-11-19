@@ -22,11 +22,12 @@ import { decideCite, parseReport, reportSlots, reportTotal } from "../lib/bolna/
 import { isFinalStatus, watchdogDecision } from "../lib/bolna/status";
 import { buildUserData, UserDataError } from "../lib/bolna/userData";
 import { CITY_AREAS, PRICE_BAND_SEEDS, type City } from "../lib/config";
+import { listGaps } from "../lib/followUp";
 import type { Round } from "../lib/domain";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
-import { roundFitsOrder, type ClaimResult } from "./calls";
+import { callFitsOrder, type ClaimResult } from "./calls";
 import { afterCallSettled, createCall, earlierQuote, factsFromQuote, orderCity, pricingContext, roundOpen } from "./engine";
 import { applyExecution, claimedAt, finishLiveCall, retryRoundOpen } from "./lib/liveCalls";
 import { applyOptOut } from "./lib/optOut";
@@ -170,7 +171,7 @@ export const prepareDial = internalMutation({
     const call = await ctx.db.get(callId);
     if (call === null || call.mode !== "live" || call.status !== "dialing" || call.providerExecutionId !== undefined) return { kind: "abort" };
     const order = await ctx.db.get(call.orderId);
-    if (order === null || !roundOpen(order, call) || !roundFitsOrder(call.round, order.status)) {
+    if (order === null || !roundOpen(order, call) || !callFitsOrder(call, order.status)) {
       await finishLiveCall(ctx, call, { status: "cancelled", cancelReason: "round_closed" });
       return { kind: "abort" };
     }
@@ -199,6 +200,12 @@ export const prepareDial = internalMutation({
       if (cited !== null && (!cited.citable || !cited.comparable || cited.orderId !== order._id)) throw new UserDataError("cited");
       const approved = call.round === "confirm" && call.confirmQuoteId !== undefined ? await ctx.db.get(call.confirmQuoteId) : null;
       const theirs = call.round === "haggle" ? await earlierQuote(ctx, order, call) : null;
+      // R28: a follow-up asks only the gaps it was started with, listed again from the quote it follows up.
+      const followed = call.followUpOf === undefined ? null : await ctx.db.get(call.followUpOf);
+      if (call.followUpOf !== undefined && (followed === null || followed.orderId !== order._id)) throw new UserDataError("followup_ask");
+      const ask = new Set(call.followUpAsk ?? []);
+      const followUpGaps =
+        followed === null ? null : listGaps(followed, order.items, { creditDaysWanted: order.creditDaysWanted }).filter((g) => ask.has(g.key));
       const userData = buildUserData({
         callId: call._id,
         round: call.round,
@@ -211,6 +218,7 @@ export const prepareDial = internalMutation({
         ...(theirs === null ? {} : { theirTotalPaise: theirs.landed.total }),
         ...(cited === null ? {} : { cited: { totalPaise: cited.landed.total, facts: factsFromQuote(cited), totalSource: cited.totalSource } }),
         ...(approved === null ? {} : { approved: { totalPaise: approved.landed.total, facts: factsFromQuote(approved) } }),
+        ...(followUpGaps === null ? {} : { followUp: { gaps: followUpGaps } }),
         // R21: any call may give the buyer's verified number when the dealer asks, unless the contractor turned it off.
         ...(contractor.phoneE164 !== undefined && contractor.sharePhoneWithDealers !== false ? { contractorPhoneE164: contractor.phoneE164 } : {}),
       });

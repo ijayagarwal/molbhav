@@ -7,6 +7,7 @@
 // canonical name; a brand an LLM read out of a transcript never reaches a prompt.
 import { BRAND_TIERS, DELIVER_BY, type City } from "../config";
 import type { DeliverBy, GstMode, Material, OrderItem, QuoteLine, Round, Unit } from "../domain";
+import { followUpOpening, followUpSpoken, type Gap } from "../followUp";
 import { normaliseContractorName } from "../names";
 import { hindiNumberWords, hindiRupees, spokenOrder } from "../numbers";
 import { isIndianMobileE164 } from "../phone";
@@ -19,6 +20,9 @@ export const USER_DATA_KEYS = [
   "site_area",
   "deliver_by",
   "order_spoken",
+  "quote_opening",
+  "is_followup",
+  "followup_ask",
   "item_keys",
   "credit_wanted",
   "their_total_spoken",
@@ -125,6 +129,17 @@ export function itemKeysSpoken(items: readonly OrderItem[]): string {
     .join(", ");
 }
 
+/**
+ * `quote_opening`: what the Quote agent's welcome says after the disclosure sentence, without the closing "?"
+ * (the welcome template in CALL_SCRIPT.md adds it). A normal quote call names the site, the time and the order
+ * and asks for stock, exactly as the welcome always did; a follow-up (R28) says only that a few things were
+ * left from the last call.
+ */
+export function quoteOpening(w: { siteAreaHi: string; deliverSpoken: string; orderSpoken: string; items: readonly OrderItem[] }, followUp: boolean): string {
+  if (followUp) return followUpOpening(w.items);
+  return `${join([`${w.siteAreaHi} साइट पे`, w.deliverSpoken, w.orderSpoken], " ")} चाहिए, स्टॉक में है`;
+}
+
 export interface UserDataInput {
   callId: string;
   round: Round;
@@ -144,6 +159,8 @@ export interface UserDataInput {
   approved?: { totalPaise: number; facts: QuoteFacts };
   /** His verified number, for when a dealer asks (R21); absent when he turned sharing off in Settings. */
   contractorPhoneE164?: string;
+  /** Quote calls only: a follow-up that asks only these gaps of the dealer's earlier quote (R28, lib/followUp.ts). */
+  followUp?: { gaps: readonly Gap[] };
 }
 
 /** Letters, marks, digits and a little punctuation; nothing that could carry an instruction or markup. */
@@ -162,13 +179,21 @@ export function buildUserData(i: UserDataInput): UserData {
   const needsCite = i.round === "haggle" || i.round === "match";
   if (i.round === "haggle" && i.cited === undefined) throw new UserDataError("competing_total_spoken");
   if (i.round === "confirm" && i.approved === undefined) throw new UserDataError("final_summary_spoken");
+  // A follow-up is a Quote-agent call with something to ask (R28); anything else fails closed.
+  const followUp = i.followUp !== undefined;
+  if (followUp && (i.round !== "quote" || i.followUp!.gaps.length === 0)) throw new UserDataError("followup_ask");
 
+  const deliverSpoken = DELIVER_BY[i.deliverBy].spokenHi;
+  const orderSpoken = spokenOrder([...i.items]);
   const data: UserData = {
     molbhav_call_id: i.callId,
     contractor_name: name,
     site_area: i.siteAreaHi,
-    deliver_by: DELIVER_BY[i.deliverBy].spokenHi,
-    order_spoken: spokenOrder([...i.items]),
+    deliver_by: deliverSpoken,
+    order_spoken: orderSpoken,
+    quote_opening: i.round === "quote" ? quoteOpening({ siteAreaHi: i.siteAreaHi, deliverSpoken, orderSpoken, items: i.items }, followUp) : "",
+    is_followup: followUp ? "हाँ" : "",
+    followup_ask: followUp ? followUpSpoken(i.followUp!.gaps, i.items, "hi") : "",
     item_keys: itemKeysSpoken(i.items),
     credit_wanted: wantsCredit ? daysSpoken(i.creditDaysWanted!) : "",
     their_total_spoken: i.round === "haggle" && i.theirTotalPaise !== undefined ? hindiRupees(i.theirTotalPaise / 100) : "",

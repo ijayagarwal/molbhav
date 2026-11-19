@@ -226,8 +226,12 @@ export function bandsFresh(ctx: PricingContext): boolean {
   });
 }
 
-/** Landed total, flags, comparable and citable for one quote (ARCHITECTURE §9). Outliers need all quotes: see priceQuotes. */
-export function priceQuote(facts: QuoteFacts, ctx: PricingContext): PricedQuote {
+/**
+ * Landed total, flags, comparable and citable for one quote (ARCHITECTURE §9). Outliers need all quotes: see priceQuotes.
+ * `carried`: flags a re-price keeps from the quote's earlier pricing because its facts can't reproduce them
+ * (R28: a follow-up re-prices a stored quote; an `outlier` or `lump_sum_mismatch` found then stays).
+ */
+export function priceQuote(facts: QuoteFacts, ctx: PricingContext, carried: readonly Flag[] = []): PricedQuote {
   const tiers = ctx.brandTiers ?? BRAND_TIERS[ctx.city];
   const flags = new Set<Flag>();
 
@@ -303,8 +307,20 @@ export function priceQuote(facts: QuoteFacts, ctx: PricingContext): PricedQuote 
   if (!facts.readBackConfirmed) flags.add("not_read_back");
   if (!facts.ratesInTranscript) flags.add("rate_not_in_transcript");
   if (outOfBand) flags.add("out_of_band");
+  for (const f of carried) flags.add(f);
 
   return finish(landed, [...flags], facts, ctx, totalSource);
+}
+
+/**
+ * Whether two quoted lines say the same rate: the same rupees per kg (steel, whatever unit each was said in)
+ * or per bag (cement). "सत्तावन पचास किलो" and "पाँच हज़ार सात सौ पचास क्विंटल" are the same rate. A follow-up
+ * (R28) uses it to tell a restated rate from a new one.
+ */
+export function sameLineRate(a: Pick<QuoteLine, "rate" | "rateUnit">, b: Pick<QuoteLine, "rate" | "rateUnit">): boolean {
+  if ((a.rateUnit === "bag") !== (b.rateUnit === "bag")) return false;
+  const perBase = (l: Pick<QuoteLine, "rate" | "rateUnit">) => (l.rateUnit === "bag" ? toPaise(l.rate) : toPaise(l.rate) / KG_PER[l.rateUnit]);
+  return Math.abs(perBase(a) - perBase(b)) < 0.5;
 }
 
 /** A stated all-in total must sit between the bands' minimum and maximum, both with GST (the maximum plus 5% for charges). */

@@ -35,6 +35,8 @@ export const CALLS = {
   maxSweepCallsPerOrderPerDealer: 3,
   /** Per order, per dealer number: the confirm call and its one retry (R15, R18). */
   maxConfirmCallsPerOrderPerDealer: 2,
+  /** Per order, per dealer: follow-up calls that ask only what his quote left out (R28). Live calls still pass every claimDial guard. */
+  maxFollowUpsPerOrderPerDealer: 2,
   queueDeadlineMs: 10 * 60 * 1000, // R2
   dialingDeadlineMs: 30 * 1000, // R15
   ringingDeadlineMs: 45 * 1000, // B5

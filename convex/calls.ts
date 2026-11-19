@@ -39,9 +39,14 @@ const ROUND_STATUSES: Record<Round, ReadonlySet<Doc<"orders">["status"]>> = {
   confirm: new Set(["placing"]),
 };
 
-/** Whether a call of this round may dial while the order is in this status (claimDial, and the dial job's re-check, R18). */
-export function roundFitsOrder(round: Round, status: Doc<"orders">["status"]): boolean {
-  return ROUND_STATUSES[round].has(status);
+/**
+ * Whether this call may dial while the order is in this status (claimDial, and the dial job's re-check, R18).
+ * A follow-up (R28) is a quote-round call that dials only while the order is `ready`, and never in any other
+ * status; every other call dials only in its round's statuses.
+ */
+export function callFitsOrder(call: Pick<Doc<"calls">, "round" | "followUpOf">, status: Doc<"orders">["status"]): boolean {
+  if (call.followUpOf !== undefined) return call.round === "quote" && status === "ready";
+  return ROUND_STATUSES[call.round].has(status);
 }
 
 export type ClaimResult =
@@ -78,7 +83,7 @@ export const claimDial = internalMutation({
       order.mode !== "live" ||
       order.kind !== "app" ||
       order.roundSeq !== call.roundSeq ||
-      !ROUND_STATUSES[call.round].has(order.status)
+      !callFitsOrder(call, order.status)
     ) {
       return await cancel(ctx, call, "round_closed", now);
     }

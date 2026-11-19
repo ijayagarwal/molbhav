@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { quoteOpening } from "../../lib/bolna/userData";
 import { PRICE_BAND_SEEDS } from "../../lib/config";
 import type { OrderItem, Round } from "../../lib/domain";
 import { checkCall, isReadBackQuestion, toFacts } from "../../lib/extraction";
@@ -48,6 +49,7 @@ describe("welcomes are word for word docs/CALL_SCRIPT.md", () => {
   const vars = { contractorName: "रमेश", siteAreaHi: "मानसरोवर", deliverSpoken: "कल सुबह", orderSpoken: spokenOrder(DEMO) };
   const fill = (t: string, deliver: string) =>
     t
+      .replaceAll("{quote_opening}", quoteOpening({ siteAreaHi: vars.siteAreaHi, deliverSpoken: deliver, orderSpoken: vars.orderSpoken, items: DEMO }, false))
       .replaceAll("{contractor_name}", vars.contractorName)
       .replaceAll("{site_area}", vars.siteAreaHi)
       .replaceAll("{deliver_by}", deliver)
@@ -61,6 +63,17 @@ describe("welcomes are word for word docs/CALL_SCRIPT.md", () => {
     // "flexible" leaves the delivery clause out (R15).
     expect(welcome(round, { ...vars, deliverSpoken: "" })).toBe(fill(templates[i], ""));
     expect(scriptDiscloses(firstSentence(welcome(round, vars)))).toBe(true);
+  });
+
+  test("R28: {quote_opening} keeps the normal quote welcome word for word; a follow-up's still discloses first", () => {
+    expect(welcome("quote", vars)).toBe(
+      `नमस्ते जी, ये मोलभाव से AI कॉल है, रमेश जी की तरफ़ से, और कॉल रिकॉर्ड हो रही है। मानसरोवर साइट पे कल सुबह ${vars.orderSpoken} चाहिए, स्टॉक में है?`,
+    );
+    const again = welcome("quote", { ...vars, items: DEMO, followUp: true });
+    expect(again).toBe(
+      "नमस्ते जी, ये मोलभाव से AI कॉल है, रमेश जी की तरफ़ से, और कॉल रिकॉर्ड हो रही है। पिछली कॉल में कुछ बातें रह गई थीं, सरिया और सीमेंट के ऑर्डर के बारे में, एक मिनट बात हो सकती है?",
+    );
+    expect(scriptDiscloses(firstSentence(again))).toBe(true);
   });
 });
 
