@@ -115,6 +115,10 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
   at the `followUp.*` copy; the DESIGN.md copy-deck rows; a visual check of Result at 360 and 1440 px.
 
 ### 20 Nov 2026: live on www.callagent.dev, a fresh database, live calls on (trial)
+- **Follow-up calls (R28) deployed (20 Nov, ~3:30 IST):** Result lists each quote's missing or unconfirmed details
+  and "दोबारा कॉल करके पूछिए" calls that dealer again asking only those; the merged quote is re-priced and the
+  ranking updated. Checked end to end in sim (hi and en). All four Bolna agent sets (dev, prod, and both
+  ElevenLabs sets) were synced with the new Quote script after the code went live; production checks ok.
 - **First live tests (night of 20 Nov):** Vercel BotID marked every phone as a bot while callagent.dev went through
   Cloudflare's proxy (spoken orders, /try and the dealer code all refused). Fixed: the founders switched Cloudflare
   to DNS only; signed-in voice and read-back requests treat BotID as a logged signal (R27); Home's example plays a
