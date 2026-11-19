@@ -461,9 +461,45 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `settings.account` | खाता | Account |
 | `logout.button` | लॉग आउट | Log out |
 | `logout.title` | इस फ़ोन से लॉग आउट करें? | Log out of this phone? |
-| `logout.warning` | अभी फ़ोन नंबर से लॉगिन नहीं है, इसलिए लॉग आउट के बाद आपके पुराने ऑर्डर इस फ़ोन पे नहीं दिखेंगे। शुरू से शुरू करना होगा। | There's no phone-number login yet, so after you log out, your past orders won't show on this phone. You'll start again from the beginning. |
+| `logout.warning` | फिर से उसी Google खाते से जुड़ेंगे तो आपके ऑर्डर और जानकारी वैसे ही मिलेंगे। | Sign in with the same Google account again and your orders and details will all be there. |
 | `logout.confirm` | हाँ, लॉग आउट कीजिए | Yes, log out |
 | `logout.cancel` | रहने दीजिए | Stay logged in |
+| `signin.title` | मोलभाव में आपका स्वागत है | Welcome to Molbhav |
+| `signin.body` | अपने Google खाते से जुड़िए। फिर अपनी जानकारी दीजिए, और हमारी टीम आपके लिए ऐप चालू करेगी। | Continue with your Google account. Then tell us about you, and our team will switch the app on for you. |
+| `signin.oldSession` | पहले वाला लॉगिन अब नहीं चलता। आगे बढ़ने के लिए Google से जुड़िए। | The old sign-in no longer works. Continue with Google to go on. |
+| `signin.step1` | Google से जुड़िए | Continue with Google |
+| `signin.step2` | नाम, WhatsApp नंबर और पता दीजिए | Give your name, WhatsApp number and address |
+| `signin.step3` | हमारी टीम मंज़ूरी देगी, फिर ऑर्डर दीजिए | Our team approves you, then you order |
+| `signin.google` | Google से जारी रखिए | Continue with Google |
+| `signin.opening` | Google खुल रहा है… | Opening Google… |
+| `signin.failed` | Google नहीं खुला। थोड़ी देर बाद फिर कोशिश कीजिए। | Google didn't open. Please try again in a moment. |
+| `signin.privacyNote` | हम Google से सिर्फ़ आपका नाम, email और फ़ोटो लेते हैं। | From Google we take only your name, email and photo. |
+| `onboarding.detailsTitle` | अपनी जानकारी दीजिए | Tell us about you |
+| `onboarding.nameLabel` | आपका नाम | Your name |
+| `onboarding.phoneLabel` | WhatsApp नंबर | WhatsApp number |
+| `onboarding.phoneHint` | हमारी टीम इसी नंबर पर आपसे बात करेगी। | Our team will talk to you on this number. |
+| `onboarding.phoneInvalid` | 10 अंकों का मोबाइल नंबर लिखिए | Type a 10-digit mobile number |
+| `onboarding.addressLabel` | आपका पता | Your address |
+| `onboarding.addressPlaceholder` | जैसे: प्लॉट 12, सेक्टर 5, मानसरोवर, जयपुर | e.g. Plot 12, Sector 5, Mansarovar, Jaipur |
+| `onboarding.addressInvalid` | पूरा पता लिखिए (कम से कम 6 अक्षर) | Type the full address (at least 6 characters) |
+| `onboarding.privacy` | हम आपका नाम, नंबर, पता, Google email और ऑर्डर रखते हैं ताकि dealers से रेट ला सकें और आपसे बात कर सकें। आपकी आवाज़ की रिकॉर्डिंग नहीं रखी जाती। dealer कॉल की रिकॉर्डिंग 30 दिन में मिट जाती है। | We keep your name, number, address, Google email and orders to get rates from dealers and to talk to you. Your voice clips are never stored. Dealer call recordings are deleted after 30 days. |
+| `pending.saved` | आपकी जानकारी मिल गई। | We have your details. |
+| `pending.title` | धन्यवाद, {name} जी | Thank you, {name} |
+| `pending.body` | हमारी टीम आपकी जानकारी देखकर ऐप चालू करेगी। अक्सर कुछ घंटों में। ज़रूरत हुई तो हम आपके WhatsApp नंबर पर बात करेंगे। | Our team will look at your details and switch the app on, usually within a few hours. If we need to, we'll talk to you on your WhatsApp number. |
+| `pending.yourDetails` | आपकी जानकारी | Your details |
+| `pending.google` | Google खाता | Google account |
+| `pending.edit` | जानकारी बदलिए | Change details |
+| `pending.tryDemo` | तब तक डेमो आज़माइए | Try the demo meanwhile |
+| `blocked.title` | आपका खाता अभी बंद है | Your account is switched off |
+| `blocked.body` | इस खाते से अभी ऐप नहीं चल सकता। कोई गलती लगे तो हमारी टीम से बात कीजिए। | This account can't use the app right now. If you think that's a mistake, please talk to our team. |
+| `blocked.signedInAs` | {email} से जुड़े हैं | Signed in as {email} |
+| `profile.locked` | नाम और नंबर हमारी टीम ने कॉल पर पक्का किए हैं, इसलिए यहाँ सिर्फ़ पता बदल सकते हैं। | Our team confirmed your name and number on a call, so only the address can change here. |
+| `profile.save` | सेव कीजिए | Save |
+| `profile.saving` | सेव कर रहे हैं… | Saving… |
+| `profile.cancel` | रहने दीजिए | Cancel |
+| `settings.signedInAs` | Google खाता | Google account |
+| `settings.profile` | आपकी जानकारी | Your details |
+| `settings.editProfile` | जानकारी बदलिए | Change details |
 | `settings.sharePhone` | dealer को मेरा नंबर दे सकते हैं | Dealers may get my number |
 | `settings.sharePhoneHint` | कॉल पे dealer पूछे तो AI आपका पक्का नंबर बता देगा। बंद हो तो कहेगा कि ऑर्डर पक्का होते ही आप खुद बात करेंगे। | If a dealer asks on a call, the AI gives your verified number. Off: it says you'll call once the order is final. |
 | `confirm.askGrade` | कौन सा ग्रेड? | Which grade? |
@@ -610,6 +646,7 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `try.title` | खुद आज़माइए | Try it yourself |
 | `try.sub` | एक ऑर्डर बोलिए, लिखिए या नीचे से चुनिए। देखिए मोलभाव उसे कैसे समझता है, फिर काल्पनिक dealers से रेट लेके मोलभाव करता है। | Say an order, type it or pick one below. See how Molbhav understands it, then gets rates from fictional dealers and bargains. |
 | `try.demoNote` | DEMO: काल्पनिक dealers, कोई असली कॉल नहीं जाती। आवाज़ रखी नहीं जाती, और ये डेमो ऑर्डर 24 घंटे में मिट जाता है। | DEMO: fictional dealers; no real call is made. Your voice isn't kept, and this demo order is deleted within 24 hours. |
+| `try.signinBody` | डेमो चलाने के लिए पहले Google से जुड़िए। एक बार जुड़ने पर नमूना ऑर्डर पर टैप कीजिए। | Continue with Google to run the demo. Once you're in, tap a sample order. |
 | `try.samplesTitle` | एक ऑर्डर चुनिए | Pick an order |
 | `try.ownTitle` | या अपना ऑर्डर दीजिए | Or give your own order |
 | `try.speak` | बोलके बताइए | Say it |

@@ -4,7 +4,7 @@ This is the living record of what we are building, what is done, and what comes 
 as work happens, so a person or an AI agent can pick up the project from this page. Git history has the
 detail; this page has the story. Newest entries are at the top of each section.
 
-**Last updated:** 18 Nov 2026
+**Last updated:** 20 Nov 2026
 
 ---
 
@@ -100,6 +100,24 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
 (Phase 9).
 
 ## 4. Session log (what happened, newest first)
+
+### 19–20 Nov 2026: Google sign-in, the founders' approval wall, and the admin panel (R26)
+- **The founders tested the Bolna code step on /dealer with a teammate's number: the code arrived and the number
+  was verified.**
+- **Google sign-in for everyone** (Convex Auth's Google provider, the founders' OAuth client; keys set on dev and
+  production, never printed). Anonymous sign-in is gone. After sign-in, onboarding asks name, WhatsApp number and
+  address (with the consent) and the site area.
+- **Nothing that costs money runs until a founder approves the person:** new people are *pending* (they see their
+  details, can edit them and can try the /try demo); *approved* people use the app; *blocked* people see only a
+  "switched off" page. Enforced on the server (the builders, the voice budget, app sweeps, and a new claimDial guard
+  so a blocked or pending owner never dials). Admins are the Google emails in `ADMIN_EMAILS`.
+- **Admin panel** with one tab bar: **Overview**, **People** (everyone who signed in: email, name, number, address,
+  area, sign-up and last sign-in, orders; approve / block / back to pending; allow real calls after a callback, stop
+  them, change the daily limit), **Dealers** (applications, plus the directory), **Agents**. Every action needs a
+  note and is audit-logged.
+- **Testing without Google:** a test-only sign-in for the local dev deployment (`convex/e2eAuth.ts`, inert anywhere
+  else). End to end: sign-in screen, onboarding → waiting screen, and the whole demo order as an approved user pass
+  in hi and en.
 
 ### 18 Nov 2026: dealers verify their own number through Bolna; Firebase removed (R25)
 - **No more Bolna dashboard step and no SMS bill:** Bolna's dashboard fills its trial "Verified numbers" list
