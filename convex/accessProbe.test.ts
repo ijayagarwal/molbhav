@@ -37,6 +37,7 @@ const PUBLIC_ACTIONS: Record<string, string> = {
   "dealerOtp:send": "serverAction: needs CONVEX_SERVER_SECRET and the application's one-time ticket; texts only the stored number; rate-limited; dealerOtp.test.ts",
   "dealerOtp:check": "serverAction: needs CONVEX_SERVER_SECRET and the ticket; 5 tries per code; returns only ok/code; dealerOtp.test.ts",
   "dealerOtp:syncFromBolna": "adminAction: ADMIN_USER_IDS only; reads Bolna's verified list and returns counts; dealerOtp.test.ts",
+  "adminStats:bolnaWallet": "adminAction: admins only; GET /user/me only (its client allows nothing else); returns the wallet and concurrency numbers, never the key; adminStats.test.ts",
 };
 
 const publicActions: string[] = Object.entries(loaded).flatMap(([path, mod]) => {
@@ -75,7 +76,7 @@ const NOT_PROBED: Record<string, string> = {
 };
 
 /** Modules whose every public function is for admins only (S1, R18, R24); admin.amIAdmin is the one exception. */
-const ADMIN_MODULES = new Set(["admin", "dealerApps"]);
+const ADMIN_MODULES = new Set(["admin", "dealerApps", "adminStats", "adminDealers"]);
 
 /**
  * Sample values for non-id arguments, so these functions are probed like the rest (another user, signed
@@ -101,6 +102,12 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   "dealerApps:approveLive": { note: "probe: verified and agreed" },
   "dealerApps:restrict": { note: "probe: restrict this dealer" },
   "dealerApps:unrestrict": { note: "probe: allow this dealer again" },
+  "adminDealers:add": {
+    name: "Probe Traders", area: "mansarovar", phone: "9829000001", materials: ["cement"], consent: "test_ok",
+    note: "probe: called back and agreed", calledBack: true,
+  },
+  "adminDealers:restrict": { note: "probe: restrict this dealer" },
+  "adminDealers:unrestrict": { note: "probe: allow this dealer again" },
 };
 /** String-typed ids (getOrNull takes a raw string so malformed links read as "not found"). */
 const STRING_IDS: Record<string, Record<string, string>> = { "orders:getOrNull": { orderId: "orders" } };

@@ -6,17 +6,18 @@
 // so a stolen anonymous admin cookie can't aim AI calls at anyone. Every write is audit-logged
 // with the actor named on the command line. The /app/admin page only reads; phone hashes for
 // TEST_PHONE_HASHES come from addDealer's result or `admin:phoneHash`, never from a browser.
-// The one exception (R24) is the dealer applications panel, /app/admin/dealers: approving, restricting and
-// re-allowing a self-onboarded dealer run from the browser through admin-only mutations in dealerApps.ts.
+// The exceptions run from /app/admin/dealers through admin-only, audit-logged mutations: approving, restricting
+// and re-allowing a self-onboarded dealer (R24, dealerApps.ts), and adding, restricting and re-allowing any
+// dealer from the directory (R26, adminDealers.ts: the same field checks as addDealer, convex/lib/dealerFields.ts).
 import { ConvexError, v } from "convex/values";
-import { CALLS, CITIES, CITY_AREAS, PRICING, type City } from "../lib/config";
+import { CALLS, CITIES, PRICING } from "../lib/config";
 import { liveChecklist } from "../lib/liveGuards";
-import { normaliseDealerName } from "../lib/names";
 import { normaliseIndianMobile } from "../lib/phone";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { isAdmin } from "./lib/access";
 import { audit, requireNote } from "./lib/audit";
+import { checkDealerInput, dealerByPhoneHash, insertDealer } from "./lib/dealerFields";
 import { adminMutation, adminQuery, optionalUserQuery } from "./lib/functions";
 import { hashPhone } from "./lib/hash";
 import { contractorOrdersToday, countActiveLiveCalls, liveEnv, panelTestPhoneCount } from "./lib/live";
@@ -267,26 +268,10 @@ export const addDealer = internalMutation({
   handler: async (ctx, args) => {
     const who = actorTag(args.actor);
     const consentNote = requireNote(args.consentNote, 10);
-    const name = normaliseDealerName(args.name);
-    if (name === null) throw new ConvexError({ code: "invalid_name" });
-    const nameHi = args.nameHi === undefined ? undefined : normaliseDealerName(args.nameHi);
-    if (nameHi === null) throw new ConvexError({ code: "invalid_name_hi" });
-    if (!(CITIES as readonly string[]).includes(args.city)) throw new ConvexError({ code: "invalid_city" });
-    const city = args.city as City;
-    if (!CITY_AREAS[city].some((a) => a.key === args.area)) throw new ConvexError({ code: "invalid_area" });
-    const materials = [...new Set(args.materials)];
-    if (materials.length === 0) throw new ConvexError({ code: "no_materials" });
-    if (args.language !== undefined && !/^[a-z]{2}(-[A-Z]{2})?$/.test(args.language)) throw new ConvexError({ code: "invalid_language" });
-    const phoneE164 = normaliseIndianMobile(args.phone);
-    if (phoneE164 === null) throw new ConvexError({ code: "invalid_phone" });
-    const phoneHash = await hashPhone(phoneE164);
-
-    const fields = { name, city, area: args.area, materials, consent: args.consent };
-    const optional = { ...(nameHi !== undefined ? { nameHi } : {}), ...(args.language !== undefined ? { language: args.language } : {}) };
-    const existing = await ctx.db
-      .query("dealers")
-      .withIndex("by_phoneHash", (q) => q.eq("phoneHash", phoneHash))
-      .first();
+    // The field checks and the insert are shared with the founders' panel (adminDealers.add, R26).
+    const checked = await checkDealerInput(args);
+    const { fields, optional, phoneHash } = checked;
+    const existing = await dealerByPhoneHash(ctx, phoneHash);
     if (existing !== null) {
       if (existing.consent !== "opted_out") throw new ConvexError({ code: "dealer_exists", dealerId: existing._id });
       if (args.readdAfterOptOut !== true) throw new ConvexError({ code: "opted_out", hint: "set readdAfterOptOut with a fresh consent note" });
@@ -310,7 +295,7 @@ export const addDealer = internalMutation({
       await audit(ctx, who, "dealer.readd_after_opt_out", existing._id, { consent: args.consent, consentNote });
       return { dealerId: existing._id, phoneHash, readded: true };
     }
-    const dealerId = await ctx.db.insert("dealers", { ...fields, ...optional, phoneE164, phoneHash, source: "admin", isDemo: false });
+    const dealerId = await insertDealer(ctx, checked);
     await audit(ctx, who, "dealer.add", dealerId, { consent: args.consent, consentNote });
     return { dealerId, phoneHash, readded: false };
   },

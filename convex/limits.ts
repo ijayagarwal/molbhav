@@ -63,8 +63,8 @@ const SPEND = "voiceSpendPaise";
 const SPEND_BUCKET = 1e12;
 const SPEND_CONFIG = { kind: "fixed window" as const, rate: SPEND_BUCKET, capacity: SPEND_BUCKET, period: DAY, start: IST_MIDNIGHT_EPOCH_MS };
 
-/** Paise spent today (IST) by the voice routes (or, with `name`, by the sandbox). */
-async function spentToday(ctx: Parameters<typeof rateLimiter.limit>[0], now: number, name: string = SPEND): Promise<number> {
+/** Paise spent today (IST) by the voice routes (or, with `name`, by the sandbox). Reads only. */
+async function spentToday(ctx: Parameters<typeof rateLimiter.getValue>[0], now: number, name: string = SPEND): Promise<number> {
   const state = await rateLimiter.getValue(ctx, name, { key: "all", config: SPEND_CONFIG });
   const left = calculateRateLimit({ value: state.value, ts: state.ts }, SPEND_CONFIG, now).value;
   return Math.max(0, SPEND_BUCKET - left);
@@ -147,6 +147,18 @@ export const consumeVoice = userMutation({
 
 /** The sandbox's own daily spend (SANDBOX_DAILY_INR_CAP), kept apart from the app's VOICE_DAILY_INR_CAP. */
 const SANDBOX_SPEND = "sbx:spendPaise";
+
+/**
+ * For the founders' overview (adminStats.overview, R26), read-only: today's estimated spend (IST day, paise) of
+ * the app's voice routes and of the /try sandbox, each with its cap in paise (null: the env value is malformed,
+ * so the routes refuse everything). Consumes nothing.
+ */
+export async function spendToday(ctx: Parameters<typeof rateLimiter.getValue>[0], now: number) {
+  return {
+    voice: { spentPaise: await spentToday(ctx, now), capPaise: dailyCapPaise(process.env.VOICE_DAILY_INR_CAP) },
+    sandbox: { spentPaise: await spentToday(ctx, now, SANDBOX_SPEND), capPaise: sandboxDailyCapPaise(process.env.SANDBOX_DAILY_INR_CAP) },
+  };
+}
 
 /**
  * POST /api/voice/order?sandbox=1, before any paid call (G3, ARCHITECTURE §6.9): `sbx:device` (3 an hour per

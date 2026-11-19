@@ -10,6 +10,8 @@
 
 import type * as account from "../account.js";
 import type * as admin from "../admin.js";
+import type * as adminDealers from "../adminDealers.js";
+import type * as adminStats from "../adminStats.js";
 import type * as auth from "../auth.js";
 import type * as board from "../board.js";
 import type * as bolna from "../bolna.js";
@@ -27,6 +29,7 @@ import type * as extract from "../extract.js";
 import type * as http from "../http.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_audit from "../lib/audit.js";
+import type * as lib_dealerFields from "../lib/dealerFields.js";
 import type * as lib_domainCheck from "../lib/domainCheck.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as lib_hash from "../lib/hash.js";
@@ -64,6 +67,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   account: typeof account;
   admin: typeof admin;
+  adminDealers: typeof adminDealers;
+  adminStats: typeof adminStats;
   auth: typeof auth;
   board: typeof board;
   bolna: typeof bolna;
@@ -81,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/access": typeof lib_access;
   "lib/audit": typeof lib_audit;
+  "lib/dealerFields": typeof lib_dealerFields;
   "lib/domainCheck": typeof lib_domainCheck;
   "lib/functions": typeof lib_functions;
   "lib/hash": typeof lib_hash;
