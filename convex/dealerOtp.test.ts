@@ -273,3 +273,51 @@ describe("the founders' panel path (R27)", () => {
     expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: other })).toEqual({ ok: false, code: "failed" });
   });
 });
+
+describe("re-verifying a number already on Bolna's list (panel only)", () => {
+  test("the panel takes it off the list, adds it again (a fresh code), and the dealer's code puts it back, proved", async () => {
+    const { t, asAdmin } = await setup();
+    const id = await apply(t);
+    replies.push({ status: 400, body: { detail: "Phone number already verified" } });
+    replies.push({ status: 200, body: [{ id: "5849d3d4-be30-4050-9ba6-dadbc82859da", phone_number: PHONE, status: true }] });
+    replies.push({ status: 200, body: { state: "deleted" } });
+    replies.push({ status: 200, body: { request_id: "fresh-1" } });
+    expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: true });
+    expect(seen.map((x) => `${x.method} ${x.url.replace("https://api.bolna.ai", "")}`)).toEqual([
+      "POST /phone-numbers/verified/add",
+      "GET /phone-numbers/verified/all",
+      "DELETE /phone-numbers/verified/5849d3d4-be30-4050-9ba6-dadbc82859da",
+      "POST /phone-numbers/verified/add",
+    ]);
+    expect((await getApp(t, id)).bolnaVerifiedAt).toBeUndefined();
+    replies.push({ status: 200, body: { message: "verified" } });
+    expect(await asAdmin.action(api.dealerOtp.adminCheck, { applicationId: id, code: "123456" })).toEqual({ ok: true });
+    expect(await getApp(t, id)).toMatchObject({ phoneVerifiedAt: expect.any(Number), bolnaVerifiedAt: expect.any(Number) });
+  });
+
+  test("a failed removal leaves it listed; a removal followed by a failed add says so (off the list)", async () => {
+    const { t, asAdmin } = await setup();
+    const id = await apply(t);
+    replies.push({ status: 400, body: { detail: "Phone number already verified" } });
+    replies.push({ status: 200, body: [{ id: "5849d3d4-be30-4050-9ba6-dadbc82859da", phone_number: PHONE, status: true }] });
+    replies.push({ status: 500, body: { detail: "boom" } });
+    expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: false, code: "already_verified" });
+    expect((await getApp(t, id)).bolnaVerifiedAt).toEqual(expect.any(Number));
+
+    vi.setSystemTime(T0 + RESEND_GAP_MS + 1000);
+    replies.push({ status: 400, body: { detail: "Phone number already verified" } });
+    replies.push({ status: 200, body: [{ id: "5849d3d4-be30-4050-9ba6-dadbc82859da", phone_number: PHONE, status: true }] });
+    replies.push({ status: 200, body: { state: "deleted" } });
+    replies.push({ status: 500, body: { detail: "boom" } });
+    expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: false, code: "failed" });
+    expect((await getApp(t, id)).bolnaVerifiedAt).toBeUndefined();
+  });
+
+  test("the public /dealer path never removes anything from the list", async () => {
+    const { t } = await setup();
+    const id = await apply(t);
+    replies.push({ status: 400, body: { detail: "Phone number already verified" } });
+    expect(await send(t, id)).toEqual({ ok: false, code: "already_verified" });
+    expect(seen.map((x) => x.method)).toEqual(["POST"]);
+  });
+});

@@ -161,6 +161,19 @@ function AppCard({ app, onAction, onVerify }: { app: DealerAppView; onAction: (a
           <SecondaryButton onClick={() => onAction("unrestrict")}>{t("admin.actUnrestrict")}</SecondaryButton>
         )}
       </div>
+      {app.status === "approved_test" && !optedOut ? (
+        app.bolnaVerified && app.dealer?.restricted !== true ? (
+          <p role="status" className="flex items-start gap-2 rounded-card border border-hara bg-card px-3 py-2 text-label text-hara">
+            <CheckBold aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
+            {t("admin.testCallable")}
+          </p>
+        ) : (
+          <p className="flex items-start gap-2 rounded-card border border-lal bg-card px-3 py-2 text-label text-lal">
+            <WarningBold aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
+            {t("admin.testNotCallable")}
+          </p>
+        )
+      ) : null}
       {(!app.verified || !app.bolnaVerified) && !optedOut && app.status !== "restricted" ? (
         <div className="flex flex-col gap-1.5 border-t border-dashed border-rule pt-3">
           <SecondaryButton onClick={onVerify} className="w-full sm:w-fit">

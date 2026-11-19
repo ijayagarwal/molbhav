@@ -12,7 +12,7 @@
 //   founders' panel (dealerApps.ts), and claimDial still checks every guard per call (CLAUDE.md hard rule 2).
 // - The Bolna request id and the ticket never leave the server; logs carry codes, never a number.
 import { ConvexError, v } from "convex/values";
-import { createBolnaClient, VERIFY_ENDPOINTS } from "../lib/bolna/api";
+import { ADMIN_VERIFY_ENDPOINTS, createBolnaClient, VERIFY_ENDPOINTS } from "../lib/bolna/api";
 import { checkProblem, otpRequestId, parseVerifiedList, problemLog, sendProblem, type BolnaOtpProblem } from "../lib/bolna/verifiedNumbers";
 import { isIndianMobileE164 } from "../lib/phone";
 import { internal } from "./_generated/api";
@@ -336,7 +336,19 @@ export const auditPanelCode = internalMutation({
   },
 });
 
-/** Panel: "कोड भेजिए" for one application. Bolna texts the stored number. */
+/** The number is off Bolna's list until the dealer's code is checked (adminSend re-listing it). */
+export const recordUnlisted = internalMutation({
+  args: { applicationId: v.id("dealerApplications") },
+  handler: async (ctx, { applicationId }) => {
+    await ctx.db.patch(applicationId, { bolnaVerifiedAt: undefined });
+  },
+});
+
+/**
+ * Panel: "कोड भेजिए" for one application. Bolna texts the stored number. A number that is already on Bolna's list
+ * gets no code from Bolna, so here (founders only, on a call with the dealer) it is taken off the list and added
+ * again, which makes Bolna send a fresh code; until the dealer's code is checked it is off the list.
+ */
 export const adminSend = adminAction({
   args: { applicationId: v.id("dealerApplications") },
   handler: async (ctx, { applicationId }): Promise<OtpAnswer> => {
@@ -345,24 +357,47 @@ export const adminSend = adminAction({
     if (key === null) return { ok: false, code: "not_configured" };
     const reserved = await ctx.runMutation(internal.dealerOtp.reserveAdminSend, { applicationId });
     let answer: OtpAnswer;
+    let outcome = "sent";
     if (!reserved.ok) answer = reserved;
     else {
+      const bolna = createBolnaClient({ apiKey: key, allow: ADMIN_VERIFY_ENDPOINTS });
+      const sendOnce = async (): Promise<OtpAnswer> => {
+        const requestId = otpRequestId(await bolna.sendVerifyCode(reserved.phoneE164));
+        if (requestId === null) return { ok: false, code: "failed" };
+        await ctx.runMutation(internal.dealerOtp.recordSent, { applicationId, requestId });
+        return { ok: true };
+      };
       try {
-        const raw = await createBolnaClient({ apiKey: key, allow: VERIFY_ENDPOINTS }).sendVerifyCode(reserved.phoneE164);
-        const requestId = otpRequestId(raw);
-        if (requestId === null) answer = { ok: false, code: "failed" };
-        else {
-          await ctx.runMutation(internal.dealerOtp.recordSent, { applicationId, requestId });
-          answer = { ok: true };
-        }
+        answer = await sendOnce();
       } catch (e) {
-        const problem = sendProblem(e);
+        let problem = sendProblem(e);
         log({ evt: "admin_send", code: problem, ...problemLog(e) });
-        if (problem === "already_verified") await ctx.runMutation(internal.dealerOtp.recordListed, { applicationId });
         answer = toAnswer(problem);
+        if (problem === "already_verified") {
+          // Re-list: find the number's row, take it off, add it again (Bolna then texts a code).
+          let removed = false;
+          try {
+            const row = parseVerifiedList(await bolna.listVerifiedNumbers()).find((n) => n.phoneE164 === reserved.phoneE164);
+            if (row === undefined) throw new Error("not on the list");
+            await bolna.removeVerifiedNumber(row.id);
+            removed = true;
+            await ctx.runMutation(internal.dealerOtp.recordUnlisted, { applicationId });
+            answer = await sendOnce();
+            outcome = answer.ok ? "sent_after_relisting" : answer.code;
+          } catch (e2) {
+            problem = sendProblem(e2);
+            log({ evt: "admin_relist", code: problem, removed, ...problemLog(e2) });
+            // Still on the list unless the removal went through; then it is off until a code is checked.
+            if (removed) answer = { ok: false, code: "failed" };
+            else {
+              await ctx.runMutation(internal.dealerOtp.recordListed, { applicationId });
+              answer = { ok: false, code: "already_verified" };
+            }
+          }
+        }
       }
     }
-    await ctx.runMutation(internal.dealerOtp.auditPanelCode, { who, action: "dealer.code_sent", applicationId, outcome: answer.ok ? "sent" : answer.code });
+    await ctx.runMutation(internal.dealerOtp.auditPanelCode, { who, action: "dealer.code_sent", applicationId, outcome: answer.ok ? outcome : answer.code });
     return answer;
   },
 });
