@@ -365,6 +365,7 @@ export const hi = {
   "settings.signedInAs": "Google खाता",
   "settings.profile": "आपकी जानकारी",
   "settings.editProfile": "जानकारी बदलिए",
+  "settings.adminPanel": "एडमिन पैनल खोलिए",
   "settings.privacy": "आपकी आवाज़ रिकॉर्ड नहीं होती। dealer कॉल की रिकॉर्डिंग 30 दिन में मिट जाती है।",
   "home.tryExample": "इसी से शुरू कीजिए",
   "home.noOrders": "अभी कोई ऑर्डर नहीं",

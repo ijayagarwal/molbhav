@@ -361,6 +361,7 @@ export const en: Record<DictKey, string> = {
   "settings.signedInAs": "Google account",
   "settings.profile": "Your details",
   "settings.editProfile": "Change details",
+  "settings.adminPanel": "Open the admin panel",
   "settings.privacy": "Your voice is never stored. Dealer call recordings are deleted after 30 days.",
   "home.tryExample": "Start with this",
   "home.noOrders": "No orders yet",

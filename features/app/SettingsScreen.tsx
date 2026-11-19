@@ -5,6 +5,7 @@
 // visitor (a fresh browser) is sent to /app, where onboarding starts one.
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { BottomSheet } from "@/components/mb/AppShell";
@@ -188,6 +189,11 @@ export function SettingsScreen() {
             onLabel={t("settings.on")}
             offLabel={t("settings.off")}
           />
+        ) : null}
+        {account?.isAdmin ? (
+          <Link href="/app/admin" className="flex min-h-14 items-center justify-center rounded-card border-[1.5px] border-ink bg-card px-4 text-label">
+            {t("settings.adminPanel")}
+          </Link>
         ) : null}
         <SecondaryButton tone="lal" onClick={() => setLoggingOut("ask")}>
           {t("logout.button")}

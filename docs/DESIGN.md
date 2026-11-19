@@ -500,6 +500,7 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `settings.signedInAs` | Google खाता | Google account |
 | `settings.profile` | आपकी जानकारी | Your details |
 | `settings.editProfile` | जानकारी बदलिए | Change details |
+| `settings.adminPanel` | एडमिन पैनल खोलिए | Open the admin panel |
 | `settings.sharePhone` | dealer को मेरा नंबर दे सकते हैं | Dealers may get my number |
 | `settings.sharePhoneHint` | कॉल पे dealer पूछे तो AI आपका पक्का नंबर बता देगा। बंद हो तो कहेगा कि ऑर्डर पक्का होते ही आप खुद बात करेंगे। | If a dealer asks on a call, the AI gives your verified number. Off: it says you'll call once the order is final. |
 | `confirm.askGrade` | कौन सा ग्रेड? | Which grade? |
