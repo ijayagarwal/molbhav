@@ -19,7 +19,7 @@ import { recTokenSecret, signRecToken } from "../lib/recToken";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
-import { accessError, isAdminUserId } from "./lib/access";
+import { accessError, isAdmin } from "./lib/access";
 import { userMutation } from "./lib/functions";
 
 const log = (evt: string, data: Record<string, unknown>) => console.log(JSON.stringify({ evt, ...data }));
@@ -131,7 +131,7 @@ export const recToken = userMutation({
     const call = await ctx.db.get(callId);
     const order = call === null ? null : await ctx.db.get(call.orderId);
     const owner = order !== null && order.ownerUserId === ctx.userId;
-    const admin = !owner && isAdminUserId(ctx.userId);
+    const admin = !owner && (await isAdmin(ctx, ctx.userId));
     // A missing call, someone else's call and a call without a recording look the same.
     if (call === null || (!owner && !admin)) throw accessError("not_found");
     if (call.mode !== "live" || call.recordingStorageId === undefined) throw accessError("not_found");

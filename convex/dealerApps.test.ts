@@ -48,8 +48,8 @@ async function setup() {
   const t = convexTest(schema, modules);
   rateLimiterTest.register(t);
   const ids = await t.run(async (ctx) => {
-    const adminUser = await ctx.db.insert("users", {});
-    const user = await ctx.db.insert("users", {});
+    const adminUser = await ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" });
+    const user = await ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" });
     const contractorId = await ctx.db.insert("contractors", {
       userId: user, name: "Ramesh", language: "hi", verified: true, liveDailyCap: 3, consentAt: 1, phoneE164: "+919800000001",
     });

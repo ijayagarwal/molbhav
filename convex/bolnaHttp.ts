@@ -13,7 +13,6 @@ import type { Round } from "../lib/domain";
 import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { agentIdFor } from "./bolna";
-import { isAdminUserId } from "./lib/access";
 
 /** BOLNA_WEBHOOK_SECRET shorter than this counts as unset: every request is refused (fail closed). */
 const MIN_SECRET_LENGTH = 24;
@@ -141,7 +140,7 @@ export const webCallSession = httpAction(async (ctx, req) => {
   const headers = cors(allowedOrigin(req.headers.get("origin")));
   const userId = await getAuthUserId(ctx);
   if (userId === null) return json({ error: "unauthenticated" }, 401, headers);
-  if (!isAdminUserId(userId)) return json({ error: "forbidden" }, 403, headers);
+  if (!(await ctx.runQuery(internal.account.isAdminUser, { userId }))) return json({ error: "forbidden" }, 403, headers);
   const body = await readJson(req, 1_000);
   if (body instanceof Response) return json({ error: "bad_request" }, 400, headers);
   const round = isObj(body) ? body.agent : undefined;

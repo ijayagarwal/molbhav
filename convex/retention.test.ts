@@ -202,7 +202,7 @@ describe("retention.purgeAnonUsers (7 days, S4)", () => {
     vi.setSystemTime(T0 + 8 * DAY);
     await t.mutation(internal.retention.purgeAnonUsers, {});
     const as = t.withIdentity({ subject: `${gone as Id<"users">}|session` });
-    await expect(as.mutation(api.contractors.create, { name: "Ramesh", language: "en", consent: true })).rejects.toThrow(/unauthenticated/);
+    await expect(as.mutation(api.contractors.create, { phone: "9829012345", address: "Plot 12, Mansarovar, Jaipur",  name: "Ramesh", language: "en", consent: true })).rejects.toThrow(/unauthenticated/);
     expect(await t.run(async (ctx) => (await ctx.db.query("contractors").collect()).length)).toBe(1);
   });
 });

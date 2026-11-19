@@ -42,7 +42,7 @@ describe("seed:reset", () => {
   test("is idempotent, keeps the demo contractor's user, and never touches real rows", async () => {
     const t = convexTest(schema, modules);
     const real = await t.run(async (ctx) => {
-      const user = await ctx.db.insert("users", {});
+      const user = await ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" });
       await ctx.db.insert("contractors", { userId: user, name: "Real Person", language: "hi", verified: true, liveDailyCap: 2, consentAt: 1 });
       return await ctx.db.insert("dealers", {
         name: "Real Dealer", area: "mansarovar", city: "Jaipur", phoneE164: "+919812345678", phoneHash: "h",
@@ -64,7 +64,7 @@ describe("seed:reset", () => {
 describe("admin.resetDemo", () => {
   test("needs an admin and the demo deployment (never production, whose bands hold field data); refreshes seed bands there", async () => {
     const t = convexTest(schema, modules);
-    const admin = await t.run((ctx) => ctx.db.insert("users", {}));
+    const admin = await t.run((ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
     const asAdmin = t.withIdentity({ subject: `${admin}|s` });
     await expect(asAdmin.mutation(api.admin.resetDemo, {})).rejects.toThrow(/forbidden/);
 
@@ -84,7 +84,7 @@ describe("review fixes", () => {
     await t.mutation(internal.seed.reset, {});
     const before = (await dump(t)).dealers.map((d) => d._id).sort();
     const orderId = await t.run(async (ctx) => {
-      const user = await ctx.db.insert("users", {});
+      const user = await ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" });
       const agarwal = (await ctx.db.query("dealers").collect()).find((d) => d.simPersona === "perkg_gst_extra")!;
       return await ctx.db.insert("orders", {
         ownerUserId: user, kind: "app", mode: "sim", roundSeq: 1, transcript: "x", items: [], missing: [], status: "ready", selectedDealerIds: [agarwal._id],

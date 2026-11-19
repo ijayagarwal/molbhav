@@ -52,7 +52,7 @@ const STATUS_FOR_ROUND: Record<Round, Doc<"orders">["status"]> = { quote: "sweep
 
 async function addContractor(t: T, over: Partial<Doc<"contractors">> = {}) {
   return await t.run(async (ctx) => {
-    const userId = await ctx.db.insert("users", {});
+    const userId = await ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" });
     return await ctx.db.insert("contractors", {
       userId, name: "Ramesh", language: "hi", verified: true, liveDailyCap: 3, consentAt: 1, phoneE164: "+919800000001", ...over,
     });
@@ -199,7 +199,7 @@ describe("claimDial: the transaction", () => {
   test("an order can't borrow a verified contractor it doesn't belong to", async () => {
     const t = convexTest(schema, modules);
     const verified = await addContractor(t);
-    const stranger = await t.run(async (ctx) => ctx.db.insert("users", {}));
+    const stranger = await t.run(async (ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
     const order = await addOrder(t, verified, { ownerUserId: stranger });
     expect(verdict(await claim(t, await queueCall(t, order, await addDealer(t, "+919812345602"))))).toBe("not_verified");
   });

@@ -95,6 +95,7 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
   "share:get": { publicId: "AAAAAAAAAAAAAAAAAAAAAA" },
   "sandbox:createSample": { sample: "demo", lang: "hi" },
   "sandbox:answer": { itemId: "steel", tier: "local_isi" },
+  "account:saveProfile": { name: "Ramesh", phone: "9829012345", address: "Plot 12, Mansarovar, Jaipur" },
   "dealerApps:list": { tab: "pending" },
   "dealerApps:approveForTest": { note: "probe: called back and confirmed", verifiedByCallback: true },
   "dealerApps:approveLive": { note: "probe: verified and agreed" },
@@ -116,8 +117,8 @@ const FORBIDDEN_KEYS = ["phoneE164", "phoneHash", "providerExecutionId", "record
 async function setup() {
   const t = convexTest(schema, modules);
   const ids = await t.run(async (ctx) => {
-    const userA = await ctx.db.insert("users", {});
-    const userB = await ctx.db.insert("users", {});
+    const userA = await ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" });
+    const userB = await ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" });
     const contractorA = await ctx.db.insert("contractors", {
       userId: userA, name: "रमेश", language: "hi", verified: false, liveDailyCap: 0, consentAt: 1,
     });

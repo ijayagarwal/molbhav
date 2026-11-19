@@ -12,9 +12,9 @@ afterEach(() => vi.unstubAllEnvs());
 async function onboarded() {
   const t = convexTest(schema, modules);
   await t.mutation(internal.seed.reset, {});
-  const userId = await t.run(async (ctx) => ctx.db.insert("users", {}));
+  const userId = await t.run(async (ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
   const as = t.withIdentity({ subject: `${userId}|s` });
-  const contractorId = await as.mutation(api.contractors.create, { name: "सुनीता", language: "hi", consent: true, area: "jagatpura" });
+  const contractorId = await as.mutation(api.contractors.create, { phone: "9829012345", address: "Plot 12, Mansarovar, Jaipur",  name: "सुनीता", language: "hi", consent: true, area: "jagatpura" });
   return { t, as, userId, contractorId };
 }
 
@@ -29,11 +29,11 @@ describe("onboarding (DESIGN §12.1)", () => {
   });
   test("refuses free-text areas (R7) and stays idempotent", async () => {
     const t = convexTest(schema, modules);
-    const userId = await t.run(async (ctx) => ctx.db.insert("users", {}));
+    const userId = await t.run(async (ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
     const as = t.withIdentity({ subject: `${userId}|s` });
-    await expect(as.mutation(api.contractors.create, { name: "Ramesh", language: "en", consent: true, area: "near the temple" })).rejects.toThrow(/invalid_area/);
-    const id = await as.mutation(api.contractors.create, { name: "Ramesh", language: "en", consent: true });
-    expect(await as.mutation(api.contractors.create, { name: "Other", language: "hi", consent: true })).toBe(id);
+    await expect(as.mutation(api.contractors.create, { phone: "9829012345", address: "Plot 12, Mansarovar, Jaipur",  name: "Ramesh", language: "en", consent: true, area: "near the temple" })).rejects.toThrow(/invalid_area/);
+    const id = await as.mutation(api.contractors.create, { phone: "9829012345", address: "Plot 12, Mansarovar, Jaipur",  name: "Ramesh", language: "en", consent: true });
+    expect(await as.mutation(api.contractors.create, { phone: "9829012345", address: "Plot 12, Mansarovar, Jaipur",  name: "Other", language: "hi", consent: true })).toBe(id);
   });
   test("setLanguage switches the profile language", async () => {
     const { as } = await onboarded();
@@ -144,7 +144,7 @@ describe("orders.getOrNull (screens' loader)", () => {
     const { t, as } = await onboarded();
     const orderId = await as.mutation(api.orders.createExampleDraft, {});
     expect((await as.query(api.orders.getOrNull, { orderId }))?._id).toBe(orderId);
-    const other = await t.run(async (ctx) => ctx.db.insert("users", {}));
+    const other = await t.run(async (ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
     expect(await t.withIdentity({ subject: `${other}|s` }).query(api.orders.getOrNull, { orderId })).toBeNull();
     expect(await as.query(api.orders.getOrNull, { orderId: "not-an-id" })).toBeNull();
     await expect(t.query(api.orders.getOrNull, { orderId })).rejects.toThrow(/unauthenticated/);

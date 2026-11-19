@@ -251,7 +251,7 @@ const removeRegularDealer = (t: T, contractorId: Id<"contractors">) =>
 describe("sweep.start: who may start what", () => {
   test("refuses another user and a signed-out caller, and changes nothing", async () => {
     const { t, orderId, dealer } = await setup();
-    const other = await t.run(async (ctx) => ctx.db.insert("users", {}));
+    const other = await t.run(async (ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
     const args = { orderId, mode: "sim" as const, dealerIds: [dealer.agarwal] };
     expect(await errorCode(t.withIdentity({ subject: `${other}|s` }).mutation(api.sweep.start, args))).toBe("not_found");
     expect(await errorCode(t.mutation(api.sweep.start, args))).toBe("unauthenticated");

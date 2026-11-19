@@ -5,13 +5,13 @@
 // Phone hashes for TEST_PHONE_HASHES come from the CLI too (admin:addDealer, admin:phoneHash). The one
 // exception, dealer applications (R24), lives on its own page, /app/admin/dealers.
 import { useConvexAuth, useQuery } from "convex/react";
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { api } from "@/convex/_generated/api";
 import { CITY_AREAS, type City } from "@/lib/config";
 import type { DictKey } from "@/lib/i18n/hi";
 import { formatPaise } from "@/lib/numbers";
 import { useT } from "@/lib/i18n/useT";
+import { AdminNav } from "./AdminNav";
 
 const SOURCE_KEY: Record<string, DictKey> = { seed: "admin.sourceSeed", admin: "admin.sourceAdmin", optin: "admin.sourceOptin" };
 
@@ -155,20 +155,13 @@ export function AdminPanel() {
   const isAdmin = useQuery(api.admin.amIAdmin, isLoading ? "skip" : {});
   return (
     <main className="mx-auto flex max-w-[1240px] flex-col gap-4 px-4 py-8 sm:px-5 lg:px-8">
+      <AdminNav />
       <h1 className="font-display text-title-1">{t("admin.title")}</h1>
       {isAdmin === undefined ? (
         <p className="text-body text-ink-2">{t("admin.loading")}</p>
       ) : isAdmin ? (
         <>
           <p className="text-meta text-ink-2">{t("admin.readOnly")}</p>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/app/admin/dealers" className="inline-flex min-h-14 w-fit items-center gap-2 rounded-card border-[1.5px] border-ink bg-card px-4 text-label">
-              {t("admin.dealersLink")}
-            </Link>
-            <Link href="/app/admin/agents" className="inline-flex min-h-14 w-fit items-center gap-2 rounded-card border-[1.5px] border-ink bg-card px-4 text-label">
-              {t("admin.agentsLink")}
-            </Link>
-          </div>
           <Panel />
         </>
       ) : (

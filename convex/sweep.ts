@@ -5,7 +5,7 @@ import { ConvexError, v } from "convex/values";
 import { liveAvailability } from "../lib/liveGuards";
 import type { Doc, Id } from "./_generated/dataModel";
 import { createCall, MAX_SWEEP_DEALERS, orderCity, simPace, stopOrder } from "./engine";
-import { requireOwnedOrder } from "./lib/access";
+import { requireApproved, requireOwnedOrder } from "./lib/access";
 import { userMutation } from "./lib/functions";
 import { consumeLiveSweep, contractorOrdersToday, liveEnv, panelTestPhoneCount } from "./lib/live";
 import { PACES } from "./sim/script";
@@ -41,6 +41,9 @@ export const start = userMutation({
   },
   handler: async (ctx, { orderId, mode, dealerIds }): Promise<{ callIds: Id<"calls">[]; heldDealerId: Id<"dealers"> | null }> => {
     const order = await requireOwnedOrder(ctx, orderId);
+    // R26: an app order's calls are for approved people only (one approved earlier and later set back to
+    // pending keeps reading old orders but starts nothing). Sandbox orders stay open to the /try demo.
+    if (order.kind === "app") await requireApproved(ctx);
     if (order.status !== "confirmed") throw new ConvexError({ code: "not_confirmed", status: order.status });
     if (!itemsReady(order.items)) throw new ConvexError({ code: "incomplete_items" });
     if (order.kind === "sandbox" && mode !== "sim") throw new ConvexError({ code: "live_not_ready" });

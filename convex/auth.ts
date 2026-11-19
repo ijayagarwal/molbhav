@@ -1,18 +1,34 @@
-import { Anonymous } from "@convex-dev/auth/providers/Anonymous";
+import Google from "@auth/core/providers/google";
 import { convexAuth } from "@convex-dev/auth/server";
 import type { MutationCtx } from "./_generated/server";
 import { rateLimiter } from "./limits";
 
 const DAY = 24 * 60 * 60 * 1000;
 
-// Anonymous sessions only (DECISIONS B1). Google sign-in for real contractors and founders arrives in Phase 10.
-// Anonymous identity is the browser session, so sessions are long (a verified contractor, S1, and the
-// presenter laptop, B8, must not silently become new users); the auth cookies get a matching max-age in proxy.ts.
+// Google sign-in for everyone who uses the app (DECISIONS R26; replaces B1's anonymous sessions). Convex Auth
+// runs the OAuth flow: the browser goes to <CONVEX_SITE_URL>/api/auth/signin/google, Google sends it back to
+// <CONVEX_SITE_URL>/api/auth/callback/google, and Convex returns it to SITE_URL with a one-time code that the
+// Next.js proxy (proxy.ts) swaps for the session cookies. Env: AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET (the OAuth
+// web client), SITE_URL. Signing in proves an email address and nothing more: what the person may do is the
+// founders' decision (users.access, R26), and every paid path checks it.
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [Anonymous],
+  providers: [
+    Google({
+      // Only what we use: the account's name, email (lower-case, with Google's own verified flag) and picture.
+      profile(p) {
+        return {
+          id: p.sub,
+          name: typeof p.name === "string" ? p.name.slice(0, 80) : undefined,
+          email: typeof p.email === "string" ? p.email.trim().toLowerCase() : undefined,
+          image: typeof p.picture === "string" ? p.picture : undefined,
+          emailVerified: p.email_verified === true,
+        };
+      },
+    }),
+  ],
   session: {
-    totalDurationMs: 365 * DAY,
-    inactiveDurationMs: 90 * DAY,
+    totalDurationMs: 90 * DAY,
+    inactiveDurationMs: 30 * DAY,
   },
   callbacks: {
     async afterUserCreatedOrUpdated(ctx, { existingUserId }) {

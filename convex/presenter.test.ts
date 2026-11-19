@@ -81,7 +81,7 @@ describe("admin.claimDemoContractor (B8)", () => {
 
   test("with no seeded demo contractor there is nothing to claim", async () => {
     const t = convexTest(schema, modules);
-    const admin = await t.run(async (ctx) => ctx.db.insert("users", {}));
+    const admin = await t.run(async (ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
     vi.stubEnv("ADMIN_USER_IDS", admin);
     vi.stubEnv("DEMO_DEPLOYMENT", "true");
     await expect(t.withIdentity({ subject: `${admin}|s` }).mutation(api.admin.claimDemoContractor, {})).rejects.toThrow(/no_demo_contractor/);

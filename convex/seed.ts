@@ -96,7 +96,7 @@ export async function resetDemoData(ctx: MutationCtx, opts: { refreshBands: bool
 
   // The demo contractor keeps its user across resets, so a presenter session that claimed it
   // (admin.claimDemoContractor, Phase 7) stays linked. The first seed creates a placeholder user.
-  const userId = opts.demoUserId ?? previousUserId ?? (await ctx.db.insert("users", { isAnonymous: true }));
+  const userId = opts.demoUserId ?? previousUserId ?? (await ctx.db.insert("users", { isAnonymous: true, access: "approved" })); // R26: the demo contractor is usable
   const contractorId = await ctx.db.insert("contractors", {
     userId, name: "Ramesh Yadav", language: "hi", verified: false, liveDailyCap: 0, consentAt: now, isDemo: true,
   });

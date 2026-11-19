@@ -8,7 +8,13 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 type Ctx = QueryCtx | MutationCtx;
 
-export type AccessErrorCode = "unauthenticated" | "no_contractor" | "not_found" | "forbidden";
+export type AccessErrorCode = "unauthenticated" | "no_contractor" | "not_found" | "forbidden" | "pending" | "blocked";
+
+/**
+ * What a signed-in person may do (R26): `approved` uses the app (orders, voice, sweeps); `pending` may finish the
+ * profile and try the /try demo, nothing that costs money; `blocked` may do nothing but sign out.
+ */
+export type Access = "approved" | "pending" | "blocked";
 
 export function accessError(code: AccessErrorCode): ConvexError<{ code: AccessErrorCode }> {
   return new ConvexError({ code });
@@ -33,9 +39,9 @@ export async function contractorForUser(ctx: Ctx, userId: Id<"users">): Promise<
     .unique();
 }
 
-/** The signed-in user's contractor profile; throws if signed out or not onboarded. */
+/** The signed-in, approved user's contractor profile; throws if signed out, not approved or not onboarded. */
 export async function requireContractor(ctx: Ctx): Promise<Doc<"contractors">> {
-  const userId = await requireUser(ctx);
+  const userId = await requireApproved(ctx);
   const contractor = await contractorForUser(ctx, userId);
   if (contractor === null) throw accessError("no_contractor");
   return contractor;
@@ -66,13 +72,63 @@ export function adminUserIds(): Set<string> {
   );
 }
 
-export function isAdminUserId(userId: Id<"users"> | null): boolean {
-  return userId !== null && adminUserIds().has(userId);
+/** Admin Google emails from the ADMIN_EMAILS env var (comma-separated, compared lower-case) (R26). */
+export function adminEmails(): Set<string> {
+  return new Set(
+    (process.env.ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s.includes("@")),
+  );
 }
 
-/** Throws `forbidden` unless the signed-in user is listed in ADMIN_USER_IDS. */
+/** A user document is an admin when its id is in ADMIN_USER_IDS or its Google-verified email is in ADMIN_EMAILS. */
+export function isAdminUser(user: Doc<"users"> | null): boolean {
+  if (user === null) return false;
+  if (adminUserIds().has(user._id)) return true;
+  const email = user.email?.trim().toLowerCase();
+  return email !== undefined && user.emailVerificationTime !== undefined && adminEmails().has(email);
+}
+
+/** Whether this user is an admin (reads the user document for the email check). */
+export async function isAdmin(ctx: Ctx, userId: Id<"users"> | null): Promise<boolean> {
+  if (userId === null) return false;
+  if (adminUserIds().has(userId)) return true;
+  return isAdminUser(await ctx.db.get(userId));
+}
+
+/** The founders' decision for this user (R26). Admins are always approved; absent means pending. */
+export function accessOf(user: Doc<"users">): Access {
+  if (isAdminUser(user)) return "approved";
+  return user.access ?? "pending";
+}
+
+async function loadUser(ctx: Ctx): Promise<Doc<"users">> {
+  const userId = await requireUser(ctx);
+  const user = await ctx.db.get(userId);
+  // A session whose user was deleted (retention) still has a valid JWT for up to an hour.
+  if (user === null) throw accessError("unauthenticated");
+  return user;
+}
+
+/** Signed in and not blocked (onboarding, the profile, the /try demo, reading one's own data). */
+export async function requireNotBlocked(ctx: Ctx): Promise<Id<"users">> {
+  const user = await loadUser(ctx);
+  if (accessOf(user) === "blocked") throw accessError("blocked");
+  return user._id;
+}
+
+/** Signed in and approved by a founder: everything that costs money (R26). Throws `pending` or `blocked`. */
+export async function requireApproved(ctx: Ctx): Promise<Id<"users">> {
+  const user = await loadUser(ctx);
+  const access = accessOf(user);
+  if (access !== "approved") throw accessError(access);
+  return user._id;
+}
+
+/** Throws `forbidden` unless the signed-in user is an admin (ADMIN_USER_IDS or ADMIN_EMAILS). */
 export async function requireAdmin(ctx: Ctx): Promise<Id<"users">> {
   const userId = await requireUser(ctx);
-  if (!isAdminUserId(userId)) throw accessError("forbidden");
+  if (!(await isAdmin(ctx, userId))) throw accessError("forbidden");
   return userId;
 }

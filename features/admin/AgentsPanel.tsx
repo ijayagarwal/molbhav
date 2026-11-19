@@ -10,13 +10,13 @@
 //   (features/admin/webCallSdk.ts), so no app bundle carries it.
 import { useAuthToken } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery } from "convex/react";
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { PrimaryButton, SecondaryButton } from "@/components/mb/Buttons";
 import { api } from "@/convex/_generated/api";
 import type { DictKey } from "@/lib/i18n/hi";
 import { useT } from "@/lib/i18n/useT";
 import { loadWebCallSdk, type BolnaWebCallCtor } from "./webCallSdk";
+import { AdminNav } from "./AdminNav";
 
 type Agent = "quote" | "haggle" | "match" | "confirm";
 const AGENTS: readonly Agent[] = ["quote", "haggle", "match", "confirm"];
@@ -179,9 +179,7 @@ export function AgentsPanel() {
   const isAdmin = useQuery(api.admin.amIAdmin, isLoading ? "skip" : {});
   return (
     <main className="mx-auto flex max-w-[1040px] flex-col gap-4 px-4 py-8 sm:px-5 lg:px-8">
-      <Link href="/app/admin" className="inline-flex min-h-14 w-fit items-center text-label text-neel">
-        {t("agents.back")}
-      </Link>
+      <AdminNav />
       <h1 className="font-display text-title-1">{t("agents.title")}</h1>
       {isAdmin === undefined ? (
         <p className="text-body text-ink-2">{t("admin.loading")}</p>

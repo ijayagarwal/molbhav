@@ -15,7 +15,7 @@ import { normaliseDealerName } from "../lib/names";
 import { normaliseIndianMobile } from "../lib/phone";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
-import { isAdminUserId } from "./lib/access";
+import { isAdmin } from "./lib/access";
 import { audit, requireNote } from "./lib/audit";
 import { adminMutation, adminQuery, optionalUserQuery } from "./lib/functions";
 import { hashPhone } from "./lib/hash";
@@ -30,7 +30,7 @@ import { resetDemoData } from "./seed";
 export const amIAdmin = optionalUserQuery({
   args: {},
   handler: async (ctx) => {
-    return isAdminUserId(ctx.userId);
+    return await isAdmin(ctx, ctx.userId);
   },
 });
 

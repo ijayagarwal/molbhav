@@ -15,9 +15,9 @@ const landed = (total: number) => ({ subtotal: total, gst: 0, delivery: 0, unloa
 async function finishedOrder() {
   const t = convexTest(schema, modules);
   await t.mutation(internal.seed.reset, {});
-  const userId = await t.run(async (ctx) => ctx.db.insert("users", {}));
+  const userId = await t.run(async (ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
   const as = t.withIdentity({ subject: `${userId}|s` });
-  await as.mutation(api.contractors.create, { name: "रमेश यादव", language: "hi", consent: true, area: "mansarovar" });
+  await as.mutation(api.contractors.create, { phone: "9829012345", address: "Plot 12, Mansarovar, Jaipur",  name: "रमेश यादव", language: "hi", consent: true, area: "mansarovar" });
   const orderId = await as.mutation(api.orders.createExampleDraft, {});
   await t.run(async (ctx) => {
     const order = (await ctx.db.get(orderId))!;
@@ -97,7 +97,7 @@ describe("share (G4)", () => {
     expect(await t.query(api.share.get, { publicId: "not-a-real-link" })).toBeNull();
     const draft = await as.mutation(api.orders.createExampleDraft, {});
     await expect(as.mutation(api.share.create, { orderId: draft, mode: "full" })).rejects.toThrow(/not_shareable/);
-    const stranger = await t.run(async (ctx) => ctx.db.insert("users", {}));
+    const stranger = await t.run(async (ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
     await expect(t.withIdentity({ subject: `${stranger}|s` }).mutation(api.share.create, { orderId, mode: "full" })).rejects.toThrow();
   });
 });

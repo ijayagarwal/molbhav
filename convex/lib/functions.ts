@@ -9,8 +9,9 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { customAction, customCtx, customMutation, customQuery } from "convex-helpers/server/customFunctions";
 import { ConvexError, v } from "convex/values";
+import { internal } from "../_generated/api";
 import { action, mutation, query } from "../_generated/server";
-import { accessError, isAdminUserId, optionalUser, requireAdmin, requireContractor, requireUser } from "./access";
+import { accessError, optionalUser, requireAdmin, requireContractor, requireNotBlocked } from "./access";
 
 /** Signed-out callers get `ctx.userId === null`. Only for answers that are safe to give anyone (e.g. "am I an admin?"). */
 export const optionalUserQuery = customQuery(
@@ -18,17 +19,20 @@ export const optionalUserQuery = customQuery(
   customCtx(async (ctx) => ({ userId: await optionalUser(ctx) })),
 );
 
-/** Any signed-in session (anonymous included): `ctx.userId`. */
+/**
+ * Any signed-in person who isn't blocked (R26): `ctx.userId`. Pending people pass (their own profile, the /try
+ * demo); anything that costs money checks requireApproved too (limits.consumeVoice, sweep.start).
+ */
 export const userQuery = customQuery(
   query,
-  customCtx(async (ctx) => ({ userId: await requireUser(ctx) })),
+  customCtx(async (ctx) => ({ userId: await requireNotBlocked(ctx) })),
 );
 export const userMutation = customMutation(
   mutation,
-  customCtx(async (ctx) => ({ userId: await requireUser(ctx) })),
+  customCtx(async (ctx) => ({ userId: await requireNotBlocked(ctx) })),
 );
 
-/** Onboarded contractors: `ctx.contractor`, `ctx.userId`. */
+/** Onboarded contractors whom a founder approved (R26): `ctx.contractor`, `ctx.userId`. */
 export const contractorQuery = customQuery(
   query,
   customCtx(async (ctx) => {
@@ -95,7 +99,7 @@ export const adminAction = customAction(
   customCtx(async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw accessError("unauthenticated");
-    if (!isAdminUserId(userId)) throw accessError("forbidden");
+    if (!(await ctx.runQuery(internal.account.isAdminUser, { userId }))) throw accessError("forbidden");
     return { adminUserId: userId };
   }),
 );

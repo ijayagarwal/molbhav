@@ -5,10 +5,10 @@
 // access token; it goes to the server in a hidden field, and the server asks Google whether it was issued to our
 // client (lib/server/googleToken.ts). Our own 56 px button, not Google's 40 px one (tap targets, DESIGN.md). Google's
 // script loads only on /dealer, only when this is on. Nothing is stored in the browser.
-import Image from "next/image";
 import Script from "next/script";
 import { useRef, useState } from "react";
 import { SecondaryButton } from "@/components/mb/Buttons";
+import { GoogleMark } from "@/components/mb/GoogleMark";
 import { CheckBold } from "@/components/mb/icons";
 import { useT } from "@/lib/i18n/useT";
 
@@ -34,11 +34,6 @@ declare global {
 }
 
 const GSI_SRC = "https://accounts.google.com/gsi/client";
-
-/** Google's "G" mark, as Google's sign-in branding asks for: a third-party image asset, not our palette (DESIGN.md). */
-function GoogleMark() {
-  return <Image src="/brand/google-g.svg" alt="" width={20} height={20} unoptimized className="size-5 shrink-0" />;
-}
 
 export function GoogleSignIn({ clientId, invalid, errorId }: { clientId: string; invalid: boolean; errorId: string }) {
   const { t } = useT();

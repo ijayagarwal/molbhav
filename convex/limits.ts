@@ -10,6 +10,7 @@ import { ConvexError, v } from "convex/values";
 import { sandboxDailyCapPaise } from "../lib/sandbox";
 import { IST_MIDNIGHT_EPOCH_MS, dailyCapPaise, voiceCostPaise } from "../lib/voiceCost";
 import { components } from "./_generated/api";
+import { requireApproved } from "./lib/access";
 import { userMutation } from "./lib/functions";
 
 export const rateLimiter = new RateLimiter(components.rateLimiter, {
@@ -111,6 +112,8 @@ export const consumeVoice = userMutation({
     const secret = serverSecretMatches(serverSecret);
     if (secret === null) return { ok: false, code: "not_configured" };
     if (!secret) throw new ConvexError({ code: "forbidden" });
+    // R26: the app's voice spends money, so only people a founder approved (the /try demo has consumeSandbox).
+    await requireApproved(ctx);
     if (ipHash !== undefined && !/^[0-9a-f]{64}$/.test(ipHash)) throw new ConvexError({ code: "invalid_ip_hash" });
     if (kind !== "tts" && ipHash === undefined) throw new ConvexError({ code: "invalid_ip_hash" });
     if (kind === "tts" && (ttsChars === undefined || !Number.isInteger(ttsChars) || ttsChars < 1 || ttsChars > 2500)) {

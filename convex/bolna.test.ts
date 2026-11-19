@@ -165,7 +165,7 @@ async function setup(cards: Card[], over: Partial<Doc<"orders">> = {}, env: Reco
   const t = newT();
   const hashes: string[] = [];
   const ids = await t.run(async (ctx) => {
-    const userId = await ctx.db.insert("users", {});
+    const userId = await ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" });
     const contractorId = await ctx.db.insert("contractors", {
       userId, name: "रमेश", language: "hi", verified: true, liveDailyCap: 3, consentAt: 1, phoneE164: "+919800000001",
     });

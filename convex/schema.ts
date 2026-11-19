@@ -72,6 +72,25 @@ export const quoteLine = v.object({
 export default defineSchema({
   ...authTables,
 
+  // Convex Auth's users table plus the founders' access decision (R26). Google sign-in (R26) fills name, email,
+  // image and emailVerificationTime; old anonymous users have isAnonymous. `access` absent = pending: nothing
+  // that costs money runs until a founder approves (admins, by ADMIN_EMAILS or ADMIN_USER_IDS, always pass).
+  users: defineTable({
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    email: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
+    access: v.optional(v.union(v.literal("pending"), v.literal("approved"), v.literal("blocked"))),
+    accessChangedAt: v.optional(v.number()),
+    accessChangedBy: v.optional(v.string()),   // "admin:<userId>" or "cli:<actor>"
+  })
+    .index("email", ["email"])
+    .index("phone", ["phone"])
+    .index("by_access", ["access"]),
+
   contractors: defineTable({
     userId: v.id("users"),
     name: v.string(),                    // /^[\p{L}\p{M} ]+$/u, at most 24 graphemes (R13)
@@ -83,6 +102,10 @@ export default defineSchema({
     tierPrefs: v.optional(v.object({ tmt_steel: v.optional(tier), cement: v.optional(tier) })),
     isDemo: v.optional(v.boolean()),     // the seeded demo contractor (B8); admin.claimDemoContractor touches only these
     sharePhoneWithDealers: v.optional(v.boolean()),  // R21: agents may give his verified number when a dealer asks; absent = yes
+    // R26 profile, filled at onboarding after Google sign-in. profilePhoneE164 is what the contractor typed; only a
+    // founder's callback check copies it into phoneE164 (S1). Shown to admins only.
+    profilePhoneE164: v.optional(v.string()),
+    address: v.optional(v.string()),     // free text, at most 200 characters
   }).index("by_user", ["userId"]).index("by_phone", ["phoneE164"]),   // one verified contractor per phone (R18)
 
   sites: defineTable({

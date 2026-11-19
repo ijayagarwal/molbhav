@@ -9,16 +9,16 @@
 // full (hard rule 6).
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { BottomSheet } from "@/components/mb/AppShell";
 import { PrimaryButton, SecondaryButton } from "@/components/mb/Buttons";
-import { BackBold, CheckBold, PinBold, WarningBold } from "@/components/mb/icons";
+import { CheckBold, PinBold, WarningBold } from "@/components/mb/icons";
 import { api } from "@/convex/_generated/api";
 import type { DealerAppView } from "@/convex/dealerApps";
 import { CITY_AREAS, type City } from "@/lib/config";
 import type { DictKey } from "@/lib/i18n/hi";
 import { useT } from "@/lib/i18n/useT";
+import { AdminNav } from "./AdminNav";
 
 type Tab = "pending" | "approved" | "restricted";
 const TABS: readonly { tab: Tab; label: DictKey }[] = [
@@ -345,10 +345,7 @@ export function DealerAppsPanel() {
   const isAdmin = useQuery(api.admin.amIAdmin, isLoading ? "skip" : {});
   return (
     <main className="mx-auto flex max-w-[1240px] flex-col gap-4 px-4 py-8 sm:px-5 lg:px-8">
-      <Link href="/app/admin" className="-my-2 inline-flex min-h-14 w-fit items-center gap-2 text-label text-neel underline underline-offset-4">
-        <BackBold aria-hidden="true" className="size-5" />
-        {t("admin.backToAdmin")}
-      </Link>
+      <AdminNav />
       <h1 className="font-display text-title-1">{t("admin.dealersTitle")}</h1>
       {isAdmin === undefined ? (
         <p className="text-body text-ink-2">{t("admin.loading")}</p>

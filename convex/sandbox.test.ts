@@ -41,8 +41,9 @@ function setup() {
 }
 type T = ReturnType<typeof setup>;
 
-async function visitor(t: T) {
-  const userId = await t.run(async (ctx) => ctx.db.insert("users", { isAnonymous: true }));
+/** A /try visitor (R26): signed in with Google, not yet approved by the founders. */
+async function visitor(t: T, access?: "approved" | "blocked") {
+  const userId = await t.run(async (ctx) => ctx.db.insert("users", { email: "visitor@example.com", emailVerificationTime: 1, ...(access ? { access } : {}) }));
   return { userId, as: t.withIdentity({ subject: `${userId}|s` }) };
 }
 
@@ -140,10 +141,20 @@ describe("limits.consumeSandbox: the limits (G3), all on the server", () => {
     vi.stubEnv("SANDBOX_DAILY_INR_CAP", "1");
     vi.stubEnv("VOICE_DAILY_INR_CAP", "1");
     const t = setup();
-    const a = await visitor(t);
+    const a = await visitor(t, "approved");
     expect(await consume(a.as)).toEqual({ ok: true });
     expect(await consume(a.as, "order_audio", IP2)).toEqual({ ok: true });
     expect(await a.as.mutation(api.limits.consumeVoice, { serverSecret: SECRET, kind: "order_audio", ipHash: IP })).toEqual({ ok: true });
+  });
+
+  test("R26: a pending visitor may use the demo but not the app's voice; a blocked one gets neither", async () => {
+    const t = setup();
+    const pending = await visitor(t);
+    expect(await consume(pending.as)).toEqual({ ok: true });
+    await expect(pending.as.mutation(api.limits.consumeVoice, { serverSecret: SECRET, kind: "order_text", ipHash: IP })).rejects.toThrow(/pending/);
+    const blocked = await visitor(t, "blocked");
+    await expect(consume(blocked.as)).rejects.toThrow(/blocked/);
+    await expect(blocked.as.mutation(api.sandbox.createSample, { sample: "demo", lang: "hi" })).rejects.toThrow(/blocked/);
   });
 
   test("a refusal consumes nothing: a device stopped by its IP's limit keeps its own 3", async () => {
@@ -297,10 +308,11 @@ describe("a sandbox order can never go live or be shared (G3)", () => {
     await as.mutation(api.sandbox.start, { orderId });
     await runAll(t);
     expect((await t.run(async (ctx) => ctx.db.get(orderId)))?.status).toBe("ready");
-    // A sandbox visitor has no contractor profile…
-    await expect(as.mutation(api.share.create, { orderId, mode: "full" })).rejects.toThrow(/no_contractor/);
-    // …and a contractor trying the sandbox still can't share a sandbox order.
-    await as.mutation(api.contractors.create, { name: "सुनीता", language: "hi", consent: true, area: "jagatpura" });
+    // A sandbox visitor isn't approved for the app (R26)…
+    await expect(as.mutation(api.share.create, { orderId, mode: "full" })).rejects.toThrow(/pending/);
+    // …and an approved contractor trying the sandbox still can't share a sandbox order.
+    await t.run(async (ctx) => ctx.db.patch((await ctx.db.query("users").order("desc").first())!._id, { access: "approved" }));
+    await as.mutation(api.contractors.create, { phone: "9829012345", address: "Plot 12, Mansarovar, Jaipur",  name: "सुनीता", language: "hi", consent: true, area: "jagatpura" });
     for (const mode of ["full", "savings", "munshi"] as const) {
       await expect(as.mutation(api.share.create, { orderId, mode })).rejects.toThrow(/not_shareable/);
     }

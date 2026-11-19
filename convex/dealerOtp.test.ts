@@ -51,8 +51,8 @@ afterEach(() => {
 async function setup() {
   const t = convexTest(schema, modules);
   rateLimiterTest.register(t);
-  const admin = await t.run(async (ctx) => await ctx.db.insert("users", {}));
-  const user = await t.run(async (ctx) => await ctx.db.insert("users", {}));
+  const admin = await t.run(async (ctx) => await ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
+  const user = await t.run(async (ctx) => await ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
   vi.stubEnv("ADMIN_USER_IDS", admin);
   return { t, asAdmin: t.withIdentity({ subject: `${admin}|s` }), asUser: t.withIdentity({ subject: `${user}|s` }) };
 }

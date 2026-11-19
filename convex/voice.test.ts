@@ -25,9 +25,9 @@ function setup() {
 
 async function onboarded(t = setup(), area = "jagatpura") {
   await t.mutation(internal.seed.reset, {});
-  const userId = await t.run(async (ctx) => ctx.db.insert("users", {}));
+  const userId = await t.run(async (ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
   const as = t.withIdentity({ subject: `${userId}|s` });
-  const contractorId = await as.mutation(api.contractors.create, { name: "सुनीता", language: "hi", consent: true, area });
+  const contractorId = await as.mutation(api.contractors.create, { phone: "9829012345", address: "Plot 12, Mansarovar, Jaipur",  name: "सुनीता", language: "hi", consent: true, area });
   return { t, as, userId, contractorId };
 }
 
@@ -98,7 +98,7 @@ describe("orders.createDraft", () => {
   test("refuses signed-out callers and users who haven't onboarded", async () => {
     const t = setup();
     await expect(t.mutation(api.orders.createDraft, DRAFT)).rejects.toThrow(/unauthenticated/);
-    const userId = await t.run(async (ctx) => ctx.db.insert("users", {}));
+    const userId = await t.run(async (ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
     await expect(t.withIdentity({ subject: `${userId}|s` }).mutation(api.orders.createDraft, DRAFT)).rejects.toThrow(/no_contractor/);
   });
 
@@ -125,9 +125,9 @@ describe("orders.createDraft", () => {
   test("another user's sites are never matched", async () => {
     const t = setup();
     const a = await onboarded(t, "mansarovar");
-    const userB = await t.run(async (ctx) => ctx.db.insert("users", {}));
+    const userB = await t.run(async (ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
     const asB = t.withIdentity({ subject: `${userB}|s` });
-    await asB.mutation(api.contractors.create, { name: "Ramesh", language: "en", consent: true, area: "jagatpura" });
+    await asB.mutation(api.contractors.create, { phone: "9829012345", address: "Plot 12, Mansarovar, Jaipur",  name: "Ramesh", language: "en", consent: true, area: "jagatpura" });
     const orderId = await asB.mutation(api.orders.createDraft, DRAFT);
     const order = await asB.query(api.orders.get, { orderId });
     const aSites = await t.run(async (ctx) => ctx.db.query("sites").withIndex("by_contractor", (q) => q.eq("contractorId", a.contractorId)).collect());
@@ -153,7 +153,7 @@ describe("orders.readBack", () => {
     const t = setup();
     const { as } = await onboarded(t);
     const orderId = await as.mutation(api.orders.createDraft, DRAFT);
-    const other = await t.run(async (ctx) => ctx.db.insert("users", {}));
+    const other = await t.run(async (ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
     await expect(t.withIdentity({ subject: `${other}|s` }).query(api.orders.readBack, { orderId })).rejects.toThrow(/not_found/);
     await expect(t.query(api.orders.readBack, { orderId })).rejects.toThrow(/unauthenticated/);
   });
@@ -161,7 +161,7 @@ describe("orders.readBack", () => {
 
 describe("limits.consumeVoice", () => {
   async function user(t = setup()) {
-    const userId = await t.run(async (ctx) => ctx.db.insert("users", {}));
+    const userId = await t.run(async (ctx) => ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" }));
     return { t, as: t.withIdentity({ subject: `${userId}|s` }) };
   }
 

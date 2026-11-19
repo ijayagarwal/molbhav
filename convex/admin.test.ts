@@ -22,8 +22,8 @@ afterEach(() => {
 async function setup() {
   const t = convexTest(schema, modules);
   const ids = await t.run(async (ctx) => {
-    const adminUser = await ctx.db.insert("users", {});
-    const user = await ctx.db.insert("users", {});
+    const adminUser = await ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" });
+    const user = await ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" });
     const contractorId = await ctx.db.insert("contractors", { userId: user, name: "Ramesh", language: "hi", verified: false, liveDailyCap: 0, consentAt: 1 });
     const demoContractor = await ctx.db.insert("contractors", {
       userId: adminUser, name: "Demo", language: "hi", verified: false, liveDailyCap: 0, consentAt: 1, isDemo: true,
@@ -83,7 +83,7 @@ describe("admin.verifyContractor (S1)", () => {
   test("one verified contractor per phone, so caps can't be multiplied across devices", async () => {
     const { t, contractorId } = await setup();
     const second = await t.run(async (ctx) => {
-      const u = await ctx.db.insert("users", {});
+      const u = await ctx.db.insert("users", { email: "user@example.com", emailVerificationTime: 1, access: "approved" });
       return await ctx.db.insert("contractors", { userId: u, name: "Ramesh", language: "hi", verified: false, liveDailyCap: 0, consentAt: 1 });
     });
     await t.mutation(internal.admin.verifyContractor, { contractorId, phone: "9812300001", note: "Met at site, called back", actor: "jay" });
