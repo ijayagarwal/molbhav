@@ -144,6 +144,7 @@ export const list = adminQuery({
       items,
       total: matches.length,
       more: rows.length === DIRECTORY_SCAN,
+      scanLimit: DIRECTORY_SCAN,
       trial: env.trial,
     };
   },

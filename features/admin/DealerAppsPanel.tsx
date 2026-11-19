@@ -38,7 +38,8 @@ const SHEET: Record<Action, { title: DictKey; body: DictKey; button: DictKey }> 
 const NOTE_MIN = 8;
 const DATE = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium" });
 
-function areaName(city: string, key: string, lang: "hi" | "en"): string {
+/** An area's display name in the active language; the key itself if the city or area is unknown. */
+export function areaName(city: string, key: string, lang: "hi" | "en"): string {
   const area = (CITY_AREAS[city as City] ?? []).find((a) => a.key === key);
   return area === undefined ? key : area[lang];
 }
@@ -51,7 +52,7 @@ function errorKey(e: unknown): { key: DictKey; code: string } {
   return { key: "admin.errGeneric", code };
 }
 
-function Badge({ tone, icon, children }: { tone: "hara" | "lal" | "ink"; icon?: ReactNode; children: ReactNode }) {
+export function Badge({ tone, icon, children }: { tone: "hara" | "lal" | "ink"; icon?: ReactNode; children: ReactNode }) {
   const color = tone === "hara" ? "border-hara text-hara" : tone === "lal" ? "border-lal text-lal" : "border-rule text-ink-2";
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-meta ${color}`}>
@@ -270,7 +271,8 @@ function BolnaSync() {
   );
 }
 
-function Panel() {
+/** The applications review (tabs, cards, sheets); the page around it is DealerAppsPanel or DealersAdmin (R26). */
+export function DealerApplications() {
   const { t } = useT();
   const [tab, setTab] = useState<Tab>("pending");
   const [open, setOpen] = useState<{ app: DealerAppView; action: Action } | null>(null);
@@ -352,7 +354,7 @@ export function DealerAppsPanel() {
       ) : isAdmin ? (
         <>
           <p className="max-w-[72ch] text-meta text-ink-2">{t("admin.dealersIntro")}</p>
-          <Panel />
+          <DealerApplications />
         </>
       ) : (
         <p role="alert" className="text-body text-ink-2">

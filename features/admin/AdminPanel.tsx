@@ -1,9 +1,10 @@
 "use client";
 
-// /app/admin (Phase 8A, R18): what the founders need to see before and during live calls. Read-only:
-// every write is an internal Convex function run from the CLI, so this page can't change who gets called.
-// Phone hashes for TEST_PHONE_HASHES come from the CLI too (admin:addDealer, admin:phoneHash). The one
-// exception, dealer applications (R24), lives on its own page, /app/admin/dealers.
+// /app/admin (Phase 8A, R18, R26): what the founders need to see before and during live calls. On top, the
+// overview (AdminStats: people, dealers, orders, live calls, spend, the Bolna wallet); below, the live-call
+// settings, contractors, dealers, price bands and the audit log. This page itself changes nothing: people and
+// dealers are managed on their own tabs (/app/admin/users, /app/admin/dealers, admin-only and audit-logged), and
+// live-call settings, caps and TEST_PHONE_HASHES still come from the Convex CLI (admin:*, R18).
 import { useConvexAuth, useQuery } from "convex/react";
 import type { ReactNode } from "react";
 import { api } from "@/convex/_generated/api";
@@ -12,6 +13,7 @@ import type { DictKey } from "@/lib/i18n/hi";
 import { formatPaise } from "@/lib/numbers";
 import { useT } from "@/lib/i18n/useT";
 import { AdminNav } from "./AdminNav";
+import { AdminStats } from "./AdminStats";
 
 const SOURCE_KEY: Record<string, DictKey> = { seed: "admin.sourceSeed", admin: "admin.sourceAdmin", optin: "admin.sourceOptin" };
 
@@ -161,7 +163,8 @@ export function AdminPanel() {
         <p className="text-body text-ink-2">{t("admin.loading")}</p>
       ) : isAdmin ? (
         <>
-          <p className="text-meta text-ink-2">{t("admin.readOnly")}</p>
+          <p className="max-w-[72ch] text-meta text-ink-2">{t("adminStats.manageNote")}</p>
+          <AdminStats />
           <Panel />
         </>
       ) : (
