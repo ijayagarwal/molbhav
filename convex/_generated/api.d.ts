@@ -10,6 +10,7 @@
 
 import type * as account from "../account.js";
 import type * as admin from "../admin.js";
+import type * as adminUsers from "../adminUsers.js";
 import type * as auth from "../auth.js";
 import type * as board from "../board.js";
 import type * as bolna from "../bolna.js";
@@ -65,6 +66,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   account: typeof account;
   admin: typeof admin;
+  adminUsers: typeof adminUsers;
   auth: typeof auth;
   board: typeof board;
   bolna: typeof bolna;
