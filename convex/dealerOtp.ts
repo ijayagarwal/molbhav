@@ -85,7 +85,11 @@ async function openApp(
 
 // ── Internal steps (each one transaction) ─────────────────────────────────────────────────
 
-/** Before a send: the ticket, the state, the resend gap and every rate limit. Returns the number to text. */
+/**
+ * Before a send: the ticket, the state, the resend gap and every rate limit. Attempts count against the IP hash
+ * and the deployment-wide limit at once; the per-number (and per-Google-account) limits count only when Bolna
+ * actually sent a code (recordSent), so a number Bolna won't text (already on its list) isn't used up.
+ */
 export const reserveSend = internalMutation({
   args: { ipHash: v.string(), applicationId: v.id("dealerApplications"), ticket: v.string() },
   handler: async (ctx, args): Promise<{ ok: true; phoneE164: string } | Refusal> => {
@@ -96,25 +100,38 @@ export const reserveSend = internalMutation({
     if (app.phoneVerifiedAt !== undefined && app.bolnaVerifiedAt !== undefined) return { ok: false, code: "already_verified" };
     if (app.bolnaOtp !== undefined && now - app.bolnaOtp.sentAt < RESEND_GAP_MS) return { ok: false, code: "too_soon" };
 
-    const keys = [
-      ["dealerOtpSendIp", args.ipHash],
+    const perCode = [
       ["dealerOtpSendPhone", app.phoneHash],
       ...(app.google === undefined ? [] : [["dealerOtpSendGoogle", app.google.subHash] as const]),
+    ] as const;
+    const perAttempt = [
+      ["dealerOtpSendIp", args.ipHash],
       ["dealerOtpSendAll", "all"],
     ] as const;
-    for (const [name, key] of keys) {
+    for (const [name, key] of [...perCode, ...perAttempt]) {
       const r = await rateLimiter.check(ctx, name, { key });
       if (!r.ok) return { ok: false, code: "rate_limited" };
     }
-    for (const [name, key] of keys) await rateLimiter.limit(ctx, name, { key, throws: true });
+    for (const [name, key] of perAttempt) await rateLimiter.limit(ctx, name, { key, throws: true });
     return { ok: true, phoneE164: app.phoneE164 };
   },
 });
 
 export const recordSent = internalMutation({
-  args: { applicationId: v.id("dealerApplications"), requestId: v.string() },
-  handler: async (ctx, { applicationId, requestId }) => {
+  args: {
+    applicationId: v.id("dealerApplications"),
+    requestId: v.string(),
+    /** The public /dealer path: this code counts against the number's (and Google account's) limit. */
+    countForNumber: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { applicationId, requestId, countForNumber }) => {
+    const app = await ctx.db.get(applicationId);
+    if (app === null) return;
     await ctx.db.patch(applicationId, { bolnaOtp: { requestId, sentAt: Date.now(), tries: 0 } });
+    if (countForNumber === true) {
+      await rateLimiter.limit(ctx, "dealerOtpSendPhone", { key: app.phoneHash });
+      if (app.google !== undefined) await rateLimiter.limit(ctx, "dealerOtpSendGoogle", { key: app.google.subHash });
+    }
   },
 });
 
@@ -199,7 +216,7 @@ export const send = serverAction({
       log({ evt: "send", code: "no_request_id" });
       return { ok: false, code: "failed" };
     }
-    await ctx.runMutation(internal.dealerOtp.recordSent, { applicationId: args.applicationId, requestId });
+    await ctx.runMutation(internal.dealerOtp.recordSent, { applicationId: args.applicationId, requestId, countForNumber: true });
     log({ evt: "send", code: "sent" });
     return { ok: true };
   },
@@ -290,8 +307,9 @@ export const syncBolnaList = internalAction({
 
 // ── The founders' panel path (R27) ──────────────────────────────────────────────────────────
 // A founder on a call with the dealer sends Bolna's code from /app/admin/dealers and types the six digits the
-// dealer reads out. The admin session replaces the form's ticket and BotID; the per-number and deployment-wide
-// limits, the resend gap, the tries per code and the code's lifetime still apply, and both steps are audited.
+// dealer reads out. The admin session replaces the form's ticket, BotID and the per-number limit; the
+// deployment-wide limit, the resend gap, the tries per code and the code's lifetime still apply, and both steps
+// are audited.
 
 export const reserveAdminSend = internalMutation({
   args: { applicationId: v.id("dealerApplications") },
@@ -302,15 +320,10 @@ export const reserveAdminSend = internalMutation({
     const { app } = opened;
     if (app.phoneVerifiedAt !== undefined && app.bolnaVerifiedAt !== undefined) return { ok: false, code: "already_verified" };
     if (app.bolnaOtp !== undefined && now - app.bolnaOtp.sentAt < RESEND_GAP_MS) return { ok: false, code: "too_soon" };
-    const keys = [
-      ["dealerOtpSendPhone", app.phoneHash],
-      ["dealerOtpSendAll", "all"],
-    ] as const;
-    for (const [name, key] of keys) {
-      const r = await rateLimiter.check(ctx, name, { key });
-      if (!r.ok) return { ok: false, code: "rate_limited" };
-    }
-    for (const [name, key] of keys) await rateLimiter.limit(ctx, name, { key, throws: true });
+    // A founder on a call with the dealer: no per-number limit (the admin session is the check); the resend gap
+    // and the deployment-wide limit still hold.
+    const r = await rateLimiter.limit(ctx, "dealerOtpSendAll", { key: "all" });
+    if (!r.ok) return { ok: false, code: "rate_limited" };
     return { ok: true, phoneE164: app.phoneE164 };
   },
 });

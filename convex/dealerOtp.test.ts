@@ -130,6 +130,20 @@ describe("dealerOtp.send", () => {
     expect(seen).toHaveLength(3);
   });
 
+  test("attempts where Bolna sends no code don't use up the number's codes", async () => {
+    const { t } = await setup();
+    const id = await apply(t);
+    // Three failed attempts would have used all 3 of the number's codes; they don't, so a code still goes.
+    for (let i = 0; i < 3; i++) {
+      vi.setSystemTime(T0 + i * (RESEND_GAP_MS + 1000));
+      replies.push({ status: 500, body: { detail: "boom" } });
+      expect(await send(t, id)).toEqual({ ok: false, code: "failed" });
+    }
+    vi.setSystemTime(T0 + 3 * (RESEND_GAP_MS + 1000));
+    replies.push({ status: 200, body: { request_id: "finally" } });
+    expect(await send(t, id)).toEqual({ ok: true });
+  });
+
   test("a number already on Bolna's list: callable in the trial, but not proved by this visitor", async () => {
     const { t } = await setup();
     const id = await apply(t);
@@ -257,17 +271,15 @@ describe("the founders' panel path (R27)", () => {
     expect(actions).toEqual(["dealer.code_sent:sent", "dealer.code_checked:bad_code", "dealer.code_checked:verified"]);
   });
 
-  test("the per-number limit and the resend gap still hold; restricted applications get nothing", async () => {
+  test("no per-number limit for founders (the resend gap still holds); restricted applications get nothing", async () => {
     const { t, asAdmin } = await setup();
     const id = await apply(t);
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
       vi.setSystemTime(T0 + i * (RESEND_GAP_MS + 1000));
       replies.push({ status: 200, body: { request_id: `r${i}` } });
       expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: true });
     }
     expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: false, code: "too_soon" });
-    vi.setSystemTime(T0 + 3 * (RESEND_GAP_MS + 1000));
-    expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: false, code: "rate_limited" });
     const other = await apply(t, { phone: "9829054321" });
     await t.run(async (ctx) => ctx.db.patch(other, { status: "restricted" }));
     expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: other })).toEqual({ ok: false, code: "failed" });
