@@ -649,6 +649,31 @@ Always the respectful "aap" form; no gendered first-person verbs; the app speaks
 | `try.sub` | एक ऑर्डर बोलिए, लिखिए या नीचे से चुनिए। देखिए मोलभाव उसे कैसे समझता है, फिर काल्पनिक dealers से रेट लेके मोलभाव करता है। | Say an order, type it or pick one below. See how Molbhav understands it, then gets rates from fictional dealers and bargains. |
 | `try.demoNote` | DEMO: काल्पनिक dealers, कोई असली कॉल नहीं जाती। आवाज़ रखी नहीं जाती, और ये डेमो ऑर्डर 24 घंटे में मिट जाता है। | DEMO: fictional dealers; no real call is made. Your voice isn't kept, and this demo order is deleted within 24 hours. |
 | `try.signinBody` | डेमो चलाने के लिए पहले Google से जुड़िए। एक बार जुड़ने पर नमूना ऑर्डर पर टैप कीजिए। | Continue with Google to run the demo. Once you're in, tap a sample order. |
+| `followUp.title` | बाकी जानकारी | Still to confirm |
+| `followUp.heading` | {dealer} से ये बातें अभी पक्की नहीं हुईं: | Not yet confirmed with {dealer}: |
+| `followUp.callAgain` | दोबारा कॉल करके पूछिए | Call again to ask |
+| `followUp.calling` | दोबारा कॉल चल रही है · सिर्फ़ ये बातें पूछ रहे हैं | Calling again · asking only these |
+| `followUp.done` | दोबारा कॉल से रेट पूरा हुआ | Completed by a follow-up call |
+| `followUp.startFailed` | कॉल शुरू नहीं हो पाई · फिर से कोशिश कीजिए | Couldn't start the call · try again |
+| `followUp.why.not_ready` | ऑर्डर पक्का हो रहा है, अब दोबारा कॉल नहीं होगी | The order is being placed; no more calls |
+| `followUp.why.no_gaps` | सब पक्का है | Everything is confirmed |
+| `followUp.why.running` | दोबारा कॉल चल रही है | Calling again |
+| `followUp.why.cap` | इस dealer को {max} बार दोबारा कॉल हो चुकी है | This dealer was already called again {max} times |
+| `followUp.why.dealer` | इस dealer को अब कॉल नहीं कर सकते | This dealer can't be called now |
+| `followUp.why.set_aside` | ये रेट अलग रखा गया है | This offer was set aside |
+| `followUp.why.stale` | नतीजा बदल गया है | The result changed |
+| `followUp.why.live` | अभी असली कॉल नहीं जा सकती | Live calls aren't available right now |
+| `followUp.gap.gst` | GST रेट में मिलाके है या अलग ({items}) | GST included in the rate or extra ({items}) |
+| `followUp.gap.delivery` | भाड़ा कितना लगेगा | Delivery charge |
+| `followUp.gap.unloading` | उतराई कितनी लगेगी | Unloading charge |
+| `followUp.gap.item` | {items} का रेट नहीं मिला | No rate for {items} |
+| `followUp.gap.stock` | पूरा माल स्टॉक में है या नहीं ({items}) | Full stock or not ({items}) |
+| `followUp.gap.weight` | तौल कांटे की होगी या standard | Weighed on a scale or standard |
+| `followUp.gap.brand` | कौन सी कंपनी का माल ({items}) | Which brand ({items}) |
+| `followUp.gap.bill` | पक्का बिल मिलेगा या नहीं | Pakka (GST) bill or not |
+| `followUp.gap.credit` | {n} दिन उधार पे यही रेट रहेगा या नहीं | Same rate on {n} days credit or not |
+| `followUp.gap.delivery_time` | साइट पे कब तक पहुँचेगा | When it reaches the site |
+| `followUp.gap.rate_confirm` | रेट दोबारा पक्का नहीं हुआ | Rate not confirmed yet |
 | `try.samplesTitle` | एक ऑर्डर चुनिए | Pick an order |
 | `try.ownTitle` | या अपना ऑर्डर दीजिए | Or give your own order |
 | `try.speak` | बोलके बताइए | Say it |
