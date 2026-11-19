@@ -13,6 +13,8 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
+import { adminEmails } from "./lib/access";
+import { deleteAuthUser } from "./retention";
 
 const EMAIL = /^([a-z0-9][a-z0-9.+_-]{0,40})@e2e\.molbhav\.test$/;
 
@@ -52,5 +54,72 @@ export const E2ELogin = ConvexCredentials({
     const userId = user._id as Id<"users">;
     if (m[1].startsWith("approved")) await ctx.runMutation(internal.e2eAuth.markApproved, { userId });
     return { userId };
+  },
+});
+
+const PURGE_BATCH = 20;
+
+/**
+ * Deletes the test sign-in's users (`@e2e.molbhav.test`, except admin addresses in ADMIN_EMAILS) with their
+ * profiles, orders, calls and quotes, so test runs don't fill the founders' People list on dev. Only test
+ * addresses can match; continues itself in batches. `npx convex run e2eAuth:purgeTestUsers '{}'`
+ */
+export const purgeTestUsers = internalMutation({
+  args: {},
+  handler: async (ctx): Promise<{ users: number; orders: number }> => {
+    const admins = adminEmails();
+    const candidates = (await ctx.db.query("users").order("desc").take(2000)).filter(
+      (u) => EMAIL.test(u.email ?? "") && !admins.has((u.email ?? "").toLowerCase()),
+    );
+    const batch = candidates.slice(0, PURGE_BATCH);
+    let orders = 0;
+    for (const user of batch) {
+      const owned = await ctx.db
+        .query("orders")
+        .withIndex("by_owner", (q) => q.eq("ownerUserId", user._id))
+        .collect();
+      for (const o of owned) {
+        if (o.placeJobId) await ctx.scheduler.cancel(o.placeJobId as Id<"_scheduled_functions">).catch(() => undefined);
+        for (const table of ["calls", "callEvents", "quotes"] as const) {
+          for (const r of await ctx.db
+            .query(table)
+            .withIndex("by_order", (q) => q.eq("orderId", o._id))
+            .collect()) {
+            if (table === "calls" && "recordingStorageId" in r && r.recordingStorageId) await ctx.storage.delete(r.recordingStorageId);
+            await ctx.db.delete(r._id);
+          }
+        }
+        for (const sh of await ctx.db
+          .query("shares")
+          .withIndex("by_order_mode", (q) => q.eq("orderId", o._id))
+          .collect()) {
+          await ctx.db.delete(sh._id);
+        }
+        await ctx.db.delete(o._id);
+        orders++;
+      }
+      const contractors = await ctx.db
+        .query("contractors")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .collect();
+      for (const c of contractors) {
+        for (const site of await ctx.db
+          .query("sites")
+          .withIndex("by_contractor", (q) => q.eq("contractorId", c._id))
+          .collect()) {
+          await ctx.db.delete(site._id);
+        }
+        for (const link of await ctx.db
+          .query("contractorDealers")
+          .withIndex("by_contractor", (q) => q.eq("contractorId", c._id))
+          .collect()) {
+          await ctx.db.delete(link._id);
+        }
+        await ctx.db.delete(c._id);
+      }
+      await deleteAuthUser(ctx, user._id);
+    }
+    if (candidates.length > PURGE_BATCH) await ctx.scheduler.runAfter(0, internal.e2eAuth.purgeTestUsers, {});
+    return { users: batch.length, orders };
   },
 });

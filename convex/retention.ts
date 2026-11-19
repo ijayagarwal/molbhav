@@ -57,7 +57,7 @@ export const purgeCallLog = internalMutation({
 });
 
 /** Deletes a user and everything Convex Auth keeps for them (@convex-dev/auth 0.0.98 tables). */
-async function deleteAuthUser(ctx: MutationCtx, userId: Id<"users">): Promise<void> {
+export async function deleteAuthUser(ctx: MutationCtx, userId: Id<"users">): Promise<void> {
   const sessions = await ctx.db
     .query("authSessions")
     .withIndex("userId", (q) => q.eq("userId", userId))
