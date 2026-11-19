@@ -64,17 +64,18 @@ export function useTryOrder() {
     };
   }, []);
 
-  /** The anonymous session, started now if there is none (the first tap). */
-  const ensureSession = useCallback(async (): Promise<boolean> => {
-    if (authed.current) return true;
+  /**
+   * R26: the demo needs a Google sign-in (no more anonymous sessions). Signed in: "ok". Not yet: the page goes to
+   * Google and comes back to /try ("redirect"; the visitor taps again). "failed" when Google couldn't be opened.
+   */
+  const ensureSession = useCallback(async (): Promise<"ok" | "redirect" | "failed"> => {
+    if (authed.current) return "ok";
     try {
-      await signIn("anonymous");
+      await signIn("google", { redirectTo: "/try" });
+      return "redirect";
     } catch {
-      return false;
+      return "failed";
     }
-    // signIn resolves before the client has applied the token (as in Onboarding): wait up to ~4 s.
-    for (let i = 0; i < 40 && !authed.current; i++) await new Promise((r) => setTimeout(r, 100));
-    return authed.current;
   }, [signIn]);
 
   const firstOrder = () => {
@@ -93,7 +94,9 @@ export function useTryOrder() {
     const c = new AbortController();
     ctrl.current = c;
     setState({ phase: "busy", what: input.kind, transcript: input.kind === "text" ? input.text : undefined });
-    if (!(await ensureSession())) return fail("unauthenticated", input);
+    const session = await ensureSession();
+    if (session === "redirect") return;
+    if (session === "failed") return fail("unauthenticated", input);
     firstOrder();
     if (input.kind === "audio") beacon("try_voice");
     let mod: Awaited<ReturnType<typeof loadVoiceRuntime>>;
@@ -116,7 +119,9 @@ export function useTryOrder() {
   const sample = async (id: SandboxSampleId) => {
     if (state.phase === "busy") return;
     setState({ phase: "busy", what: "sample" });
-    if (!(await ensureSession())) return fail("unauthenticated", null);
+    const session = await ensureSession();
+    if (session === "redirect") return;
+    if (session === "failed") return fail("unauthenticated", null);
     firstOrder();
     try {
       const orderId = await createSample({ sample: id, lang });

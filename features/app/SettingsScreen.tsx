@@ -1,7 +1,7 @@
 "use client";
 
 // /app/settings: the whole app's language (hi ⇄ en), device sounds, the spoken result (V7), single-key
-// shortcuts (WCAG 2.1.4), the demo-mode note and privacy. Settings belong to a session: a signed-out
+// shortcuts (WCAG 2.1.4), the person's own details and Google account (R26), the demo-mode note and privacy. Settings belong to a session: a signed-out
 // visitor (a fresh browser) is sent to /app, where onboarding starts one.
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
@@ -15,7 +15,9 @@ import { setSoundEnabled } from "@/lib/client/earcons";
 import { setPref, usePrefs, type Prefs } from "@/lib/client/prefs";
 import { CITY_AREAS } from "@/lib/config";
 import { useT } from "@/lib/i18n/useT";
+import { spacedPhone } from "@/lib/profile";
 import { AppFrame } from "./AppFrame";
+import { ProfileForm } from "./ProfileForm";
 import { useRequireSession } from "./useSession";
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
@@ -55,6 +57,8 @@ export function SettingsScreen() {
   const prefs = usePrefs();
   const signedIn = useRequireSession();
   const me = useQuery(api.contractors.me, {});
+  const account = useQuery(api.account.me, signedIn ? {} : "skip");
+  const [editing, setEditing] = useState(false);
   const { signOut } = useAuthActions();
   const setSharePhone = useMutation(api.contractors.setSharePhone);
   const router = useRouter();
@@ -136,10 +140,45 @@ export function SettingsScreen() {
         <p className="text-body text-ink-2">{t("settings.modeHint")}</p>
       </Group>
 
-      {/* Log out (the founders asked for it). Sessions are anonymous until phone-number login exists, so the
-          sheet says plainly that past orders won't come back on this phone. */}
+      {/* R26: the person's own details (name and number lock once the founders checked them on a call). */}
+      {account?.profile ? (
+        <Group title={t("settings.profile")}>
+          {editing ? (
+            <ProfileForm profile={account.profile} onDone={() => setEditing(false)} />
+          ) : (
+            <>
+              <dl className="flex flex-col gap-2 text-body">
+                <div className="flex flex-col">
+                  <dt className="text-meta text-ink-2">{t("onboarding.nameLabel")}</dt>
+                  <dd>{account.profile.name}</dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-meta text-ink-2">{t("onboarding.phoneLabel")}</dt>
+                  <dd className="font-mono">{account.profile.phone === null ? "—" : spacedPhone(account.profile.phone)}</dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-meta text-ink-2">{t("onboarding.addressLabel")}</dt>
+                  <dd className="break-words">{account.profile.address ?? "—"}</dd>
+                </div>
+              </dl>
+              <SecondaryButton onClick={() => setEditing(true)} className="w-full sm:w-fit">
+                {t("settings.editProfile")}
+              </SecondaryButton>
+            </>
+          )}
+        </Group>
+      ) : null}
+
+      {/* Log out (the founders asked for it). Signing in again with the same Google account brings everything back. */}
       <Group title={t("settings.account")}>
-        {me ? <p className="text-body">{me.name}</p> : null}
+        {account?.email ? (
+          <div className="flex flex-col">
+            <span className="text-meta text-ink-2">{t("settings.signedInAs")}</span>
+            <span className="break-all text-body">{account.email}</span>
+          </div>
+        ) : me ? (
+          <p className="text-body">{me.name}</p>
+        ) : null}
         {me ? (
           <Toggle
             label={t("settings.sharePhone")}

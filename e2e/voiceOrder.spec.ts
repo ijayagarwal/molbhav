@@ -1,5 +1,5 @@
 import path from "node:path";
-import { expect, expectNoHorizontalScroll, test } from "./fixtures";
+import { expect, expectNoHorizontalScroll, test, signInForTest, testEmail } from "./fixtures";
 
 // The spoken order end to end (Phase 4 done-when, on a Pixel 7 profile): Chrome's fake microphone plays
 // e2e/demo.wav (the demo line from docs/DEMO.md, 16 kHz mono; a synthetic Bulbul voice until the founders'
@@ -18,9 +18,12 @@ test.use({
 
 test("a spoken order lands on Confirm with every field it said", async ({ page, lang, errors }) => {
   const L = (hi: string, en: string) => (lang === "hi" ? hi : en);
+  await signInForTest(page, testEmail("approved"));
   await page.goto("/app");
   await page.getByRole("radio", { name: lang === "hi" ? "हिंदी" : "English" }).click();
-  await page.locator("input:not([type=checkbox])").fill(L("रमेश यादव", "Ramesh Yadav"));
+  await page.locator("#ob-name").fill(L("रमेश यादव", "Ramesh Yadav"));
+  await page.locator("#ob-phone").fill("98290 12345");
+  await page.locator("#ob-address").fill(L("प्लॉट 12, सेक्टर 5, मानसरोवर, जयपुर", "Plot 12, Sector 5, Mansarovar, Jaipur"));
   await page.locator("input[type=checkbox]").check();
   await page.getByRole("button", { name: L("आगे", "Next"), exact: true }).click();
   await page.getByRole("button", { name: L("मानसरोवर", "Mansarovar") }).click();

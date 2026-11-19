@@ -121,7 +121,7 @@ export function PendingScreen({ email, profile }: { email: string | null; profil
         <h1 id="pending-title" className="font-display text-title-1">
           {t("pending.title", { name: profile.name })}
         </h1>
-        <p className="flex items-start gap-3 rounded-card border-2 border-ink bg-haldi p-4 text-body text-ink">
+        <p className="flex items-start gap-3 rounded-card border border-rule bg-cement p-4 text-body text-ink">
           <ClockBold aria-hidden="true" className="mt-0.5 size-6 shrink-0" />
           <span>{t("pending.body")}</span>
         </p>

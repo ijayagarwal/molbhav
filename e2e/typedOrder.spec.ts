@@ -1,5 +1,5 @@
 import { DEMO_TRANSCRIPT } from "../lib/fixtures/demoOrder";
-import { expect, expectNoHorizontalScroll, test } from "./fixtures";
+import { expect, expectNoHorizontalScroll, test, signInForTest, testEmail } from "./fixtures";
 
 // The typed fallback end to end (Phase 4, ARCHITECTURE §6.1 step 6): Home → type the demo line → POST
 // /api/voice/order with { text } → the real parse → Confirm with the parsed chips. It spends a real LLM
@@ -11,9 +11,12 @@ test("a typed order lands on Confirm with what was said", async ({ page, lang, e
   const L = (hi: string, en: string) => (lang === "hi" ? hi : en);
 
   // Onboarding: language, name + consent, site (as in simFlow.spec.ts).
+  await signInForTest(page, testEmail("approved"));
   await page.goto("/app");
   await page.getByRole("radio", { name: lang === "hi" ? "हिंदी" : "English" }).click();
-  await page.locator("input:not([type=checkbox])").fill(L("रमेश यादव", "Ramesh Yadav"));
+  await page.locator("#ob-name").fill(L("रमेश यादव", "Ramesh Yadav"));
+  await page.locator("#ob-phone").fill("98290 12345");
+  await page.locator("#ob-address").fill(L("प्लॉट 12, सेक्टर 5, मानसरोवर, जयपुर", "Plot 12, Sector 5, Mansarovar, Jaipur"));
   await page.locator("input[type=checkbox]").check();
   await page.getByRole("button", { name: L("आगे", "Next"), exact: true }).click();
   await page.getByRole("button", { name: L("मानसरोवर", "Mansarovar") }).click();

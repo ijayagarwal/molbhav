@@ -4,10 +4,13 @@
 // or spoken after a tap that reveals the mic (15 s cap, permission asked from the primer's button only). The
 // order is understood on the server (POST /api/voice/order?sandbox=1, limits enforced there) and opens
 // /try/<id>. Everything runs on the simulator with fictional dealers; the page says so before anything starts.
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useConvexAuth } from "convex/react";
 import dynamic from "next/dynamic";
 import { useState, type FormEvent } from "react";
 import { BottomSheet } from "@/components/mb/AppShell";
 import { PrimaryButton, SecondaryButton } from "@/components/mb/Buttons";
+import { GoogleMark } from "@/components/mb/GoogleMark";
 import { MicBold, SendBold } from "@/components/mb/icons";
 import { ListeningSheet } from "@/components/mb/ListeningSheet";
 import { MicButton } from "@/components/mb/MicButton";
@@ -24,8 +27,33 @@ const MicPrimer = dynamic(() => import("@/components/mb/MicPrimer").then((m) => 
 const MAX_CHARS = 500;
 const NO_ASK: ReadonlySet<string> = new Set(["mic_blocked", "no_device", "insecure", "unsupported"]);
 
+/** R26: the demo runs for signed-in visitors only, so the founders know who tried it (and the caps hold). */
+function SignInCard() {
+  const { t } = useT();
+  const { signIn } = useAuthActions();
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="flex flex-col gap-3 rounded-card border-2 border-ink bg-card p-4">
+      <p className="text-body">{t("try.signinBody")}</p>
+      <PrimaryButton
+        size="md"
+        icon={<GoogleMark />}
+        disabled={busy}
+        aria-busy={busy}
+        onClick={() => {
+          setBusy(true);
+          void signIn("google", { redirectTo: "/try" }).catch(() => setBusy(false));
+        }}
+      >
+        {busy ? t("signin.opening") : t("signin.google")}
+      </PrimaryButton>
+    </div>
+  );
+}
+
 export function TryHome() {
   const { t, lang } = useT();
+  const { isLoading, isAuthenticated } = useConvexAuth();
   const order = useTryOrder();
   const { mic, state } = order;
   const [micOpen, setMicOpen] = useState(false);
@@ -66,6 +94,7 @@ export function TryHome() {
           </h1>
           <p className="max-w-[60ch] text-body-lg text-ink-2">{t("try.sub")}</p>
           <p className="max-w-[60ch] border-l-4 border-haldi pl-3 text-label">{t("try.demoNote")}</p>
+          {!isLoading && !isAuthenticated ? <SignInCard /> : null}
 
           <h2 className="pt-2 font-display text-title-2">{t("try.samplesTitle")}</h2>
           <ul className="flex flex-col gap-3">

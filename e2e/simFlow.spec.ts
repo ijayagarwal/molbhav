@@ -1,4 +1,4 @@
-import { expect, expectNoHorizontalScroll, expectOpaque, test } from "./fixtures";
+import { expect, expectNoHorizontalScroll, expectOpaque, test, signInForTest, testEmail } from "./fixtures";
 
 // The whole order in sim mode (Phase 6B done-when): onboarding → the example order → Confirm → choose dealers
 // → the sweep board → Result → place → undo → place again → the confirm call → placed. DEMO dealers only; no
@@ -7,9 +7,12 @@ test("a new contractor gets the cheapest comparable offer and places it", async 
   const L = (hi: string, en: string) => (lang === "hi" ? hi : en);
 
   // Onboarding: language, name + consent, site.
+  await signInForTest(page, testEmail("approved"));
   await page.goto("/app");
   await page.getByRole("radio", { name: lang === "hi" ? "हिंदी" : "English" }).click();
-  await page.locator("input:not([type=checkbox])").fill(L("रमेश यादव", "Ramesh Yadav"));
+  await page.locator("#ob-name").fill(L("रमेश यादव", "Ramesh Yadav"));
+  await page.locator("#ob-phone").fill("98290 12345");
+  await page.locator("#ob-address").fill(L("प्लॉट 12, सेक्टर 5, मानसरोवर, जयपुर", "Plot 12, Sector 5, Mansarovar, Jaipur"));
   await page.locator("input[type=checkbox]").check();
   await page.getByRole("button", { name: L("आगे", "Next"), exact: true }).click();
   await page.getByRole("button", { name: L("मानसरोवर", "Mansarovar") }).click();

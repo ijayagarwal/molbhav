@@ -631,6 +631,7 @@ export const en: Record<DictKey, string> = {
   "try.title": "Try it yourself",
   "try.sub": "Say an order, type it or pick one below. See how Molbhav understands it, then gets rates from fictional dealers and bargains.",
   "try.demoNote": "DEMO: fictional dealers; no real call is made. Your voice isn't kept, and this demo order is deleted within 24 hours.",
+  "try.signinBody": "Continue with Google to run the demo. Once you're in, tap a sample order.",
   "try.samplesTitle": "Pick an order",
   "try.ownTitle": "Or give your own order",
   "try.speak": "Say it",

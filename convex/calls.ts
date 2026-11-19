@@ -5,7 +5,7 @@ import { evaluateDial, opensDealerSlot } from "../lib/liveGuards";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx } from "./_generated/server";
-import { requireOwnedOrder } from "./lib/access";
+import { accessOf, requireOwnedOrder } from "./lib/access";
 import { userQuery } from "./lib/functions";
 import { contractorOrdersToday, countActiveLiveCalls, dealerFacts, dialCounts, liveEnv } from "./lib/live";
 import { publicCall, publicDealer } from "./lib/projections";
@@ -86,9 +86,11 @@ export const claimDial = internalMutation({
 
     const dealer = await ctx.db.get(call.dealerId);
     if (dealer === null) return await cancel(ctx, call, "invalid_number", now);
-    // The contractor must be the order's owner, so no order can borrow another person's verification.
+    // The contractor must be the order's owner, so no order can borrow another person's verification, and the
+    // founders must still allow that person (R26): a blocked or pending owner dials nothing, verified or not.
     const linked = order.contractorId === undefined ? null : await ctx.db.get(order.contractorId);
-    const contractor = linked !== null && linked.userId === order.ownerUserId ? linked : null;
+    const owner = linked === null ? null : await ctx.db.get(linked.userId);
+    const contractor = linked !== null && linked.userId === order.ownerUserId && owner !== null && accessOf(owner) === "approved" ? linked : null;
 
     const env = liveEnv();
     const dealerF = await dealerFacts(ctx, dealer);

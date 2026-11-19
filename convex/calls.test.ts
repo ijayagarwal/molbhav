@@ -369,4 +369,14 @@ describe("claimDial: trial mode and dealer checks (B9, B10, R18)", () => {
     const order = await addOrder(t, c);
     expect(verdict(await claim(t, await queueCall(t, order, await addDealer(t, "+919812345681"))))).toBe("not_verified");
   });
+
+  test("R26: a verified contractor whose account a founder blocked, or set back to pending, dials nothing", async () => {
+    const t = convexTest(schema, modules);
+    for (const access of ["blocked", "pending"] as const) {
+      const c = await addContractor(t);
+      await t.run(async (ctx) => ctx.db.patch((await ctx.db.get(c))!.userId, { access }));
+      const order = await addOrder(t, c);
+      expect(verdict(await claim(t, await queueCall(t, order, await addDealer(t, access === "blocked" ? "+919812345682" : "+919812345683"))))).toBe("not_verified");
+    }
+  });
 });

@@ -1,6 +1,7 @@
 import Google from "@auth/core/providers/google";
 import { convexAuth } from "@convex-dev/auth/server";
 import type { MutationCtx } from "./_generated/server";
+import { E2ELogin } from "./e2eAuth";
 import { rateLimiter } from "./limits";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -25,6 +26,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         };
       },
     }),
+    // Test-only, local dev deployment only, behind a secret (convex/e2eAuth.ts): inert everywhere else.
+    E2ELogin,
   ],
   session: {
     totalDurationMs: 90 * DAY,

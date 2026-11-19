@@ -21,6 +21,7 @@ import type * as dealerApps from "../dealerApps.js";
 import type * as dealerOtp from "../dealerOtp.js";
 import type * as dealerSignup from "../dealerSignup.js";
 import type * as dealers from "../dealers.js";
+import type * as e2eAuth from "../e2eAuth.js";
 import type * as engine from "../engine.js";
 import type * as events from "../events.js";
 import type * as extract from "../extract.js";
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   dealerOtp: typeof dealerOtp;
   dealerSignup: typeof dealerSignup;
   dealers: typeof dealers;
+  e2eAuth: typeof e2eAuth;
   engine: typeof engine;
   events: typeof events;
   extract: typeof extract;
