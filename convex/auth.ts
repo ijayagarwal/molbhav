@@ -1,5 +1,6 @@
 import Google from "@auth/core/providers/google";
 import { convexAuth } from "@convex-dev/auth/server";
+import { resolveRedirect } from "../lib/authRedirect";
 import type { MutationCtx } from "./_generated/server";
 import { E2ELogin } from "./e2eAuth";
 import { rateLimiter } from "./limits";
@@ -34,6 +35,13 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     inactiveDurationMs: 30 * DAY,
   },
   callbacks: {
+    // Back to the address the visitor started on (www.callagent.dev or molbhav-weld.vercel.app), never elsewhere:
+    // SITE_URL and AUTH_REDIRECT_ORIGINS only (lib/authRedirect.ts).
+    async redirect({ redirectTo }) {
+      const url = resolveRedirect(redirectTo, process.env);
+      if (url === null) throw new Error("Invalid redirectTo for this deployment");
+      return url;
+    },
     async afterUserCreatedOrUpdated(ctx, { existingUserId }) {
       if (existingUserId === null) {
         // Throws when the deployment-wide budget for new accounts is spent, which aborts the sign-in.

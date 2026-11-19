@@ -59,7 +59,7 @@ export function SignInScreen({ oldSession = false }: { oldSession?: boolean }) {
     setFailed(false);
     try {
       // Navigates to Google; the page comes back to /app signed in.
-      await signIn("google", { redirectTo: "/app" });
+      await signIn("google", { redirectTo: `${window.location.origin}/app` });
     } catch {
       setFailed(true);
       setBusy(false);

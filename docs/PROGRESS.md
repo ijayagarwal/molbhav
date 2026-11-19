@@ -101,6 +101,17 @@ the account), the sandbox /try and the presenter view for demos (Phase 7), harde
 
 ## 4. Session log (what happened, newest first)
 
+### 20 Nov 2026: live on www.callagent.dev, a fresh database, live calls on (trial)
+- **New address:** the founders pointed callagent.dev at the site (it forwards to **www.callagent.dev**). Sign-in now
+  returns to whichever address the visitor started on (www.callagent.dev or molbhav-weld.vercel.app), and only to
+  those; production's SITE_URL is https://www.callagent.dev.
+- **Fresh start on production** (the founders' request): a full backup was exported first (local, git-ignored
+  `.backups/`), then `freshStart:wipe` deleted every account, profile, order, call, dealer, application and form
+  entry except the admin (gangescompany@gmail.com), the DEMO dealers and the price bands.
+- **Live calls switched on in production on the Bolna trial** (BOLNA_TRIAL=true, LIVE_CONCURRENCY=2,
+  LIVE_CALLS_ENABLED=true; the founders' "go"): calls reach only numbers on Bolna's verified list, for approved
+  people whom the admin has allowed real calls, to dealers the admin approved for test calls.
+
 ### 19–20 Nov 2026: Google sign-in, the founders' approval wall, and the admin panel (R26)
 - **The founders tested the Bolna code step on /dealer with a teammate's number: the code arrived and the number
   was verified.**

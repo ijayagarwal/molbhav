@@ -42,7 +42,7 @@ function SignInCard() {
         aria-busy={busy}
         onClick={() => {
           setBusy(true);
-          void signIn("google", { redirectTo: "/try" }).catch(() => setBusy(false));
+          void signIn("google", { redirectTo: `${window.location.origin}/try` }).catch(() => setBusy(false));
         }}
       >
         {busy ? t("signin.opening") : t("signin.google")}

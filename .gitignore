@@ -41,3 +41,6 @@ scripts/.font-cache/
 
 # Agent worktrees (local only)
 .claude/worktrees/
+
+# Local database backups (personal data): never commit
+.backups/

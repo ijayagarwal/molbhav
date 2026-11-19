@@ -71,7 +71,7 @@ export function useTryOrder() {
   const ensureSession = useCallback(async (): Promise<"ok" | "redirect" | "failed"> => {
     if (authed.current) return "ok";
     try {
-      await signIn("google", { redirectTo: "/try" });
+      await signIn("google", { redirectTo: `${window.location.origin}/try` });
       return "redirect";
     } catch {
       return "failed";
