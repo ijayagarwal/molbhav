@@ -380,3 +380,50 @@ describe("claimDial: trial mode and dealer checks (B9, B10, R18)", () => {
     }
   });
 });
+
+describe("claimDial: follow-up calls (R28)", () => {
+  async function quoteFor(t: T, orderId: Id<"orders">, dealerId: Id<"dealers">) {
+    return await t.run(async (ctx) => {
+      const callId = await ctx.db.insert("calls", {
+        orderId, dealerId, round: "quote", mode: "live", attempt: 1, roundSeq: 1, status: "completed", statusRank: 10,
+        deadlineAt: 0, extract: "done", extractAttempts: 1,
+      });
+      return await ctx.db.insert("quotes", {
+        orderId, dealerId, callId, round: "quote", lines: [], billType: "unknown", weightBasis: "unknown", saidFinal: false, confidence: 0.9,
+        readBackConfirmed: false, totalSource: "computed", landed: { subtotal: 0, gst: 0, delivery: 0, unloading: 0, total: 0 },
+        flags: ["delivery_unknown"], comparable: false, citable: false,
+      });
+    });
+  }
+
+  test("a follow-up dials only while the order is ready; every other call still refuses ready", async () => {
+    const { t, dealerId, orderId } = await basic();
+    const quoteId = await quoteFor(t, orderId, dealerId);
+    await t.run(async (ctx) => ctx.db.patch(orderId, { status: "ready" }));
+    expect(verdict(await claim(t, await queueCall(t, orderId, dealerId)))).toBe("round_closed");
+    const followUp = await queueCall(t, orderId, dealerId, { followUpOf: quoteId, followUpAsk: ["delivery"], attempt: 2 });
+    expect(verdict(await claim(t, followUp))).toBe("ok");
+    expect((await callLogRows(t)).find((r) => r.callId === followUp)).toMatchObject({ round: "quote", orderId });
+  });
+
+  test("never once the order left ready, and every other guard still applies", async () => {
+    const { t, dealerId, orderId } = await basic();
+    const quoteId = await quoteFor(t, orderId, dealerId);
+    const followUp = (over: Partial<Doc<"calls">> = {}) => queueCall(t, orderId, dealerId, { followUpOf: quoteId, followUpAsk: ["delivery"], ...over });
+    for (const status of ["sweeping", "matching", "placing", "placed", "cancelled"] as const) {
+      await t.run(async (ctx) => ctx.db.patch(orderId, { status }));
+      expect(verdict(await claim(t, await followUp())), status).toBe("round_closed");
+    }
+    await t.run(async (ctx) => ctx.db.patch(orderId, { status: "ready" }));
+    setEnv({ LIVE_CALLS_ENABLED: "false" });
+    expect(verdict(await claim(t, await followUp()))).toBe("live_off");
+    setEnv();
+    // The per-order budget to one number (3 calls before placing, R18) counts follow-ups like any quote call.
+    for (let i = 0; i < 3; i++) {
+      const c = await followUp();
+      expect(verdict(await claim(t, c))).toBe("ok");
+      await finish(t, c);
+    }
+    expect(verdict(await claim(t, await followUp()))).toBe("dealer_order_calls");
+  });
+});

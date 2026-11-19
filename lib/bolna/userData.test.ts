@@ -115,4 +115,25 @@ describe("buildUserData (CALL_SCRIPT variables, S3)", () => {
     expect(() => phoneSpoken("+9100000000")).toThrow();
     expect(itemKeysSpoken([ITEMS[0], { ...ITEMS[0], id: "steel_2", diameterMm: 16 }])).toBe("steel = बारह mm सरिया, steel_2 = सोलह mm सरिया");
   });
+
+  test("R28: a normal quote call opens as always; a follow-up asks only its gaps", () => {
+    const normal = buildUserData(BASE);
+    expect(normal.quote_opening).toBe(`मानसरोवर साइट पे कल सुबह ${normal.order_spoken} चाहिए, स्टॉक में है`);
+    expect(normal.is_followup).toBe("");
+    expect(normal.followup_ask).toBe("");
+    const gaps = [
+      { key: "delivery", kind: "delivery" as const, itemIds: [] },
+      { key: "rate_confirm", kind: "rate_confirm" as const, itemIds: ["steel", "cement"] },
+    ];
+    const again = buildUserData({ ...BASE, followUp: { gaps } });
+    expect(again).toMatchObject({
+      quote_opening: "पिछली कॉल में कुछ बातें रह गई थीं, सरिया और सीमेंट के ऑर्डर के बारे में, एक मिनट बात हो सकती है",
+      is_followup: "हाँ",
+      followup_ask: "भाड़ा कितना लगेगा; सरिया और सीमेंट का रेट एक बार फिर बता दीजिए",
+    });
+    // Fails closed: a follow-up is a Quote-agent call with something to ask.
+    expect(() => buildUserData({ ...BASE, followUp: { gaps: [] } })).toThrow(UserDataError);
+    expect(() => buildUserData({ ...BASE, round: "haggle", cited: { totalPaise: 20061000, facts: AGARWAL, totalSource: "computed" }, followUp: { gaps } })).toThrow(UserDataError);
+    expect(buildUserData({ ...BASE, round: "confirm", approved: { totalPaise: 20061000, facts: AGARWAL } }).quote_opening).toBe("");
+  });
 });

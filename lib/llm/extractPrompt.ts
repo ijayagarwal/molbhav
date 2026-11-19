@@ -8,7 +8,7 @@ import { spokenItem } from "../numbers";
 import type { ExtractedTerms } from "../extraction";
 
 /** Bump when the prompt or schema changes, so extractCache never serves an answer to an older prompt. */
-export const EXTRACT_PROMPT_VERSION = 2;
+export const EXTRACT_PROMPT_VERSION = 3;
 
 export const EXTRACT_SYSTEM_PROMPT = `You read a phone call transcript between Molbhav's AI assistant ("assistant") and a building-material dealer ("user"), plus the order items with ids.
 Extract ONLY what the dealer said. Never compute totals. Never fill a value the dealer did not say.
@@ -20,6 +20,7 @@ first: in a match call only, the same fields (lines, lumpSumTotal, charges, GST 
 outcome: quoted (the dealer gave a rate or a total; in quote, haggle and match calls this stays "quoted" even when he agrees with the read-back) | declined | callback | opt_out | no_quote | terms_changed and confirmed (ONLY when call is "confirm": confirmed = every relayed term matched; terms_changed = something differs). callbackWhenText if given.
 saidFinal: the dealer said this is final/last. confidence 0..1, lower if numbers were unclear or corrected.
 Haggle and match calls: you also get the dealer's earlier quote. Put in "lines" ONLY the items whose rate the dealer said again in THIS call, and fill other fields only if he changed them; code carries the rest over. A number the assistant cited that the dealer only repeated as a question or refused is not his.
+Follow-up calls (followUpAsked is set): the dealer already quoted earlier (earlierQuote) and was asked ONLY the listed things again. Fill only what he said in THIS call; leave everything else null or unknown. For an item whose GST mode, stock or brand he said now without saying its rate again, give its line with the earlier rate and unit and what he said now. Never take a rate from earlierQuote for an item he said nothing about.
 If the dealer corrected a number, use the corrected one. A no-bill (kachcha) rate is never the quote when he also gave a pakka-bill rate.
 Output only JSON.`;
 
@@ -80,6 +81,8 @@ export interface ExtractPromptInput {
   earlier?: ExtractedTerms;
   /** Haggle and match calls: the total the assistant cited, in rupees. */
   citedRupees?: number;
+  /** Follow-up calls (R28): what the dealer was asked again, in plain English (lib/followUp.ts followUpSpoken). */
+  followUpAsked?: string[];
 }
 
 /**
@@ -104,5 +107,6 @@ export function extractUserPrompt(i: ExtractPromptInput): string {
   const context: Record<string, unknown> = { call: i.round, items };
   if (i.earlier !== undefined) context.earlierQuote = i.earlier;
   if (i.citedRupees !== undefined) context.citedTotalRupees = i.citedRupees;
+  if (i.followUpAsked !== undefined) context.followUpAsked = i.followUpAsked;
   return `${JSON.stringify(context)}\n\nTRANSCRIPT:\n${i.transcript}`;
 }

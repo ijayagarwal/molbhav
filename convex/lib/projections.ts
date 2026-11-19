@@ -48,6 +48,8 @@ export function publicCall(c: Doc<"calls">) {
     hasRecording: c.recordingStorageId !== undefined,
     /** Confirm calls: the offer being placed (the winner, or the one the contractor chose). */
     confirmQuoteId: c.confirmQuoteId,
+    /** R28: a follow-up call, and the quote it follows up. */
+    followUpOf: c.followUpOf,
   };
 }
 export type PublicCall = ReturnType<typeof publicCall>;
@@ -76,6 +78,9 @@ export function publicQuote(q: Doc<"quotes">) {
     readBackConfirmed: q.readBackConfirmed,
     totalSource: q.totalSource,
     lumpSumIncludes: q.lumpSumIncludes,
+    /** R28: this quote with a follow-up's answers in / replaced by a follow-up (kept for history, never ranked). */
+    followUpOf: q.followUpOf,
+    supersededBy: q.supersededBy,
   };
 }
 export type PublicQuote = ReturnType<typeof publicQuote>;

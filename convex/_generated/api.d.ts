@@ -28,6 +28,7 @@ import type * as e2eAuth from "../e2eAuth.js";
 import type * as engine from "../engine.js";
 import type * as events from "../events.js";
 import type * as extract from "../extract.js";
+import type * as followUp from "../followUp.js";
 import type * as freshStart from "../freshStart.js";
 import type * as http from "../http.js";
 import type * as lib_access from "../lib/access.js";
@@ -88,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   engine: typeof engine;
   events: typeof events;
   extract: typeof extract;
+  followUp: typeof followUp;
   freshStart: typeof freshStart;
   http: typeof http;
   "lib/access": typeof lib_access;

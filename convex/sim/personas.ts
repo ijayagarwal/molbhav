@@ -5,7 +5,8 @@
 // For the DEMO ORDER (the TEAM_TEST line: 2 ton 12 mm local ISI steel + 150 bags PPC, any brand), the four
 // demo personas say exactly the TEAM_TEST Card A–D numbers, so sim and live runs land on the same totals
 // (winner ₹1,98,830; regular dealer ₹2,04,300 → ₹2,00,100). Other orders use base prices × a seeded jitter.
-import type { OrderItem, QuoteLine, Round } from "../../lib/domain";
+import type { DeliverBy, GstMode, OrderItem, QuoteLine, Round, WeightBasis } from "../../lib/domain";
+import type { Gap } from "../../lib/followUp";
 import type { QuoteFacts } from "../../lib/pricing";
 
 export const PERSONA_KEYS = [
@@ -31,6 +32,8 @@ export interface PersonaCallInput {
   earlier?: QuoteFacts;
   /** Seed flag: the winner re-prices on the confirm call whatever its persona (PROMPTS Phase 3 item 7). */
   forceRepriceAtConfirm?: boolean;
+  /** A follow-up call (R28): this dealer's earlier quote and the gaps the agent asks, nothing else. */
+  followUp?: { previous: QuoteFacts; gaps: readonly Gap[] };
 }
 
 export type PersonaOutcome =
@@ -305,10 +308,123 @@ function script(persona: PersonaKey, items: OrderItem[], seed: number, demo: boo
   }
 }
 
+// ── Follow-up calls (R28) ──────────────────────────────────────────────────────────────
+
+/** What each persona answers when called again about what its quote left out. FIXTURES, not market data. */
+interface FollowUpAnswers {
+  gst: Exclude<GstMode, "unknown">;
+  /** Rupees; 0 = free. */
+  delivery: number;
+  unloading: number;
+  weight: Exclude<WeightBasis, "unknown">;
+  /** 0 = cash. */
+  creditDays: number;
+  deliveryBy: DeliverBy;
+}
+
+const FOLLOW_UP_ANSWERS: Partial<Record<PersonaKey, FollowUpAnswers>> = {
+  regular_match: { gst: "included", delivery: 0, unloading: 550, weight: "kanta", creditDays: 15, deliveryBy: "tomorrow_morning" },
+  perkg_gst_extra: { gst: "extra", delivery: 0, unloading: 600, weight: "kanta", creditDays: 7, deliveryBy: "tomorrow_morning" },
+  perton_gst_incl: { gst: "included", delivery: 1500, unloading: 0, weight: "kanta", creditDays: 0, deliveryBy: "tomorrow" },
+  // Card C (Rathore), asked again: GST extra, delivery free, unloading ₹500, kanta, 7 days, tomorrow → ₹2,03,460.
+  whatsapp_dodger: { gst: "extra", delivery: 0, unloading: 500, weight: "kanta", creditDays: 7, deliveryBy: "tomorrow" },
+  cement_only: { gst: "extra", delivery: 0, unloading: 600, weight: "kanta", creditDays: 7, deliveryBy: "tomorrow_morning" },
+  kachcha_lowball: { gst: "extra", delivery: 0, unloading: 600, weight: "kanta", creditDays: 0, deliveryBy: "tomorrow_morning" },
+  reprice_at_confirm: { gst: "extra", delivery: 0, unloading: 600, weight: "kanta", creditDays: 7, deliveryBy: "tomorrow_morning" },
+};
+
+/**
+ * What the dealer says in a follow-up: only the asked gaps, each answered from the table above, and nothing he
+ * wasn't asked (R28). Lines follow the extractor's rule for follow-ups: a GST, stock or brand answer carries the
+ * earlier rate; the rate is spoken again only for a GST answer, a missing item or a rate confirmation.
+ */
+function followUpFacts(persona: PersonaKey, items: OrderItem[], previous: QuoteFacts, gaps: readonly Gap[], full: () => QuoteFacts): QuoteFacts | null {
+  const ans = FOLLOW_UP_ANSWERS[persona];
+  if (ans === undefined) return null;
+  const touched = new Map<string, QuoteLine>();
+  const touch = (id: string): QuoteLine | undefined => {
+    if (!touched.has(id)) {
+      const before = previous.lines.find((l) => l.orderItemId === id);
+      if (before !== undefined) touched.set(id, { ...before });
+    }
+    return touched.get(id);
+  };
+  const said = base({ lines: [], ratesSaidThisCall: [], billType: "unknown", weightBasis: "unknown" });
+  for (const g of gaps) {
+    switch (g.kind) {
+      case "gst":
+        for (const id of g.itemIds) {
+          const l = touch(id);
+          if (l !== undefined && l.gstMode === "unknown") l.gstMode = ans.gst;
+        }
+        break;
+      case "delivery":
+        said.deliveryCharge = ans.delivery;
+        break;
+      case "unloading":
+        said.unloadingCharge = ans.unloading;
+        break;
+      case "item": {
+        const item = items.find((i) => i.id === g.itemIds[0]);
+        const line = full().lines.find((l) => l.orderItemId === g.itemIds[0]);
+        if (item !== undefined && line !== undefined) touched.set(item.id, { ...line, inStock: "yes", gstMode: line.gstMode === "unknown" ? ans.gst : line.gstMode });
+        break;
+      }
+      case "stock":
+        for (const id of g.itemIds) {
+          const l = touch(id);
+          if (l !== undefined && l.inStock === "unknown") l.inStock = "yes";
+        }
+        break;
+      case "weight":
+        said.weightBasis = ans.weight;
+        break;
+      case "brand":
+        for (const id of g.itemIds) {
+          const l = touch(id);
+          const item = items.find((i) => i.id === id);
+          if (l === undefined || item === undefined || l.brandOffered !== undefined) continue;
+          const named = item.material === "tmt_steel" ? steelLine(item, l.rate, l.rateUnit, l.gstMode) : cementLine(item, l.rate, l.gstMode);
+          l.brandOffered = named.brandOffered;
+          l.tierOffered = named.tierOffered;
+        }
+        break;
+      case "bill":
+        said.billType = "pakka";
+        break;
+      case "credit":
+        said.creditDays = ans.creditDays;
+        break;
+      case "delivery_time":
+        said.deliveryBy = ans.deliveryBy;
+        break;
+      case "rate_confirm":
+        if (g.allIn && previous.lumpSumTotal !== undefined) {
+          said.lumpSumTotal = previous.lumpSumTotal;
+          said.lumpSumIncludes = ["gst", "delivery", "unloading"];
+          said.lumpSumScope = "order";
+          said.lumpSumSaidThisCall = true;
+        }
+        for (const id of g.itemIds) touch(id);
+        break;
+    }
+  }
+  said.lines = items.map((i) => touched.get(i.id)).filter((l): l is QuoteLine => l !== undefined);
+  said.ratesSaidThisCall = said.lines.filter((l) => l.inStock !== "no").map((l) => l.orderItemId);
+  return said;
+}
+
 export function personaCall(input: PersonaCallInput): PersonaOutcome {
   const { persona, round, items } = input;
   const demo = isDemoOrder(items);
   const seed = seedOf(persona, items, "v1");
+
+  if (input.followUp !== undefined) {
+    if (persona === "callback_later") return { kind: "callback", whenText: "एक घंटे बाद" };
+    const s = script(persona, items, seed, demo);
+    const said = s === null ? null : followUpFacts(persona, items, input.followUp.previous, input.followUp.gaps, s.quote);
+    return said === null ? { kind: "no_answer" } : { kind: "quoted", facts: said, saidFinal: false };
+  }
 
   if (round === "confirm") {
     if (input.forceRepriceAtConfirm || persona === "reprice_at_confirm") return { kind: "terms_changed", whatChanged: "rate" };

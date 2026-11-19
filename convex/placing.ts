@@ -8,6 +8,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
 import { createCall, isFinal, roundCalls, setAsidePlaced, undoWindowMs } from "./engine";
+import { closeFollowUpsForPlace } from "./followUp";
 import { requireOwnedOrder } from "./lib/access";
 import { userMutation } from "./lib/functions";
 
@@ -26,6 +27,8 @@ export const place = userMutation({
       expectedQuoteId === order.winningQuoteId ||
       ((order.ranking ?? []).includes(expectedQuoteId) && !(order.termsChangedQuoteIds ?? []).includes(expectedQuoteId));
     if (order.winningQuoteId === undefined || !choosable) throw new ConvexError({ code: "winner_changed" });
+    // R28: a follow-up call on now must finish first (its answer may change the result); one only queued is dropped.
+    if (!(await closeFollowUpsForPlace(ctx, order))) throw new ConvexError({ code: "follow_up_running" });
     // A live confirm call dials through claimDial like every live call (call hours and kill switches still
     // apply; Result warns before placing too close to closing time).
     const undoUntil = Date.now() + undoWindowMs(order.mode);

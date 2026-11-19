@@ -54,9 +54,13 @@ export const isFinal = (s: CallStatus) => FINAL.has(s);
 const SWEEP_STATUSES: ReadonlySet<OrderStatus> = new Set(["sweeping", "haggling", "matching"]);
 export const isSweeping = (s: OrderStatus) => SWEEP_STATUSES.has(s);
 
-/** Whether a job for this call may still act on its order (B4). */
+/**
+ * Whether a job for this call may still act on its order (B4). A follow-up call (R28) acts only while the order
+ * is ready: placing it (or anything else that moves it on) makes every pending job of that call a no-op.
+ */
 export function roundOpen(order: Doc<"orders">, call: Doc<"calls">): boolean {
   if (order.roundSeq !== call.roundSeq) return false;
+  if (call.followUpOf !== undefined) return order.status === "ready";
   return call.round === "confirm" ? order.status === "placing" : SWEEP_STATUSES.has(order.status);
 }
 
@@ -77,14 +81,14 @@ export async function roundCalls(ctx: Ctx, order: Doc<"orders">): Promise<Doc<"c
   return all.filter((c) => c.roundSeq === order.roundSeq);
 }
 
-/** The quotes from this round's calls, oldest first. */
+/** The quotes from this round's calls, oldest first, without the ones a follow-up replaced (R28). */
 export async function roundQuotes(ctx: Ctx, order: Doc<"orders">, calls: Doc<"calls">[]): Promise<Doc<"quotes">[]> {
   const ids = new Set<string>(calls.map((c) => c._id));
   const all = await ctx.db
     .query("quotes")
     .withIndex("by_order", (q) => q.eq("orderId", order._id))
     .collect();
-  return all.filter((q) => ids.has(q.callId));
+  return all.filter((q) => ids.has(q.callId) && q.supersededBy === undefined);
 }
 
 export function contender(q: Doc<"quotes">): Contender {
@@ -177,6 +181,8 @@ export interface NewCall {
   round: Doc<"calls">["round"];
   citedQuoteId?: Id<"quotes">;
   confirmQuoteId?: Id<"quotes">;
+  /** R28: a quote-round follow-up of this quote, asking only these gap keys (lib/followUp.ts). */
+  followUp?: { quoteId: Id<"quotes">; ask: string[] };
   /** Sim: when the call starts (stagger). */
   delayMs: number;
 }
@@ -211,8 +217,9 @@ export async function createCall(ctx: MutationCtx, order: Doc<"orders">, c: NewC
       extractAttempts: 0,
       ...(c.citedQuoteId === undefined ? {} : { citedQuoteId: c.citedQuoteId }),
       ...(c.confirmQuoteId === undefined ? {} : { confirmQuoteId: c.confirmQuoteId }),
+      ...(c.followUp === undefined ? {} : { followUpOf: c.followUp.quoteId, followUpAsk: c.followUp.ask }),
     });
-    if (c.round !== "confirm") await ctx.scheduler.runAfter(0, internal.engine.advance, { orderId: order._id });
+    if (c.round !== "confirm" && c.followUp === undefined) await ctx.scheduler.runAfter(0, internal.engine.advance, { orderId: order._id });
     return callId;
   }
   const callId = await ctx.db.insert("calls", {
@@ -229,6 +236,7 @@ export async function createCall(ctx: MutationCtx, order: Doc<"orders">, c: NewC
     extractAttempts: 0,
     ...(c.citedQuoteId === undefined ? {} : { citedQuoteId: c.citedQuoteId }),
     ...(c.confirmQuoteId === undefined ? {} : { confirmQuoteId: c.confirmQuoteId }),
+    ...(c.followUp === undefined ? {} : { followUpOf: c.followUp.quoteId, followUpAsk: c.followUp.ask }),
   });
   if (order.mode === "sim") await ctx.scheduler.runAfter(c.delayMs, internal.sim.runCall, { callId, roundSeq: order.roundSeq });
   else await dialPool.enqueueAction(ctx, internal.bolna.dialJob, { callId, backstop: true });
@@ -363,11 +371,16 @@ async function step(ctx: MutationCtx, order: Doc<"orders">, calls: Doc<"calls">[
 }
 
 /**
- * Freezes the result (§6.6 item 4): each dealer's standing offer, the outlier rule over all of them
- * (marked on the quote rows), the ranking by total and the winner by pickWinner with the order's credit
- * wish. Late results after this never change the ranking (§6.3).
+ * The result over these quotes (§6.6 item 4): each dealer's standing offer, the outlier rule over all of them
+ * (marked on the quote rows), the ranking by total and the winner by pickWinner with the order's credit wish,
+ * leaving out offers set aside after a confirm call (C5). freezeReady uses it at ready; a follow-up (R28) uses
+ * it again when a merged quote lands, so both rank the same way.
  */
-export async function freezeReady(ctx: MutationCtx, order: Doc<"orders">, quotes: Doc<"quotes">[]): Promise<void> {
+export async function rankResult(
+  ctx: MutationCtx,
+  order: Doc<"orders">,
+  quotes: Doc<"quotes">[],
+): Promise<{ ranking: Id<"quotes">[]; winningQuoteId: Id<"quotes"> | undefined }> {
   const contenders = quotes.map(contender);
   const standing = standingQuotes(contenders);
   const ranked = rankStanding(standing);
@@ -377,12 +390,24 @@ export async function freezeReady(ctx: MutationCtx, order: Doc<"orders">, quotes
     const q = quotes.find((x) => x._id === s.quoteId)!;
     await ctx.db.patch(q._id, { flags: q.flags.includes("outlier") ? q.flags : [...q.flags, "outlier"], comparable: false, citable: false });
   }
-  const winner = pickWinner(ranked, { wantsCredit: (order.creditDaysWanted ?? 0) > 0 });
-  await ctx.db.patch(order._id, {
-    status: "ready",
+  const setAside = new Set<string>(order.termsChangedQuoteIds ?? []);
+  const winner = pickWinner(
+    ranked.filter((c) => !setAside.has(c.quoteId)),
+    { wantsCredit: (order.creditDaysWanted ?? 0) > 0 },
+  );
+  return {
     ranking: ranked.map((c) => c.quoteId as Id<"quotes">),
     winningQuoteId: winner === null ? undefined : (winner.quoteId as Id<"quotes">),
-  });
+  };
+}
+
+/**
+ * Freezes the result (§6.6 item 4) and sets ready. Late results after this never change the ranking (§6.3);
+ * only a follow-up the contractor starts from Result does (R28, convex/followUp.ts).
+ */
+export async function freezeReady(ctx: MutationCtx, order: Doc<"orders">, quotes: Doc<"quotes">[]): Promise<void> {
+  const result = await rankResult(ctx, order, quotes);
+  await ctx.db.patch(order._id, { status: "ready", ranking: result.ranking, winningQuoteId: result.winningQuoteId });
 }
 
 /**
@@ -416,9 +441,26 @@ export async function setAsidePlaced(
   return true;
 }
 
-/** After a call settles: sweep calls move the round on; a confirm call that didn't connect leaves the order placing (R15). */
+/**
+ * After a call settles: sweep calls move the round on; a confirm call that didn't connect leaves the order
+ * placing (R15); a follow-up (R28) only leaves the order's running list (its answers, if any, were merged by
+ * convex/followUp.ts before this).
+ */
 export async function afterCallSettled(ctx: MutationCtx, call: Doc<"calls">): Promise<void> {
+  if (call.followUpOf !== undefined) {
+    await clearFollowUp(ctx, call);
+    return;
+  }
   if (call.round !== "confirm") await advanceOrder(ctx, call.orderId);
+}
+
+/** Takes a follow-up call off its order's running list (R28). Idempotent; runs whatever the order's status. */
+export async function clearFollowUp(ctx: MutationCtx, call: Pick<Doc<"calls">, "_id" | "orderId">): Promise<void> {
+  const order = await ctx.db.get(call.orderId);
+  const running = order?.followUpsRunning;
+  if (order === null || running === undefined || !running.some((f) => f.callId === call._id)) return;
+  const rest = running.filter((f) => f.callId !== call._id);
+  await ctx.db.patch(order._id, { followUpsRunning: rest.length > 0 ? rest : undefined });
 }
 
 /**

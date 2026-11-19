@@ -20,6 +20,8 @@ export interface ResultQuote {
   firstComparable?: boolean;
   creditDays?: number;
   deliveryBy?: DeliverBy;
+  /** R28: a follow-up replaced this quote; it is history only and never ranks. */
+  supersededBy?: string;
 }
 
 export interface ResultInput {
@@ -49,7 +51,7 @@ export interface ResultView {
 const ROUND_ORDER: Record<Round, number> = { quote: 0, haggle: 1, match: 2, confirm: 3 };
 
 export function buildResult(input: ResultInput): ResultView {
-  const ordered = [...input.quotes].filter((q) => q.round !== "confirm").sort((a, b) => ROUND_ORDER[a.round] - ROUND_ORDER[b.round]);
+  const ordered = [...input.quotes].filter((q) => q.round !== "confirm" && q.supersededBy === undefined).sort((a, b) => ROUND_ORDER[a.round] - ROUND_ORDER[b.round]);
   const byId = new Map(ordered.map((q) => [q._id, q]));
   const contenders: Contender[] = ordered.map((q) => ({
     quoteId: q._id,

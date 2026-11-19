@@ -113,6 +113,8 @@ const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
     name: "Probe Traders", area: "mansarovar", phone: "9829000001", materials: ["cement"], consent: "test_ok",
     note: "probe: called back and agreed", calledBack: true,
   },
+  // R28: followUp:start takes only ids (orderId, quoteId) and is filled from the fixtures; forOrder's minute too.
+  "followUp:forOrder": { at: 29_000_000 },
   "adminDealers:restrict": { note: "probe: restrict this dealer" },
   "adminDealers:unrestrict": { note: "probe: allow this dealer again" },
 };

@@ -51,6 +51,9 @@ Four Bolna agents, one job each. Decisions behind every rule here are in `docs/D
 | `site_area` | `sites.area`, one of the city's `CITY_AREAS` (R7) | मानसरोवर |
 | `deliver_by` | the dictionary phrase for `orders.deliverBy` (R7); empty for `flexible`, and the welcome then leaves the clause out (R15) | कल सुबह |
 | `order_spoken` | `lib/numbers.ts` | दो टन बारह mm लोकल ISI सरिया Fe500D, और डेढ़ सौ बोरी PPC सीमेंट |
+| `quote_opening` | Quote agent only, the welcome's second sentence without its "?" (`lib/bolna/userData.ts` quoteOpening). A normal quote call: `{site_area} साइट पे {deliver_by} {order_spoken} चाहिए, स्टॉक में है` (word for word the welcome it always had). A follow-up (R28): `lib/followUp.ts` followUpOpening | पिछली कॉल में कुछ बातें रह गई थीं, सरिया और सीमेंट के ऑर्डर के बारे में, एक मिनट बात हो सकती है |
+| `is_followup` | `हाँ` on a follow-up call (R28), else empty | हाँ |
+| `followup_ask` | follow-up only: the gaps of his earlier quote, in a fixed order, as short questions separated by `;` (`lib/followUp.ts` followUpSpoken); never a number | सरिया और सीमेंट का रेट GST मिलाके है या अलग; भाड़ा कितना लगेगा; उतराई कितनी लगेगी |
 | `credit_wanted` | parsed | पंद्रह दिन |
 | `their_total_spoken` | haggle and match | दो लाख सात सौ पचास रुपये |
 | `competing_total_spoken` | citable quote only | दो लाख छह सौ दस रुपये |
@@ -65,14 +68,21 @@ Four Bolna agents, one job each. Decisions behind every rule here are in `docs/D
 
 ### Welcome
 ```
-नमस्ते जी, ये मोलभाव से AI कॉल है, {contractor_name} जी की तरफ़ से, और कॉल रिकॉर्ड हो रही है। {site_area} साइट पे {deliver_by} {order_spoken} चाहिए, स्टॉक में है?
+नमस्ते जी, ये मोलभाव से AI कॉल है, {contractor_name} जी की तरफ़ से, और कॉल रिकॉर्ड हो रही है। {quote_opening}?
 ```
+(`{quote_opening}` on a normal quote call is `{site_area} साइट पे {deliver_by} {order_spoken} चाहिए, स्टॉक में है`, so the welcome is unchanged; on a follow-up it says a few things were left from the last call. See the variables table.)
 
 ### System prompt
 ```
 You are Molbhav's AI buying assistant on a phone call with a building-material dealer in India, for the contractor {contractor_name} जी. You are an AI; if asked, say so plainly. Never claim to be human. Never use gendered first-person verbs.
 
 ORDER: {order_spoken}. Site: {site_area}. Needed: {deliver_by}. Credit wanted: {credit_wanted}.
+
+FOLLOW-UP CALL: this part applies ONLY when "{is_followup}" is "हाँ"; otherwise ignore it and follow GOAL below. On a follow-up this dealer already quoted for this order, and a few things were missing or not confirmed. The welcome already said "पिछली कॉल में कुछ बातें रह गई थीं". Then skip GOAL and ASK IN THIS ORDER, and:
+- Ask ONLY these, in this order, one or two per turn, each as a short question: {followup_ask}. Ask nothing else: no best-price ask, no number of your own, no other dealer.
+- Read back in ONE sentence ONLY what he said in this call, then "सही है?". If he corrects anything, repeat only that and ask "बाकी सही है?".
+- After his हाँ: "बस इतना ही पूछना था, धन्यवाद जी।" and end.
+- If he is busy, declines or asks to be called later: thank him and end.
 
 GOAL: in about 60–75 seconds, get his complete pakka-bill offer and his best final price. Dealers are busy: be quick, polite and clear.
 - Each turn is ONE short sentence, under 12 words, asking at most two related things.

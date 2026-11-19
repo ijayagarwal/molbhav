@@ -194,6 +194,8 @@ export default defineSchema({
     termsChangedQuoteIds: v.optional(v.array(v.id("quotes"))),  // placed offers set aside after the confirm call (terms changed, declined, not reached; C5); never offered again
     setAsideReason: v.optional(v.union(v.literal("terms_changed"), v.literal("declined"), v.literal("not_reached"))),  // why the latest one was set aside (Result's notice)
     placedQuoteId: v.optional(v.id("quotes")),   // the offer being placed (placing → placed); cleared on undo or set-aside
+    // R28: follow-up calls running now (the order stays ready); each entry is removed when its call settles
+    followUpsRunning: v.optional(v.array(v.object({ callId: v.id("calls"), dealerId: v.id("dealers"), quoteId: v.id("quotes") }))),
     publicId: v.optional(v.string()),    // legacy (before the shares table); no longer written or read
     shareMode: v.optional(v.union(v.literal("full"), v.literal("savings"), v.literal("munshi"))),  // legacy, as above
     expiresAt: v.optional(v.number()),   // sandbox: 24 h
@@ -220,6 +222,8 @@ export default defineSchema({
     retryAt: v.optional(v.number()),     // live only: this call's one retry is scheduled then (no answer: +3 min; callback: the dealer's time, ≤ 30 min; P8, R15); the round waits for it
     citedQuoteId: v.optional(v.id("quotes")),    // haggle and match calls: the citable quote whose exact total was cited (C3)
     confirmQuoteId: v.optional(v.id("quotes")),  // confirm calls: the approved quote being relayed (C5)
+    followUpOf: v.optional(v.id("quotes")),      // R28: a quote-round call that asks only what this quote left out, while the order is ready
+    followUpAsk: v.optional(v.array(v.string())), // R28: the gap keys it asks (lib/followUp.ts), fixed when it starts
     extract: v.union(v.literal("pending"), v.literal("running"), v.literal("done"), v.literal("failed")),
     extractAttempts: v.number(),
     terminationReason: v.optional(v.string()),   // Bolna's, kept server-side
@@ -261,6 +265,8 @@ export default defineSchema({
     flags: v.array(flag),
     comparable: v.boolean(),             // may win
     citable: v.boolean(),                // may be cited in haggle/match
+    followUpOf: v.optional(v.id("quotes")),   // R28: this quote is that one with a follow-up call's answers merged in (callId = the follow-up call)
+    supersededBy: v.optional(v.id("quotes")), // R28: a follow-up replaced this quote; it stays for history and its recording, and never ranks again
   }).index("by_order", ["orderId"]).index("by_call", ["callId"]),
 
   providerEvents: defineTable({

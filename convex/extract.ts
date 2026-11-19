@@ -12,6 +12,7 @@ import { vOnCompleteArgs } from "@convex-dev/workpool";
 import { v } from "convex/values";
 import { callbackDelayMs } from "../lib/callback";
 import { checkCall, parseExtraction, toFacts, type Extraction } from "../lib/extraction";
+import { followUpSpoken, listGaps } from "../lib/followUp";
 import { EXTRACT_PROMPT_VERSION } from "../lib/llm/extractPrompt";
 import { openaiModel } from "../lib/llm/openai";
 import { priceQuote, type QuoteFacts } from "../lib/pricing";
@@ -27,6 +28,7 @@ import {
   setAsidePlaced,
   simExtract,
 } from "./engine";
+import { applyFollowUp } from "./followUp";
 import { scheduleRetry } from "./lib/liveCalls";
 import { applyOptOut } from "./lib/optOut";
 import { simCallInput } from "./sim";
@@ -41,6 +43,7 @@ type LlmInput = {
   round: Doc<"calls">["round"];
   earlierJson?: string;
   citedRupees?: number;
+  followUpAsked?: string[];
 };
 type BeginResult =
   | null
@@ -78,7 +81,9 @@ export const begin = internalMutation({
     }
 
     const cited = call.citedQuoteId === undefined ? null : await ctx.db.get(call.citedQuoteId);
-    const prev = call.round === "haggle" ? await earlierQuote(ctx, order, call) : null;
+    // A follow-up (R28) reads against the quote it follows up, and the extractor is told what was asked.
+    const followed = call.followUpOf === undefined ? null : await ctx.db.get(call.followUpOf);
+    const prev = followed ?? (call.round === "haggle" ? await earlierQuote(ctx, order, call) : null);
     const input: LlmInput = {
       transcript: call.transcript ?? "",
       itemsJson: JSON.stringify(order.items),
@@ -86,6 +91,11 @@ export const begin = internalMutation({
     };
     if (prev !== null) input.earlierJson = JSON.stringify(termsFromFacts(factsFromQuote(prev), false));
     if (cited !== null) input.citedRupees = cited.landed.total / 100;
+    if (followed !== null) {
+      const ask = new Set(call.followUpAsk ?? []);
+      const gaps = listGaps(followed, order.items, { creditDaysWanted: order.creditDaysWanted }).filter((g) => ask.has(g.key));
+      input.followUpAsked = gaps.map((g) => followUpSpoken([g], order.items, "en"));
+    }
     // The model convex/llm.ts will call, so a cached answer is only reused for the same model and prompt.
     const model = openaiModel(process.env);
     // Identical sim calls (same persona, items, round and citation) give identical transcripts, so they hit the cache.
@@ -162,6 +172,8 @@ function defined<T extends Record<string, unknown>>(o: T): T {
 }
 
 export async function applyExtraction(ctx: MutationCtx, order: Doc<"orders">, call: Doc<"calls">, ex: Extraction): Promise<void> {
+  // A follow-up merges into the quote it follows up (R28, convex/followUp.ts).
+  if (call.followUpOf !== undefined) return await applyFollowUp(ctx, order, call, ex);
   const cited = call.citedQuoteId === undefined ? null : await ctx.db.get(call.citedQuoteId);
   const checks = checkCall(call.transcript ?? "", ex, cited === null ? undefined : cited.landed.total / 100);
   const finish = async (outcome: Outcome, extra: Partial<Doc<"calls">> = {}) => {

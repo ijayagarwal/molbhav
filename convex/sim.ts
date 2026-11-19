@@ -5,6 +5,8 @@
 // live calls use. Sim calls never go through claimDial and never reach Bolna.
 import { v } from "convex/values";
 import { CITY_AREAS, type City } from "../lib/config";
+import { listGaps, type Gap } from "../lib/followUp";
+import type { QuoteFacts } from "../lib/pricing";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
@@ -56,6 +58,7 @@ export async function simCallInput(ctx: Ctx, call: Doc<"calls">, order: Doc<"ord
   const earlierDoc = call.round === "haggle" ? await earlierQuote(ctx, order, call) : null;
   const earlier = earlierDoc === null ? undefined : factsFromQuote(earlierDoc);
   const approvedDoc = call.round === "confirm" && call.confirmQuoteId !== undefined ? await ctx.db.get(call.confirmQuoteId) : null;
+  const followUp = await followUpOf(ctx, call, order);
 
   const input: PersonaCallInput = {
     persona,
@@ -66,6 +69,7 @@ export async function simCallInput(ctx: Ctx, call: Doc<"calls">, order: Doc<"ord
   };
   if (cited !== null) input.citedTotal = cited.landed.total;
   if (earlier !== undefined) input.earlier = earlier;
+  if (followUp !== null) input.followUp = followUp;
 
   const script: ScriptContext = {
     persona,
@@ -79,7 +83,22 @@ export async function simCallInput(ctx: Ctx, call: Doc<"calls">, order: Doc<"ord
   if (cited !== null) script.cite = { totalPaise: cited.landed.total, termsSpoken: citedTermsSpoken(factsFromQuote(cited), order.items) };
   if (earlier !== undefined) script.earlier = earlier;
   if (approvedDoc !== null) script.approved = { totalPaise: approvedDoc.landed.total, facts: factsFromQuote(approvedDoc) };
+  if (followUp !== null) script.followUp = { gaps: followUp.gaps };
   return { input, script };
+}
+
+/**
+ * A follow-up call's earlier quote and the gaps it asks (R28): the gaps are listed again from that quote and
+ * kept only if the call asks them (calls.followUpAsk), so the persona, the script and the live user_data all
+ * ask the same things.
+ */
+async function followUpOf(ctx: Ctx, call: Doc<"calls">, order: Doc<"orders">): Promise<{ previous: QuoteFacts; gaps: Gap[] } | null> {
+  if (call.followUpOf === undefined) return null;
+  const quote = await ctx.db.get(call.followUpOf);
+  if (quote === null) throw new Error("sim: follow-up of a missing quote");
+  const ask = new Set(call.followUpAsk ?? []);
+  const gaps = listGaps(quote, order.items, { creditDaysWanted: order.creditDaysWanted }).filter((g) => ask.has(g.key));
+  return { previous: factsFromQuote(quote), gaps };
 }
 
 /**

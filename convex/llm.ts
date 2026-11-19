@@ -28,6 +28,7 @@ export const extractQuote = internalAction({
     round,
     earlierJson: v.optional(v.string()),
     citedRupees: v.optional(v.number()),
+    followUpAsked: v.optional(v.array(v.string())),
   },
   handler: async (_ctx, a): Promise<string> => {
     const apiKey = openaiKey(process.env);
@@ -38,6 +39,7 @@ export const extractQuote = internalAction({
       round: a.round,
       earlier: a.earlierJson === undefined ? undefined : JSON.parse(a.earlierJson),
       citedRupees: a.citedRupees,
+      followUpAsked: a.followUpAsked,
     });
     let text: string;
     try {
