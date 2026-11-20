@@ -81,6 +81,8 @@ async function applicationsFor(ctx: Ctx, d: Doc<"dealers">): Promise<Doc<"dealer
 async function card(ctx: Ctx, d: Doc<"dealers">, onTestList: boolean, trialCallable: boolean) {
   const apps = d.isDemo ? [] : await applicationsFor(ctx, d);
   const linked = apps.find((a) => a.dealerId === d._id) ?? apps[0] ?? null;
+  // On Bolna's list per the 10-minute read (dealers.bolnaListedAt), or per an application with this number.
+  const bolnaListed = d.bolnaListedAt !== undefined || apps.some((a) => a.bolnaVerifiedAt !== undefined);
   return {
     _id: d._id,
     name: d.name,
@@ -94,10 +96,10 @@ async function card(ctx: Ctx, d: Doc<"dealers">, onTestList: boolean, trialCalla
     isDemo: d.isDemo,
     /** On the panel's trial test list (R24). */
     onTestList,
-    /** The dial guard would accept this test dealer's number now (other guards still apply per call). */
-    trialCallable,
-    /** On Bolna's trial "Verified numbers" list, as far as an application with this number knows (R25). */
-    bolnaListed: apps.some((a) => a.bolnaVerifiedAt !== undefined),
+    /** A trial test call can reach this dealer now: our guards accept the number AND it is on Bolna's list. */
+    trialCallable: trialCallable && bolnaListed,
+    /** On Bolna's trial "Verified numbers" list (R25, read every 10 minutes). */
+    bolnaListed,
     phoneMasked: maskPhone(d.phoneE164),
     applicationId: linked?._id ?? null,
     createdAt: d._creationTime,

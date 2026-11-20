@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
+import { liveEnv } from "./lib/live";
 import { requireOwnedOrder } from "./lib/access";
 import { contractorMutation, contractorQuery } from "./lib/functions";
 import { publicDealer } from "./lib/projections";
@@ -47,7 +48,14 @@ export const forOrder = contractorQuery({
     const rel = new Map(relations.map((r) => [r.dealerId as string, r]));
     const sameAreaFirst = (a: (typeof inCity)[number], b: (typeof inCity)[number]) =>
       Number(b.area === site?.area) - Number(a.area === site?.area) || a.name.localeCompare(b.name);
-    const view = (d: (typeof inCity)[number]) => ({ ...publicDealer(d), askFirst: rel.get(d._id)?.askFirst ?? false });
+    // On Bolna's trial only numbers on its "Verified numbers" list can be dialled: say so per dealer instead of
+    // letting a live call fail (bolnaListedAt is read from Bolna every 10 minutes).
+    const trialLive = (mode ?? order.mode) === "live" && liveEnv().trial;
+    const view = (d: (typeof inCity)[number]) => ({
+      ...publicDealer(d),
+      askFirst: rel.get(d._id)?.askFirst ?? false,
+      reachable: !trialLive || d.bolnaListedAt !== undefined,
+    });
     const regular = inCity.find((d) => rel.get(d._id)?.relation === "regular");
     return {
       area: site?.area ?? null,

@@ -13,5 +13,7 @@ crons.daily("anonymous users who never onboarded: delete after 7 days", { hourUT
 // Sandbox (/try, G3, ARCHITECTURE §6.9): orders past their 24 h `expiresAt` are deleted with their calls,
 // call events, quotes and share rows (sandbox.deleteExpired; app orders are never touched).
 crons.interval("sandbox: delete expired orders", { minutes: 30 }, internal.sandbox.deleteExpired, {});
+// Bolna's trial "Verified numbers" list (read-only GET), so Choose dealers and the panel show who can be called.
+crons.interval("Bolna's verified numbers: read the list", { minutes: 10 }, internal.dealerOtp.syncBolnaList, {});
 
 export default crons;

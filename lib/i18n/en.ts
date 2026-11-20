@@ -34,6 +34,7 @@ export const en: Record<DictKey, string> = {
   "dealers.modeDemo": "Demo",
   "dealers.modeLive": "Live calls",
   "dealers.liveNote": "LIVE · real calls will go out. Every call says first that it's an AI and that it's recorded.",
+  "dealers.notOnBolna": "Can't be called yet: this number isn't on Bolna's list (see the dealer's card in the admin panel)",
   "dealers.liveEmpty": "No dealer is ready for live calls yet.",
   "dealers.askFirst": "Ask them first too",
 
@@ -994,7 +995,7 @@ export const en: Record<DictKey, string> = {
   "adminUsers.errSelf": "Your own access can't be changed here.",
   "adminUsers.errNotApproved": "Approve this person first.",
   "adminUsers.errNoPhone": "There's no number on their profile. Ask them to add one.",
-  "adminUsers.errPhoneInUse": "Another verified contractor already has this number.",
+  "adminUsers.errPhoneInUse": "Real calls are already on for this number on the {holder} account. One number, one account: stop real calls on that card first, or have this person use their own number.",
   "adminUsers.errDemo": "The demo contractor can't get real calls.",
   "adminUsers.errCap": "The daily limit must be a whole number from 1 to {max}.",
   "adminUsers.errNotVerified": "Real calls aren't on for this person.",

@@ -35,6 +35,7 @@ export const hi = {
   "dealers.modeDemo": "डेमो",
   "dealers.modeLive": "असली कॉल",
   "dealers.liveNote": "LIVE · असली कॉल जाएँगी। हर कॉल की पहली बात: ये AI है और रिकॉर्ड हो रही है।",
+  "dealers.notOnBolna": "अभी कॉल नहीं लगेगी: ये नंबर Bolna की लिस्ट में नहीं है (एडमिन पैनल में dealer का कार्ड देखिए)",
   "dealers.liveEmpty": "अभी कोई dealer असली कॉल के लिए तैयार नहीं है।",
   "dealers.askFirst": "पहले भी पूछिए",
 
@@ -1007,7 +1008,7 @@ export const hi = {
   "adminUsers.errSelf": "अपनी मंज़ूरी यहाँ नहीं बदल सकते।",
   "adminUsers.errNotApproved": "पहले मंज़ूरी दीजिए।",
   "adminUsers.errNoPhone": "प्रोफ़ाइल में नंबर नहीं है। इनसे नंबर जुड़वाइए।",
-  "adminUsers.errPhoneInUse": "ये नंबर पहले से किसी और पक्के contractor का है।",
+  "adminUsers.errPhoneInUse": "इस नंबर पर असली कॉल पहले से {holder} वाले खाते पर चालू हैं। एक नंबर पर एक ही खाता। पहले उस कार्ड पर \"असली कॉल बंद कीजिए\" दबाइए, या इस व्यक्ति का अपना नंबर डलवाइए।",
   "adminUsers.errDemo": "डेमो contractor पर असली कॉल नहीं चल सकतीं।",
   "adminUsers.errCap": "रोज़ की सीमा 1 से {max} तक की पूरी संख्या होनी चाहिए।",
   "adminUsers.errNotVerified": "इनके लिए असली कॉल चालू नहीं हैं।",

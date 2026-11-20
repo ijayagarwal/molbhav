@@ -54,9 +54,10 @@ async function liveCallWithRecording({ t, orderId, dealerId }: Base, endedDaysAg
 }
 
 describe("crons.ts", () => {
-  test("schedules the three retention jobs (beside the sandbox expiry job)", () => {
+  test("schedules the three retention jobs (beside the sandbox expiry job and the Bolna list read)", () => {
     const jobs = Object.values((crons as unknown as { crons: Record<string, { name: string; schedule: { type: string } }> }).crons);
     expect(jobs.map((j) => [j.name, j.schedule.type]).sort()).toEqual([
+      ["dealerOtp:syncBolnaList", "interval"],
       ["retention:purgeAnonUsers", "daily"],
       ["retention:purgeCallLog", "daily"],
       ["retention:purgeRecordings", "hourly"],

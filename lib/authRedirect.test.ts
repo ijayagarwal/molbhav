@@ -18,4 +18,12 @@ describe("sign-in redirects", () => {
     expect(resolveRedirect("javascript:alert(1)", ENV)).toBeNull();
     expect(resolveRedirect("/app", {})).toBeNull();
   });
+  test("wildcard entries allow this project's Vercel deployment URLs only", () => {
+    const env = { SITE_URL: "https://www.callagent.dev", AUTH_REDIRECT_ORIGINS: "https://molbhav-weld.vercel.app,https://molbhav-*-ganges1.vercel.app" };
+    expect(resolveRedirect("https://molbhav-ajbbmb02z-ganges1.vercel.app/app", env)).toBe("https://molbhav-ajbbmb02z-ganges1.vercel.app/app");
+    expect(resolveRedirect("https://molbhav-x-otherteam.vercel.app/app", env)).toBeNull();
+    expect(resolveRedirect("https://molbhav-a.evil.com-ganges1.vercel.app/app", env)).toBeNull();
+    expect(resolveRedirect("http://molbhav-ajbbmb02z-ganges1.vercel.app/app", env)).toBeNull();
+    expect(allowedOrigins(env)).toEqual(["https://www.callagent.dev", "https://molbhav-weld.vercel.app"]);
+  });
 });

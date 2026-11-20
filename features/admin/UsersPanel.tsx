@@ -63,9 +63,10 @@ const ERRORS: Record<string, DictKey> = {
   not_found: "adminUsers.errNotFound",
 };
 
-function errorKey(e: unknown): { key: DictKey; code: string } {
-  const code = e instanceof ConvexError && typeof (e.data as { code?: unknown })?.code === "string" ? (e.data as { code: string }).code : "error";
-  return { key: ERRORS[code] ?? "admin.errGeneric", code };
+function errorKey(e: unknown): { key: DictKey; code: string; holder: string } {
+  const data = e instanceof ConvexError ? (e.data as { code?: unknown; holder?: unknown }) : {};
+  const code = typeof data?.code === "string" ? data.code : "error";
+  return { key: ERRORS[code] ?? "admin.errGeneric", code, holder: typeof data?.holder === "string" ? data.holder : "—" };
 }
 
 function areaName(city: string, key: string, lang: "hi" | "en"): string {
@@ -267,8 +268,8 @@ function ConfirmSheet({ p, action, onClose }: { p: PersonView; action: Action; o
       else if (action === "stopLive") await stopLive({ contractorId, note });
       onClose();
     } catch (e) {
-      const { key, code } = errorKey(e);
-      setError(t(key, { code, max: CAP_MAX }));
+      const { key, code, holder } = errorKey(e);
+      setError(t(key, { code, max: CAP_MAX, holder }));
       setBusy(false);
     }
   };

@@ -70,7 +70,13 @@ export const start = userMutation({
     const blocked = new Set<string>(book.filter((r) => r.relation === "blocked").map((r) => r.dealerId));
     // Sim calls only DEMO dealers; live only real dealers who may get AI calls (test_ok, opted_in), so a live order
     // never holds a fictional regular dealer for the match round (claimDial would refuse it anyway, B10).
-    const fitsMode = (d: Doc<"dealers">) => (mode === "sim" ? d.isDemo === true : d.isDemo !== true && (d.consent === "test_ok" || d.consent === "opted_in"));
+    // Live on Bolna's trial: only numbers on Bolna's "Verified numbers" list can be dialled, so a dealer who isn't on
+    // it is refused here (dealer_unavailable) instead of failing at Bolna (bolnaListedAt, read every 10 minutes).
+    const trial = mode === "live" && liveEnv().trial;
+    const fitsMode = (d: Doc<"dealers">) =>
+      mode === "sim"
+        ? d.isDemo === true
+        : d.isDemo !== true && (d.consent === "test_ok" || d.consent === "opted_in") && (!trial || d.bolnaListedAt !== undefined);
     // A dealer the founders restricted in the panel is never part of a sweep (R24; claimDial refuses it too).
     const usable = (d: Doc<"dealers"> | null): d is Doc<"dealers"> =>
       d !== null && d.city === city && d.consent !== "opted_out" && d.restricted !== true && !blocked.has(d._id) && fitsMode(d);

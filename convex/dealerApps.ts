@@ -146,6 +146,8 @@ async function upsertDealer(ctx: MutationCtx, app: App, consent: "test_ok" | "op
     if (existing.isDemo) throw new ConvexError({ code: "demo_dealer" });
     if (existing.restricted === true) throw new ConvexError({ code: "restricted" });
     if (existing.consent !== consent) await ctx.db.patch(existing._id, { consent });
+    // The application already knows the number is on Bolna's list: the dealer row says so too.
+    if (app.bolnaVerifiedAt !== undefined && existing.bolnaListedAt === undefined) await ctx.db.patch(existing._id, { bolnaListedAt: app.bolnaVerifiedAt });
     return { dealerId: existing._id, created: false };
   }
   const name = dealerNameFrom(app.shopName);
@@ -164,6 +166,7 @@ async function upsertDealer(ctx: MutationCtx, app: App, consent: "test_ok" | "op
     source: "optin",
     consent,
     isDemo: false,
+    ...(app.bolnaVerifiedAt === undefined ? {} : { bolnaListedAt: app.bolnaVerifiedAt }),
   });
   return { dealerId, created: true };
 }
@@ -203,8 +206,8 @@ export const approveForTest = adminMutation({
     const now = Date.now();
     await ctx.db.patch(app._id, { status: "approved_test", dealerId, reviewedAt: now, reviewedBy: who });
     await audit(ctx, who, "dealer.approve_test", dealerId, { applicationId: app._id, created, verified: otp ? "otp" : "callback", consentNote });
-    // Not on Bolna's list yet as far as we know: look once (a founder may have added it in Bolna's dashboard).
-    if (app.bolnaVerifiedAt === undefined) await ctx.scheduler.runAfter(0, internal.dealerOtp.syncBolnaList, {});
+    // Read Bolna's list once now (a founder may have just added the number in Bolna's dashboard).
+    await ctx.scheduler.runAfter(0, internal.dealerOtp.syncBolnaList, {});
     return { dealerId, created, trial: liveEnv().trial, bolnaVerified: app.bolnaVerifiedAt !== undefined };
   },
 });

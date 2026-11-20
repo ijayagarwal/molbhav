@@ -150,7 +150,9 @@ export const recordListed = internalMutation({
   args: { applicationId: v.id("dealerApplications") },
   handler: async (ctx, { applicationId }) => {
     const app = await ctx.db.get(applicationId);
-    if (app !== null && app.bolnaVerifiedAt === undefined) await ctx.db.patch(applicationId, { bolnaVerifiedAt: Date.now() });
+    if (app === null) return;
+    if (app.bolnaVerifiedAt === undefined) await ctx.db.patch(applicationId, { bolnaVerifiedAt: Date.now() });
+    await markDealerListed(ctx, app.phoneHash, Date.now());
   },
 });
 
@@ -180,6 +182,7 @@ export const recordVerified = internalMutation({
     if (app === null || app.phoneE164 !== phoneE164) throw new ConvexError({ code: "phone_mismatch" });
     const now = Date.now();
     await ctx.db.patch(applicationId, { phoneVerifiedAt: now, verifyMethod: "bolna_otp", bolnaVerifiedAt: now, bolnaOtp: undefined });
+    await markDealerListed(ctx, app.phoneHash, now);
   },
 });
 
@@ -267,26 +270,45 @@ export const check = serverAction({
 // ── Bolna's list → the panel ──────────────────────────────────────────────────────────────
 
 /** Marks every application whose number is on Bolna's list (by phone hash; numbers never cross this boundary). */
+/**
+ * Applies Bolna's current list (by phone hash; numbers never cross this boundary): applications and real dealers
+ * whose number is on it are marked, and ones that dropped off it are unmarked, so the panel and Choose dealers show
+ * who the trial can call right now. Returns how many applications were newly marked.
+ */
 export const markListed = internalMutation({
   args: { phoneHashes: v.array(v.string()) },
   handler: async (ctx, { phoneHashes }) => {
-    let marked = 0;
+    const listed = new Set(phoneHashes);
     const now = Date.now();
-    for (const phoneHash of phoneHashes) {
-      const apps = await ctx.db
-        .query("dealerApplications")
-        .withIndex("by_phoneHash", (q) => q.eq("phoneHash", phoneHash))
-        .collect();
-      for (const app of apps) {
-        if (app.bolnaVerifiedAt === undefined) {
-          await ctx.db.patch(app._id, { bolnaVerifiedAt: now });
-          marked++;
-        }
+    let marked = 0;
+    for (const app of await ctx.db.query("dealerApplications").take(2000)) {
+      const on = listed.has(app.phoneHash);
+      if (on && app.bolnaVerifiedAt === undefined) {
+        await ctx.db.patch(app._id, { bolnaVerifiedAt: now });
+        marked++;
+      } else if (!on && app.bolnaVerifiedAt !== undefined) {
+        await ctx.db.patch(app._id, { bolnaVerifiedAt: undefined });
       }
+    }
+    for (const d of await ctx.db.query("dealers").take(2000)) {
+      if (d.isDemo) continue;
+      const on = listed.has(d.phoneHash);
+      if (on && d.bolnaListedAt === undefined) await ctx.db.patch(d._id, { bolnaListedAt: now });
+      else if (!on && d.bolnaListedAt !== undefined) await ctx.db.patch(d._id, { bolnaListedAt: undefined });
     }
     return marked;
   },
 });
+
+/** A dealer row with this number is on Bolna's list now (after Bolna verified it or said it already was). */
+async function markDealerListed(ctx: MutationCtx, phoneHash: string, now: number): Promise<void> {
+  for (const d of await ctx.db
+    .query("dealers")
+    .withIndex("by_phoneHash", (q) => q.eq("phoneHash", phoneHash))
+    .collect()) {
+    if (!d.isDemo && d.bolnaListedAt === undefined) await ctx.db.patch(d._id, { bolnaListedAt: now });
+  }
+}
 
 async function syncList(ctx: ActionCtx): Promise<{ ok: true; listed: number; marked: number } | { ok: false; code: "not_configured" | "failed" }> {
   const key = bolnaKey();

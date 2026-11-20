@@ -1,7 +1,7 @@
 import { convexAuthNextjsMiddleware } from "@convex-dev/auth/nextjs/server";
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { DEFAULT_LANG, LANG_COOKIE, parseLang } from "./lib/i18n/lang";
-import { withHomeRedirect } from "./lib/routing";
+import { canonicalRedirect, withHomeRedirect } from "./lib/routing";
 
 // Convex Auth handles /api/auth and keeps the session cookies fresh (DECISIONS B1). On top of it:
 // the `lang` cookie (F8), and `/` → `/app` for a returning device (F1, applied after the auth
@@ -25,6 +25,9 @@ const authProxy = convexAuthNextjsMiddleware(
 );
 
 export default async function proxy(request: NextRequest, event: NextFetchEvent) {
+  // First: every visitor on one address (CANONICAL_ORIGIN), so sign-in starts and ends on the same host.
+  const canonical = canonicalRedirect(request, process.env.CANONICAL_ORIGIN);
+  if (canonical !== null) return canonical;
   const response = (await authProxy(request, event)) ?? NextResponse.next();
   return withHomeRedirect(request, response);
 }

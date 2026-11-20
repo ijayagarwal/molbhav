@@ -37,9 +37,11 @@ interface DealerView {
   nameHi: string | null;
   area: string;
   askFirst: boolean;
+  /** Live on Bolna's trial: whether Bolna can dial this number now (on its verified list). */
+  reachable?: boolean;
 }
 
-function DealerChoice({ d, lang, checked, onToggle, badge, line }: { d: DealerView; lang: "hi" | "en"; checked: boolean; onToggle?: () => void; badge?: string; line?: string }) {
+function DealerChoice({ d, lang, checked, onToggle, badge, line, blocked }: { d: DealerView; lang: "hi" | "en"; checked: boolean; onToggle?: () => void; badge?: string; line?: string; blocked?: string }) {
   const name = lang === "hi" ? (d.nameHi ?? d.name) : d.name;
   const area = CITY_AREAS.Jaipur.find((a) => a.key === d.area)?.[lang] ?? d.area;
   const body = (
@@ -53,9 +55,11 @@ function DealerChoice({ d, lang, checked, onToggle, badge, line }: { d: DealerVi
           {badge ? <span className="rounded-card border border-ink px-2 text-label text-ink">{badge}</span> : null}
           {line ?? area}
         </span>
+        {blocked ? <span className="text-meta text-lal">{blocked}</span> : null}
       </span>
     </>
   );
+  if (blocked) return <div className="flex min-h-[72px] items-center gap-3 px-4 py-3 opacity-80">{body}</div>;
   if (!onToggle) return <div className="flex min-h-[72px] items-center gap-3 px-4 py-3">{body}</div>;
   return (
     <button type="button" role="checkbox" aria-checked={checked} onClick={onToggle} className="flex min-h-[72px] w-full items-center gap-3 px-4 py-3 text-left">
@@ -103,7 +107,9 @@ export function DealersScreen({ orderId }: { orderId: string }) {
     );
   }
 
-  const selected = picked ?? new Set(view.saved.map((d) => d._id as string));
+  const canPick = (d: DealerView) => d.reachable !== false;
+  const selected = picked ?? new Set(view.saved.filter(canPick).map((d) => d._id as string));
+  const blockedNote = (d: DealerView) => (canPick(d) ? undefined : t("dealers.notOnBolna"));
   const toggle = (id: string) => {
     const next = new Set(selected);
     if (next.has(id)) next.delete(id);
@@ -210,7 +216,7 @@ export function DealersScreen({ orderId }: { orderId: string }) {
           </h2>
           <div className="divide-y divide-rule overflow-hidden rounded-card border border-rule bg-card">
             {view.saved.map((d) => (
-              <DealerChoice key={d._id} d={d} lang={lang} checked={selected.has(d._id)} onToggle={() => toggle(d._id)} />
+              <DealerChoice key={d._id} d={d} lang={lang} checked={selected.has(d._id)} onToggle={() => toggle(d._id)} blocked={blockedNote(d)} />
             ))}
           </div>
         </section>
@@ -223,7 +229,7 @@ export function DealersScreen({ orderId }: { orderId: string }) {
           </h2>
           <div className="divide-y divide-rule overflow-hidden rounded-card border border-rule bg-card">
             {view.others.map((d) => (
-              <DealerChoice key={d._id} d={d} lang={lang} checked={selected.has(d._id)} onToggle={() => toggle(d._id)} />
+              <DealerChoice key={d._id} d={d} lang={lang} checked={selected.has(d._id)} onToggle={() => toggle(d._id)} blocked={blockedNote(d)} />
             ))}
           </div>
         </section>

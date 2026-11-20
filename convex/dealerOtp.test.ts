@@ -311,4 +311,21 @@ describe("a number already on Bolna's list, and the switch", () => {
     expect((await asAdmin.query(api.dealerApps.list, { tab: "pending" })).codeStep).toBe(false);
     expect(seen).toEqual([]);
   });
+
+  test("the list read marks real dealers on it and unmarks ones that dropped off", async () => {
+    const { t, asAdmin } = await setup();
+    const ids = await t.run(async (ctx) => {
+      const mk = async (phone: string, listed: boolean) =>
+        ctx.db.insert("dealers", {
+          name: "Shop", city: "Jaipur", area: "mansarovar", materials: ["cement"], phoneE164: phone, phoneHash: await hashPhone(phone),
+          source: "optin", consent: "test_ok", isDemo: false, ...(listed ? { bolnaListedAt: 1 } : {}),
+        });
+      return { on: await mk(PHONE, false), off: await mk("+919829054321", true) };
+    });
+    replies.push({ status: 200, body: [{ id: "5849d3d4-be30-4050-9ba6-dadbc82859da", phone_number: PHONE, status: true }] });
+    expect(await asAdmin.action(api.dealerOtp.syncFromBolna, {})).toMatchObject({ ok: true, listed: 1 });
+    const after = await t.run(async (ctx) => [await ctx.db.get(ids.on), await ctx.db.get(ids.off)]);
+    expect(after[0]?.bolnaListedAt).toEqual(expect.any(Number));
+    expect(after[1]?.bolnaListedAt).toBeUndefined();
+  });
 });

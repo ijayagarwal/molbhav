@@ -177,6 +177,7 @@ async function setup(cards: Card[], over: Partial<Doc<"orders">> = {}, env: Reco
       dealer[c] = await ctx.db.insert("dealers", {
         name: `TEST · ${c}`, area: "mansarovar", city: "Jaipur", phoneE164: PHONES[c], phoneHash,
         materials: ["tmt_steel", "cement"], source: "admin", consent: "test_ok", isDemo: false,
+        bolnaListedAt: 1, // on Bolna's trial "Verified numbers" list (teammates' phones)
       });
     }
     for (const b of [

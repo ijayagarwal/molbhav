@@ -29,3 +29,33 @@ export function withHomeRedirect(request: NextRequest, response: Response): Resp
   for (const cookie of response.headers.getSetCookie()) redirect.headers.append("set-cookie", cookie);
   return redirect;
 }
+
+/**
+ * One address for the whole site (20 Nov 2026): a request that reaches the app on another host we serve (a
+ * Vercel deployment URL such as molbhav-<hash>-<team>.vercel.app, molbhav-weld.vercel.app, or the bare apex)
+ * is sent with a 308 to CANONICAL_ORIGIN (https://www.callagent.dev on production), same path and query. Google
+ * sign-in keeps its one-time cookie on the host it started from, so starting and finishing on the same host is
+ * what makes sign-in reliable. Off when CANONICAL_ORIGIN is unset (local dev, tests); localhost and tunnels are
+ * never redirected.
+ */
+export function canonicalRedirect(request: NextRequest, canonicalOrigin: string | undefined): Response | null {
+  const target = parseOrigin(canonicalOrigin);
+  if (target === null) return null;
+  const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? request.nextUrl.host).toLowerCase().split(",")[0]!.trim();
+  if (host === "" || host === target.host) return null;
+  if (host.startsWith("localhost") || host.startsWith("127.0.0.1") || host.endsWith(".trycloudflare.com")) return null;
+  const apex = target.host.replace(/^www\./, "");
+  if (!(host.endsWith(".vercel.app") || host === apex)) return null;
+  const url = new URL(request.nextUrl.pathname + request.nextUrl.search, target.origin);
+  return NextResponse.redirect(url, 308);
+}
+
+function parseOrigin(raw: string | undefined): URL | null {
+  if (raw === undefined || raw.trim() === "") return null;
+  try {
+    const u = new URL(raw.trim());
+    return u.protocol === "https:" ? u : null;
+  } catch {
+    return null;
+  }
+}

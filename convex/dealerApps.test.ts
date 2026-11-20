@@ -395,4 +395,18 @@ describe("claimDial and the panel (R24, B9, R18)", () => {
     await t.run(async (ctx) => ctx.db.patch(orderId, { status: "confirmed", items, mode: "sim" }));
     await expect(asUser.mutation(api.sweep.start, { orderId, mode: "live", dealerIds: [dealerId] })).rejects.toThrow(/dealer_unavailable/);
   });
+
+  test("trial: a dealer not on Bolna's list can't be in a live sweep; an approved Bolna-listed application's dealer can", async () => {
+    const { t, asAdmin, asUser, dealerId, orderId } = await approvedTestDealer();
+    const items: Doc<"orders">["items"] = [{ id: "steel", material: "tmt_steel", diameterMm: 12, grade: "Fe500D", tier: "local_isi", quantity: 2, unit: "ton" }];
+    await t.run(async (ctx) => ctx.db.patch(orderId, { status: "confirmed", items, mode: "sim" }));
+    // verify() marked the application listed before the dealer row existed; approval copied it onto the dealer.
+    expect((await t.run(async (ctx) => ctx.db.get(dealerId)))?.bolnaListedAt).toEqual(expect.any(Number));
+    // Off Bolna's list (e.g. removed in Bolna's dashboard; the 10-minute read clears it): refused, and the list says why.
+    await t.run(async (ctx) => ctx.db.patch(dealerId, { bolnaListedAt: undefined }));
+    const view = await asUser.query(api.dealers.forOrder, { orderId, mode: "live" });
+    expect([...view.saved, ...view.others].find((d) => d._id === dealerId)?.reachable).toBe(false);
+    await expect(asUser.mutation(api.sweep.start, { orderId, mode: "live", dealerIds: [dealerId] })).rejects.toThrow(/dealer_unavailable/);
+    expect(asAdmin).toBeDefined();
+  });
 });

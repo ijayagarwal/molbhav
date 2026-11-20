@@ -128,6 +128,7 @@ export default defineSchema({
     isDemo: v.boolean(),
     simPersona: v.optional(v.string()),
     restricted: v.optional(v.boolean()),  // set in the founders' panel (R24): never listed, never dialled (claimDial guard)
+    bolnaListedAt: v.optional(v.number()), // on Bolna's trial "Verified numbers" list (read every 10 min, dealerOtp.syncBolnaList)
   }).index("by_city", ["city"]).index("by_phoneHash", ["phoneHash"]),
 
   dealerApplications: defineTable({      // /dealer self-onboarding (R24); never makes a number callable by itself (S2)

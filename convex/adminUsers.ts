@@ -1,3 +1,4 @@
+import { maskEmail } from "../lib/dealerApplication";
 // The founders' People panel, /app/admin/users (DECISIONS R26, S1, R18, R24).
 //
 // Everyone who signed in with Google (and every old anonymous session that made a contractor profile), what they
@@ -250,7 +251,12 @@ export const allowLive = adminMutation({
       .query("contractors")
       .withIndex("by_phone", (q) => q.eq("phoneE164", phoneE164))
       .take(50);
-    if (samePhone.some((x) => x._id !== c._id && x.verified)) throw new ConvexError({ code: "phone_in_use" });
+    const holder = samePhone.find((x) => x._id !== c._id && x.verified);
+    if (holder !== undefined) {
+      // Say which account holds it (masked), so the founder can stop real calls there first.
+      const holderUser = await ctx.db.get(holder.userId);
+      throw new ConvexError({ code: "phone_in_use", holder: holderUser?.email ? maskEmail(holderUser.email) : holder.name });
+    }
     const liveDailyCap = checkCap(args.liveDailyCap, 1);
     await ctx.db.patch(c._id, { verified: true, phoneE164, liveDailyCap });
     await audit(ctx, who, "contractor.verify", c._id, { name: c.name, liveDailyCap, note, source: "panel", calledBack: true });
