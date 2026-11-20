@@ -817,8 +817,9 @@ export const en: Record<DictKey, string> = {
   "admin.verifyDone": "Number confirmed and added to Bolna's list. Test calls can reach it now.",
   "admin.verifyAlreadyListed": "This number is on Bolna's list, but a fresh code couldn't be sent just now. Test calls can still reach it; try again in a moment.",
   "admin.verifyFailed": "Couldn't send the code ({code}). Please try again in a moment.",
+  "admin.verifyViaBolna": "To put the number on Bolna's list: Bolna dashboard → Verified numbers → enter the number and type the code the dealer receives. Then press \"Check Bolna's list\" above.",
   "admin.testCallable": "Test calls can reach this dealer: approved, and the number is on Bolna's list.",
-  "admin.testNotCallable": "Test calls can't reach this dealer yet: the number isn't on Bolna's list. Call the dealer and use \"Verify the number by code\".",
+  "admin.testNotCallable": "Test calls can't reach this dealer yet: the number isn't on Bolna's list.",
   // R26: the founders' overview (adminStats.*) and dealer directory (adminDealers.*).
   "adminStats.title": "At a glance",
   "adminStats.asOf": "As of {time} IST",

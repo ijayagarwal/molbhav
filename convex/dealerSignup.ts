@@ -8,12 +8,14 @@ import { ConvexError, v } from "convex/values";
 import { checkDealerApplication } from "../lib/dealerApplication";
 import type { WaitlistField } from "../lib/waitlist";
 import type { Id } from "./_generated/dataModel";
+import { codeStepOn } from "./dealerOtp";
 import { serverMutation } from "./lib/functions";
 import { hashGoogleSub, hashPhone, sha256Hex } from "./lib/hash";
 import { rateLimiter } from "./limits";
 
 export type ApplyResult =
-  | { ok: true; applicationId: Id<"dealerApplications"> }
+  /** codeStep: whether /dealer should offer the Bolna code step next (dealerOtp.codeStepOn). */
+  | { ok: true; applicationId: Id<"dealerApplications">; codeStep: boolean }
   | { ok: false; code: "rate_limited"; retryAfterMs: number }
   | { ok: false; code: "invalid"; fields: WaitlistField[] };
 
@@ -87,7 +89,7 @@ export const apply = serverMutation({
       // the new ticket lets this visitor do the code step (dealerOtp.send refuses a restricted one).
       if (existing.status === "pending") await ctx.db.patch(existing._id, { ...fields, ...ticket, ...signedIn });
       else await ctx.db.patch(existing._id, { ...ticket, ...signedIn });
-      return { ok: true, applicationId: existing._id };
+      return { ok: true, applicationId: existing._id, codeStep: codeStepOn() };
     }
     const applicationId = await ctx.db.insert("dealerApplications", {
       ...fields,
@@ -99,6 +101,6 @@ export const apply = serverMutation({
       status: "pending",
       createdAt: now,
     });
-    return { ok: true, applicationId };
+    return { ok: true, applicationId, codeStep: codeStepOn() };
   },
 });

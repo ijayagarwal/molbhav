@@ -42,9 +42,7 @@ export type Endpoint =
   /** POST /phone-numbers/verified/add { phone_number }: Bolna sends a 6-digit code to that number. No call. */
   | "verified.add"
   /** POST /phone-numbers/verify-otp { phone_number, otp, request_id }: the number joins the verified list. */
-  | "verified.check"
-  /** DELETE /phone-numbers/verified/{id}: takes a number off the list (founders' panel only, to re-verify it). */
-  | "verified.remove";
+  | "verified.check";
 
 /** What the bolna:check and bolna:sync scripts may do: read, and create or update agents. Never dial. */
 export const SCRIPT_ENDPOINTS: readonly Endpoint[] = [
@@ -61,12 +59,6 @@ export const SCRIPT_ENDPOINTS: readonly Endpoint[] = [
 export const DIAL_ENDPOINTS: readonly Endpoint[] = ["execution.get", "execution.list", "call.make", "call.stop", "webcall.session"];
 /** What /dealer's number check (convex/dealerOtp.ts) may do: the verified-numbers list and its code. Never dial. */
 export const VERIFY_ENDPOINTS: readonly Endpoint[] = ["verified.list", "verified.add", "verified.check"];
-/**
- * The founders' panel path (dealerOtp.adminSend, R27): the same plus taking a number off the list, so a number
- * that is already on it can be re-verified with a fresh code while a founder is on a call with the dealer.
- * Never used by /dealer (a public page must not be able to knock numbers off the list). Never dials.
- */
-export const ADMIN_VERIFY_ENDPOINTS: readonly Endpoint[] = [...VERIFY_ENDPOINTS, "verified.remove"];
 
 export class BolnaError extends Error {
   constructor(
@@ -108,7 +100,7 @@ export function createBolnaClient(opts: BolnaClientOptions) {
   const base = opts.baseUrl ?? BOLNA_BASE_URL;
   const key = opts.apiKey?.trim() ?? "";
 
-  async function request(endpoint: Endpoint, method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown, timeoutMs = 10_000): Promise<unknown> {
+  async function request(endpoint: Endpoint, method: "GET" | "POST" | "PUT", path: string, body?: unknown, timeoutMs = 10_000): Promise<unknown> {
     if (!opts.allow.includes(endpoint)) throw new BolnaError("not_allowed", undefined, endpoint);
     if (key === "") throw new BolnaError("not_configured");
     const controller = new AbortController();
@@ -163,10 +155,9 @@ export function createBolnaClient(opts: BolnaClientOptions) {
     /** The trial's verified numbers (R25). */
     listVerifiedNumbers: async () => request("verified.list", "GET", "/phone-numbers/verified/all"),
     /** Bolna texts a 6-digit code to this +91 number; the answer carries the request_id the check needs (R25). */
-    sendVerifyCode: async (phoneE164: string) => request("verified.add", "POST", "/phone-numbers/verified/add", { phone_number: phoneE164 }, 15_000),
+    sendVerifyCode: async (phoneE164: string) =>
+      request("verified.add", "POST", "/phone-numbers/verified/add", { phone_number: phoneE164, channel: "sms" }, 15_000),
     /** Checks the code; on success the number is on the verified list, so the trial can call it (R25). */
-    /** Takes one row (by Bolna's id, from listVerifiedNumbers) off the verified list (R27, panel only). */
-    removeVerifiedNumber: async (id: string) => request("verified.remove", "DELETE", `/phone-numbers/verified/${pathId(id)}`),
     checkVerifyCode: async (q: { phoneE164: string; otp: string; requestId: string }) =>
       request("verified.check", "POST", "/phone-numbers/verify-otp", { phone_number: q.phoneE164, otp: q.otp, request_id: q.requestId }, 15_000),
   };

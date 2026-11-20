@@ -31,6 +31,7 @@ beforeEach(() => {
   vi.stubEnv("HASH_SECRET", "test-secret");
   vi.stubEnv("CONVEX_SERVER_SECRET", SECRET);
   vi.stubEnv("BOLNA_API_KEY", "bn-test-key");
+  vi.stubEnv("DEALER_CODE_STEP", "on");
   replies = [];
   seen = [];
   vi.stubGlobal(
@@ -88,7 +89,7 @@ describe("dealerOtp.send", () => {
     const id = await apply(t);
     replies.push({ status: 200, body: { request_id: "req-1", message: "OTP sent" } });
     expect(await send(t, id)).toEqual({ ok: true });
-    expect(seen).toEqual([{ url: "https://api.bolna.ai/phone-numbers/verified/add", method: "POST", body: { phone_number: PHONE } }]);
+    expect(seen).toEqual([{ url: "https://api.bolna.ai/phone-numbers/verified/add", method: "POST", body: { phone_number: PHONE, channel: "sms" } }]);
     const app = await getApp(t, id);
     expect(app.bolnaOtp).toEqual({ requestId: "req-1", sentAt: expect.any(Number), tries: 0 });
     expect(app.otpTicket?.hash).not.toBe(TICKET);
@@ -261,7 +262,7 @@ describe("the founders' panel path (R27)", () => {
     await expect(t.action(api.dealerOtp.adminSend, { applicationId: id })).rejects.toThrow(/unauthenticated/);
     replies.push({ status: 200, body: { request_id: "panel-1" } });
     expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: true });
-    expect(seen[0]).toEqual({ url: "https://api.bolna.ai/phone-numbers/verified/add", method: "POST", body: { phone_number: PHONE } });
+    expect(seen[0]).toEqual({ url: "https://api.bolna.ai/phone-numbers/verified/add", method: "POST", body: { phone_number: PHONE, channel: "sms" } });
     replies.push({ status: 400, body: { detail: "Invalid OTP" } });
     expect(await asAdmin.action(api.dealerOtp.adminCheck, { applicationId: id, code: "000000" })).toEqual({ ok: false, code: "bad_code" });
     replies.push({ status: 200, body: { message: "verified" } });
@@ -286,50 +287,28 @@ describe("the founders' panel path (R27)", () => {
   });
 });
 
-describe("re-verifying a number already on Bolna's list (panel only)", () => {
-  test("the panel takes it off the list, adds it again (a fresh code), and the dealer's code puts it back, proved", async () => {
+describe("a number already on Bolna's list, and the switch", () => {
+  test("the panel marks it listed and never removes anything from Bolna's list", async () => {
     const { t, asAdmin } = await setup();
     const id = await apply(t);
-    replies.push({ status: 400, body: { detail: "Phone number already verified" } });
-    replies.push({ status: 200, body: [{ id: "5849d3d4-be30-4050-9ba6-dadbc82859da", phone_number: PHONE, status: true }] });
-    replies.push({ status: 200, body: { state: "deleted" } });
-    replies.push({ status: 200, body: { request_id: "fresh-1" } });
-    expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: true });
-    expect(seen.map((x) => `${x.method} ${x.url.replace("https://api.bolna.ai", "")}`)).toEqual([
-      "POST /phone-numbers/verified/add",
-      "GET /phone-numbers/verified/all",
-      "DELETE /phone-numbers/verified/5849d3d4-be30-4050-9ba6-dadbc82859da",
-      "POST /phone-numbers/verified/add",
-    ]);
-    expect((await getApp(t, id)).bolnaVerifiedAt).toBeUndefined();
-    replies.push({ status: 200, body: { message: "verified" } });
-    expect(await asAdmin.action(api.dealerOtp.adminCheck, { applicationId: id, code: "123456" })).toEqual({ ok: true });
-    expect(await getApp(t, id)).toMatchObject({ phoneVerifiedAt: expect.any(Number), bolnaVerifiedAt: expect.any(Number) });
-  });
-
-  test("a failed removal leaves it listed; a removal followed by a failed add says so (off the list)", async () => {
-    const { t, asAdmin } = await setup();
-    const id = await apply(t);
-    replies.push({ status: 400, body: { detail: "Phone number already verified" } });
-    replies.push({ status: 200, body: [{ id: "5849d3d4-be30-4050-9ba6-dadbc82859da", phone_number: PHONE, status: true }] });
-    replies.push({ status: 500, body: { detail: "boom" } });
+    replies.push({ status: 400, body: { detail: "Provided number already verified." } });
     expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: false, code: "already_verified" });
+    expect(seen.map((x) => x.method)).toEqual(["POST"]);
     expect((await getApp(t, id)).bolnaVerifiedAt).toEqual(expect.any(Number));
-
-    vi.setSystemTime(T0 + RESEND_GAP_MS + 1000);
-    replies.push({ status: 400, body: { detail: "Phone number already verified" } });
-    replies.push({ status: 200, body: [{ id: "5849d3d4-be30-4050-9ba6-dadbc82859da", phone_number: PHONE, status: true }] });
-    replies.push({ status: 200, body: { state: "deleted" } });
-    replies.push({ status: 500, body: { detail: "boom" } });
-    expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: false, code: "failed" });
-    expect((await getApp(t, id)).bolnaVerifiedAt).toBeUndefined();
   });
 
-  test("the public /dealer path never removes anything from the list", async () => {
-    const { t } = await setup();
-    const id = await apply(t);
-    replies.push({ status: 400, body: { detail: "Phone number already verified" } });
-    expect(await send(t, id)).toEqual({ ok: false, code: "already_verified" });
-    expect(seen.map((x) => x.method)).toEqual(["POST"]);
+  test("off by default (DEALER_CODE_STEP unset): nothing is sent, apply says no code step, the panel knows", async () => {
+    vi.stubEnv("DEALER_CODE_STEP", "");
+    const { t, asAdmin } = await setup();
+    const r = await t.mutation(api.dealerSignup.apply, {
+      serverSecret: SECRET, ipHash: IP, shopName: "Agarwal Steels", phone: "98290 12345", area: "mansarovar", materials: ["tmt_steel"], consent: true, otpTicket: TICKET,
+    });
+    expect(r).toMatchObject({ ok: true, codeStep: false });
+    const id = (r as { applicationId: Id<"dealerApplications"> }).applicationId;
+    expect(await send(t, id)).toEqual({ ok: false, code: "not_configured" });
+    expect(await check(t, id, "123456")).toEqual({ ok: false, code: "not_configured" });
+    expect(await asAdmin.action(api.dealerOtp.adminSend, { applicationId: id })).toEqual({ ok: false, code: "not_configured" });
+    expect((await asAdmin.query(api.dealerApps.list, { tab: "pending" })).codeStep).toBe(false);
+    expect(seen).toEqual([]);
   });
 });

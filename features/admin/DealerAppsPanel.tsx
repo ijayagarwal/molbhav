@@ -70,7 +70,7 @@ function StatusBadge({ app }: { app: DealerAppView }) {
   return null;
 }
 
-function AppCard({ app, onAction, onVerify }: { app: DealerAppView; onAction: (a: Action) => void; onVerify: () => void }) {
+function AppCard({ app, onAction, onVerify, codeStep }: { app: DealerAppView; onAction: (a: Action) => void; onVerify: () => void; codeStep: boolean }) {
   const { t, lang } = useT();
   const optedOut = app.dealer?.consent === "opted_out";
   const canApproveLive = app.verified && !optedOut && (app.status === "pending" || app.status === "approved_test");
@@ -174,13 +174,16 @@ function AppCard({ app, onAction, onVerify }: { app: DealerAppView; onAction: (a
           </p>
         )
       ) : null}
-      {(!app.verified || !app.bolnaVerified) && !optedOut && app.status !== "restricted" ? (
+      {codeStep && (!app.verified || !app.bolnaVerified) && !optedOut && app.status !== "restricted" ? (
         <div className="flex flex-col gap-1.5 border-t border-dashed border-rule pt-3">
           <SecondaryButton onClick={onVerify} className="w-full sm:w-fit">
             {t("admin.verifyByCode")}
           </SecondaryButton>
           <p className="text-meta text-ink-2">{t("admin.verifyByCodeHint")}</p>
         </div>
+      ) : null}
+      {!codeStep && !app.bolnaVerified && !optedOut && app.status !== "restricted" ? (
+        <p className="border-t border-dashed border-rule pt-3 text-meta text-ink-2">{t("admin.verifyViaBolna")}</p>
       ) : null}
       {!app.verified && !optedOut && (app.status === "pending" || app.status === "approved_test") ? (
         <p className="text-meta text-ink-2">{t("admin.liveNeedsOtp")}</p>
@@ -457,7 +460,7 @@ export function DealerApplications() {
         ) : (
           <ul className="grid items-start gap-4 lg:grid-cols-2">
             {data.items.map((app) => (
-              <AppCard key={app._id} app={app} onAction={(action) => setOpen({ app, action })} onVerify={() => setVerifying(app)} />
+              <AppCard key={app._id} app={app} codeStep={data.codeStep} onAction={(action) => setOpen({ app, action })} onVerify={() => setVerifying(app)} />
             ))}
           </ul>
         )}

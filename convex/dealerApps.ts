@@ -20,6 +20,7 @@ import { dealerNameFrom, maskEmail, maskPhone } from "../lib/dealerApplication";
 import { isIndianMobileE164 } from "../lib/phone";
 import { DEALER_MATERIALS } from "../lib/waitlist";
 import { internal } from "./_generated/api";
+import { codeStepOn } from "./dealerOtp";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { audit, requireNote } from "./lib/audit";
@@ -111,7 +112,7 @@ export const list = adminQuery({
       }
     }
     rows.sort((a, b) => b.createdAt - a.createdAt);
-    return { counts, trial: liveEnv().trial, items: await Promise.all(rows.map((app) => view(ctx, app))) };
+    return { counts, trial: liveEnv().trial, codeStep: codeStepOn(), items: await Promise.all(rows.map((app) => view(ctx, app))) };
   },
 });
 

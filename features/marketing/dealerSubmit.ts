@@ -120,7 +120,9 @@ export async function submitDealerApplication(input: DealerFormInput, deps: Appl
     return result.code === "rate_limited" ? { status: "error", code: "rate_limited", seq } : { status: "invalid", fields: result.fields, seq };
   }
   deps.track(ipHash);
-  return { status: "done", seq, applicationId: result.applicationId, ticket };
+  // The code step only while it is switched on (dealerOtp.codeStepOn); otherwise the form ends and the founders
+  // call back and verify the number in Bolna's dashboard.
+  return result.codeStep ? { status: "done", seq, applicationId: result.applicationId, ticket } : { status: "done", seq, applicationId: result.applicationId };
 }
 
 const APPLICATION_ID = /^[a-z0-9]{10,64}$/;

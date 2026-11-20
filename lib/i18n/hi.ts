@@ -830,8 +830,9 @@ export const hi = {
   "admin.verifyDone": "नंबर पक्का हो गया और Bolna की लिस्ट में जुड़ गया। अब टेस्ट कॉल इस नंबर पर जा सकती है।",
   "admin.verifyAlreadyListed": "ये नंबर Bolna की लिस्ट में है, पर नया कोड अभी नहीं भिजवा पाए। टेस्ट कॉल फिर भी जा सकती है; थोड़ी देर बाद फिर कोशिश कीजिए।",
   "admin.verifyFailed": "कोड नहीं भेज पाए ({code})। थोड़ी देर बाद फिर कोशिश कीजिए।",
+  "admin.verifyViaBolna": "नंबर Bolna की लिस्ट में जोड़ने के लिए: Bolna डैशबोर्ड → Verified numbers → नंबर डालिए, dealer के फ़ोन पर आया कोड वहाँ लिखिए। फिर ऊपर \"Bolna की लिस्ट से मिलाइए\" दबाइए।",
   "admin.testCallable": "टेस्ट कॉल जा सकती है: मंज़ूर है और नंबर Bolna की लिस्ट में है।",
-  "admin.testNotCallable": "अभी टेस्ट कॉल नहीं जाएगी: नंबर Bolna की लिस्ट में नहीं है। dealer को फ़ोन करके \"कोड से नंबर पक्का कीजिए\" दबाइए।",
+  "admin.testNotCallable": "अभी टेस्ट कॉल नहीं जाएगी: नंबर Bolna की लिस्ट में नहीं है।",
   // R26: the founders' overview (adminStats.*) and dealer directory (adminDealers.*).
   "adminStats.title": "एक नज़र में",
   "adminStats.asOf": "{time} IST तक",

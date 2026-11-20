@@ -12,7 +12,7 @@
 //   founders' panel (dealerApps.ts), and claimDial still checks every guard per call (CLAUDE.md hard rule 2).
 // - The Bolna request id and the ticket never leave the server; logs carry codes, never a number.
 import { ConvexError, v } from "convex/values";
-import { ADMIN_VERIFY_ENDPOINTS, createBolnaClient, VERIFY_ENDPOINTS } from "../lib/bolna/api";
+import { createBolnaClient, VERIFY_ENDPOINTS } from "../lib/bolna/api";
 import { checkProblem, otpRequestId, parseVerifiedList, problemLog, sendProblem, type BolnaOtpProblem } from "../lib/bolna/verifiedNumbers";
 import { isIndianMobileE164 } from "../lib/phone";
 import { internal } from "./_generated/api";
@@ -49,6 +49,16 @@ const toAnswer = (p: BolnaOtpProblem): Refusal => ({ ok: false, code: p === "bad
 
 function log(entry: Record<string, unknown>): void {
   console.info(JSON.stringify({ at: "dealerOtp", ...entry }));
+}
+
+/**
+ * The in-platform code step is OFF unless DEALER_CODE_STEP=on (Convex env). Bolna's code check
+ * (POST /phone-numbers/verify-otp) answers 404 "Resource not found" to our API key every time (20 Nov 2026,
+ * production logs and probes), while its dashboard does it with the founder's own login. Until that works, numbers
+ * are verified in Bolna's dashboard and read back with "Bolna की लिस्ट से मिलाइए" (syncFromBolna).
+ */
+export function codeStepOn(): boolean {
+  return (process.env.DEALER_CODE_STEP ?? "").trim() === "on";
 }
 
 function bolnaKey(): string | null {
@@ -186,6 +196,7 @@ function checkStepArgs(a: { ipHash: string; ticket: string }): void {
 export const send = serverAction({
   args: stepArgs,
   handler: async (ctx, args): Promise<OtpAnswer> => {
+    if (!codeStepOn()) return { ok: false, code: "not_configured" };
     checkStepArgs(args);
     const key = bolnaKey();
     if (key === null) {
@@ -226,6 +237,7 @@ export const send = serverAction({
 export const check = serverAction({
   args: { ...stepArgs, code: v.string() },
   handler: async (ctx, { code, ...args }): Promise<OtpAnswer> => {
+    if (!codeStepOn()) return { ok: false, code: "not_configured" };
     checkStepArgs(args);
     if (!CODE.test(code)) return { ok: false, code: "bad_code" };
     const key = bolnaKey();
@@ -349,31 +361,19 @@ export const auditPanelCode = internalMutation({
   },
 });
 
-/** The number is off Bolna's list until the dealer's code is checked (adminSend re-listing it). */
-export const recordUnlisted = internalMutation({
-  args: { applicationId: v.id("dealerApplications") },
-  handler: async (ctx, { applicationId }) => {
-    await ctx.db.patch(applicationId, { bolnaVerifiedAt: undefined });
-  },
-});
-
-/**
- * Panel: "कोड भेजिए" for one application. Bolna texts the stored number. A number that is already on Bolna's list
- * gets no code from Bolna, so here (founders only, on a call with the dealer) it is taken off the list and added
- * again, which makes Bolna send a fresh code; until the dealer's code is checked it is off the list.
- */
+/** Panel: "कोड भेजिए" for one application. Bolna texts the stored number (only while DEALER_CODE_STEP=on). */
 export const adminSend = adminAction({
   args: { applicationId: v.id("dealerApplications") },
   handler: async (ctx, { applicationId }): Promise<OtpAnswer> => {
+    if (!codeStepOn()) return { ok: false, code: "not_configured" };
     const who = `admin:${ctx.adminUserId}`;
     const key = bolnaKey();
     if (key === null) return { ok: false, code: "not_configured" };
     const reserved = await ctx.runMutation(internal.dealerOtp.reserveAdminSend, { applicationId });
     let answer: OtpAnswer;
-    let outcome = "sent";
     if (!reserved.ok) answer = reserved;
     else {
-      const bolna = createBolnaClient({ apiKey: key, allow: ADMIN_VERIFY_ENDPOINTS });
+      const bolna = createBolnaClient({ apiKey: key, allow: VERIFY_ENDPOINTS });
       const sendOnce = async (): Promise<OtpAnswer> => {
         const requestId = otpRequestId(await bolna.sendVerifyCode(reserved.phoneE164));
         if (requestId === null) return { ok: false, code: "failed" };
@@ -383,34 +383,15 @@ export const adminSend = adminAction({
       try {
         answer = await sendOnce();
       } catch (e) {
-        let problem = sendProblem(e);
+        const problem = sendProblem(e);
         log({ evt: "admin_send", code: problem, ...problemLog(e) });
         answer = toAnswer(problem);
-        if (problem === "already_verified") {
-          // Re-list: find the number's row, take it off, add it again (Bolna then texts a code).
-          let removed = false;
-          try {
-            const row = parseVerifiedList(await bolna.listVerifiedNumbers()).find((n) => n.phoneE164 === reserved.phoneE164);
-            if (row === undefined) throw new Error("not on the list");
-            await bolna.removeVerifiedNumber(row.id);
-            removed = true;
-            await ctx.runMutation(internal.dealerOtp.recordUnlisted, { applicationId });
-            answer = await sendOnce();
-            outcome = answer.ok ? "sent_after_relisting" : answer.code;
-          } catch (e2) {
-            problem = sendProblem(e2);
-            log({ evt: "admin_relist", code: problem, removed, ...problemLog(e2) });
-            // Still on the list unless the removal went through; then it is off until a code is checked.
-            if (removed) answer = { ok: false, code: "failed" };
-            else {
-              await ctx.runMutation(internal.dealerOtp.recordListed, { applicationId });
-              answer = { ok: false, code: "already_verified" };
-            }
-          }
-        }
+        // On Bolna's list already: callable on the trial. Never taken off the list from here (20 Nov 2026: Bolna's
+        // code check didn't accept our key, so a removed number couldn't be put back).
+        if (problem === "already_verified") await ctx.runMutation(internal.dealerOtp.recordListed, { applicationId });
       }
     }
-    await ctx.runMutation(internal.dealerOtp.auditPanelCode, { who, action: "dealer.code_sent", applicationId, outcome: answer.ok ? outcome : answer.code });
+    await ctx.runMutation(internal.dealerOtp.auditPanelCode, { who, action: "dealer.code_sent", applicationId, outcome: answer.ok ? "sent" : answer.code });
     return answer;
   },
 });
@@ -419,6 +400,7 @@ export const adminSend = adminAction({
 export const adminCheck = adminAction({
   args: { applicationId: v.id("dealerApplications"), code: v.string() },
   handler: async (ctx, { applicationId, code }): Promise<OtpAnswer> => {
+    if (!codeStepOn()) return { ok: false, code: "not_configured" };
     const who = `admin:${ctx.adminUserId}`;
     if (!CODE.test(code)) return { ok: false, code: "bad_code" };
     const key = bolnaKey();

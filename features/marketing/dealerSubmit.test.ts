@@ -27,7 +27,7 @@ function applyDeps(over: Partial<ApplyDeps> = {}): ApplyDeps & { [K in "apply" |
     ipHash: vi.fn(async () => IP),
     secret: vi.fn(() => SECRET),
     missingConfig: vi.fn(() => null),
-    apply: vi.fn(async () => ({ ok: true as const, applicationId: APP_ID as never })),
+    apply: vi.fn(async () => ({ ok: true as const, applicationId: APP_ID as never, codeStep: true })),
     track: vi.fn(),
     log: vi.fn(),
     seq: () => 7,

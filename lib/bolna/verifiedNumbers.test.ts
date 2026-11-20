@@ -91,7 +91,7 @@ describe("the client's verified-number calls", () => {
     await c.checkVerifyCode({ phoneE164: "+919812345678", otp: "123456", requestId: "r1" });
     await c.listVerifiedNumbers();
     expect(seen).toEqual([
-      { url: "https://api.bolna.ai/phone-numbers/verified/add", method: "POST", body: { phone_number: "+919812345678" }, auth: "Bearer bn-test" },
+      { url: "https://api.bolna.ai/phone-numbers/verified/add", method: "POST", body: { phone_number: "+919812345678", channel: "sms" }, auth: "Bearer bn-test" },
       { url: "https://api.bolna.ai/phone-numbers/verify-otp", method: "POST", body: { phone_number: "+919812345678", otp: "123456", request_id: "r1" }, auth: "Bearer bn-test" },
       { url: "https://api.bolna.ai/phone-numbers/verified/all", method: "GET", body: undefined, auth: "Bearer bn-test" },
     ]);
